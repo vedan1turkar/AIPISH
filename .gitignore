@@ -12,9 +12,11 @@ node_modules/
 dist/
 .vite/
 
-# Env & secrets
+# Env & secrets (any .env / .env.* anywhere; only the example is tracked)
 .env
+.env.*
 *.env.local
+!.env.example
 
 # Local data
 db/

@@ -7,19 +7,19 @@ Sanitization guarantees at storage time:
 """
 from __future__ import annotations
 
-import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from app.core.config import env
 from app.core.models import Analysis, AuditEvent, Case, CaseAnalysisLink, new_id
 
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
-CASE_EVIDENCE_STORE = os.getenv("CASE_EVIDENCE_STORE", "hash_only")   # hash_only | raw
-CASE_EVIDENCE_STORE_KEY = os.getenv("CASE_EVIDENCE_STORE_KEY", "").strip()
-CASE_EVIDENCE_RETENTION_DAYS = int(os.getenv("CASE_EVIDENCE_RETENTION_DAYS", "90"))
+CASE_EVIDENCE_STORE = env("CASE_EVIDENCE_STORE", "hash_only") or "hash_only"   # hash_only | raw
+CASE_EVIDENCE_STORE_KEY = (env("CASE_EVIDENCE_STORE_KEY", "") or "").strip()
+CASE_EVIDENCE_RETENTION_DAYS = int(env("CASE_EVIDENCE_RETENTION_DAYS", "90") or "90")
 
 
 def _clean(text: str | None, cap: int = 200) -> str | None:

@@ -48,8 +48,8 @@ def _enrich_env_enabled() -> bool:
     env = (get_settings().env or "").lower()
     if env in ("test", "offline"):
         return False
-    import os as _os
-    return _os.getenv("ENRICH_ENABLE_ALL", "1") not in ("0", "false")
+    from app.core.config import env as _env
+    return (_env("ENRICH_ENABLE_ALL", "1") or "1").strip().lower() not in ("0", "false")
 
 router = APIRouter()
 
