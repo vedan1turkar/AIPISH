@@ -1,0 +1,6 @@
+From: <redacted@example.com
+X-Broken-Header: value without colon
+Subject 
+this line has no header separator at all
+=a9iGarbled-Bytes-^%#@!
+Subject: recovery attempt

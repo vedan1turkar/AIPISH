@@ -1,0 +1,31 @@
+From: Dana Finance Director <dana@internal-corp.example>
+To: finance-team@internal-corp.example
+Reply-To: dana.doe.personal+urgent@fastmail-temp.net
+Subject: Confidential: urgent supplier wire change
+Date: Sat, 10 Oct 2026 10:30:00 +0000
+Message-ID: <bec-demo-001@internal-corp.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Hi team,
+
+URGENT - please action before end of day. We are switching suppliers and I
+need a wire transfer processed today to the new vendor account:
+
+  Amount: $184,250.00
+  Routing: 021000021
+  Account: 893284710
+
+I'm in back-to-back meetings and cannot take calls - email me only.
+Keep this confidential between us for now; do not loop in anyone else
+until the deal is signed.
+
+Regards,
+Dana
+
+===============================================================
+SYNTHETIC DEMO DATA - NOT A REAL MESSAGE. All names, addresses
+(routing/account numbers comply with RFC 4518 demo-style formatting
+and are not real bank details), domains and personal details in
+this .eml are invented for software demonstration only.
+===============================================================

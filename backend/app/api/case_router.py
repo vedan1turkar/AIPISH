@@ -1,0 +1,164 @@
+"""Investigation-case + forensic-report endpoints."""
+from __future__ import annotations
+
+import hashlib
+import os
+
+from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import Response
+from sqlalchemy.orm import Session
+
+from app.cases.service import (
+    CASE_EVIDENCE_STORE,
+    CASE_EVIDENCE_STORE_KEY,
+    add_analysis_to_case,
+    case_to_dict,
+    create_investigation_from_analysis,
+    evidence_policy,
+    record_audit,
+)
+from app.core.db import get_db
+from app.core.models import Analysis, Case
+from app.reports.pdf import build_report_pdf
+from datetime import datetime, timezone
+
+router = APIRouter(prefix="/investigations", tags=["investigations"])
+
+
+def _get_case_or_404(db: Session, case_id: str) -> Case:
+    case = db.get(Case, case_id)
+    if case is None:
+        raise HTTPException(status_code=404,
+                            detail={"code": "NOT_FOUND", "message": "Investigation not found."})
+    return case
+
+
+def _load_block(rec: Analysis, key: str) -> dict:
+    return getattr(rec, key, None) or {}
+
+
+@router.post("/from-analysis/{analysis_id}", status_code=201)
+def create_from_analysis(analysis_id: str, db: Session = Depends(get_db)):
+    case = create_investigation_from_analysis(db, analysis_id)
+    if case is None:
+        raise HTTPException(status_code=404,
+                            detail={"code": "NOT_FOUND", "message": "Analysis not found."})
+    return case_to_dict(db, case)
+
+
+@router.get("")
+def list_investigations(db: Session = Depends(get_db)):
+    cases = db.query(Case).order_by(Case.created_at.desc()).limit(100).all()
+    return [case_to_dict(db, c) for c in cases]
+
+
+@router.get("/{case_id}")
+def get_investigation(case_id: str, db: Session = Depends(get_db)):
+    case = _get_case_or_404(db, case_id)
+    return case_to_dict(db, case)
+
+
+def _verify_integrity(db: Session, rec: Analysis) -> dict:
+    policy = evidence_policy()
+    if rec.evidence_blob is None:
+        record_audit(db, "integrity_verified", analysis_id=rec.id,
+                     detail={"result": "unavailable", "reason": "hash-only policy"})
+        return {
+            "result": "unavailable",
+            "detail": "raw evidence bytes not retained (hash-only policy); "
+                      "recorded SHA-256 remains the reference",
+            "policy": policy,
+        }
+    actual = hashlib.sha256(rec.evidence_blob).hexdigest()
+    matches = actual == rec.raw_sha256
+    record_audit(db, "integrity_verified", analysis_id=rec.id,
+                 detail={"result": "match" if matches else "mismatch"})
+    return {
+        "result": "match" if matches else "mismatch",
+        "detail": "" if matches else (
+            f"recomputed {actual} != recorded {rec.raw_sha256}"
+        ),
+        "policy": policy,
+    }
+
+
+@router.post("/{case_id}/evidence-integrity/{analysis_id}")
+def evidence_integrity(case_id: str, analysis_id: str, db: Session = Depends(get_db)):
+    case = _get_case_or_404(db, case_id)
+    rec = db.get(Analysis, analysis_id)
+    if rec is None:
+        raise HTTPException(status_code=404,
+                            detail={"code": "NOT_FOUND", "message": "Analysis not found."})
+    # membership check
+    from app.core.models import CaseAnalysisLink
+    link = (db.query(CaseAnalysisLink)
+              .filter(CaseAnalysisLink.case_id == case.id,
+                      CaseAnalysisLink.analysis_id == analysis_id)
+              .one_or_none())
+    if link is None:
+        raise HTTPException(status_code=400,
+                            detail={"code": "NOT_A_MEMBER", "message": "Analysis is not part of this investigation."})
+    result = _verify_integrity(db, rec)
+    db.commit()  # audit event persisted
+    return {"analysis_id": analysis_id, "sha256_recorded": rec.raw_sha256, **result}
+
+
+@router.get("/{case_id}/report/{analysis_id}")
+def report_pdf(
+    case_id: str,
+    analysis_id: str,
+    x_evidence_key: str | None = Header(default=None, convert_underscores=True),
+    db: Session = Depends(get_db),
+):
+    """Download the forensic PDF for one analysis inside an investigation."""
+    case = _get_case_or_404(db, case_id)
+    rec = db.get(Analysis, analysis_id)
+    if rec is None:
+        raise HTTPException(status_code=404,
+                            detail={"code": "NOT_FOUND", "message": "Analysis not found."})
+
+    integrity = _verify_integrity(db, rec)
+
+    # serving raw/derived evidence may be key-restricted when raw retention is on
+    if CASE_EVIDENCE_STORE == "raw" and CASE_EVIDENCE_STORE_KEY:
+        if x_evidence_key != CASE_EVIDENCE_STORE_KEY:
+            raise HTTPException(status_code=401,
+                                detail={"code": "EVIDENCE_KEY_REQUIRED",
+                                        "message": "Configured policy requires a valid X-Evidence-Key header."})
+
+    report_id = f"RPT-{rec.id[:8]}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    pdf = build_report_pdf(
+        case_dict=case_to_dict(db, case),
+        analysis_row={
+            "id": rec.id,
+            "sha256": rec.raw_sha256,
+            "size_bytes": rec.raw_size_bytes,
+            "subject": rec.subject,
+            "date": rec.date_header,
+            "message_id": rec.message_id,
+            "reply_to": [{"email": e} for e in (rec.reply_to_emails or [])],
+            "return_path": rec.return_path,
+            "to": [{"email": e} for e in (rec.to_emails or [])],
+            "cc": [{"email": e} for e in (rec.cc_emails or [])],
+            "sender": {
+                "display_name": rec.from_display_name,
+                "email": rec.from_email,
+                "domain": rec.from_domain,
+            },
+        },
+        detection=rec.detection_json or {},
+        forensics=rec.forensics_json or {},
+        auth=rec.auth_json or {},
+        enrichment=rec.enrichment_json or {},
+        integrity=integrity,
+        report_id=report_id,
+    )
+    record_audit(db, "report_generated", analysis_id=rec.id, case_id=case.id,
+                 detail={"report_id": report_id, "size_bytes": len(pdf)})
+    db.commit()
+    filename = f"forensic-report-{report_id}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

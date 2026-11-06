@@ -1,0 +1,22 @@
+From: News Desk <news@bulletin.example>
+To: subscriber@example.net
+Subject: Weekly newsletter
+Date: Fri, 09 Oct 2026 18:00:00 +0000
+Message-ID: <news-2026-40@bulletin.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="ALT-001"
+
+--ALT-001
+Content-Type: text/plain; charset=utf-8
+
+This week: server maintenance and one new release. Details online.
+
+--ALT-001
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+<h1>Weekly newsletter</h1>
+<p>This week: <a href="https://bulletin.example/maintenance">server maintenance</a> and one new release.</p>
+</body></html>
+
+--ALT-001--

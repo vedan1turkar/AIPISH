@@ -1,0 +1,38 @@
+From: "PayPal Security Team" <account-alerts@paypa1-secure.com>
+To: victim@example.net
+Reply-To: watermark5682@fastmail-temp.net
+Return-Path: <bounce@paypa1-secure.com>
+Subject: Urgent: Your account has been limited - verify within 24 hours to avoid suspension!!
+Date: Sat, 10 Oct 2026 09:15:00 +0000
+Message-ID: <phish-001@paypa1-secure.com>
+Received: from mail.paypa1-secure.com (unknown [203.0.113.77]) by mx.example.net with ESMTPS id abc123 for <victim@example.net>; Sat, 10 Oct 2026 09:15:02 +0000
+Authentication-Results: mx.example.net; spf=fail smtp.mailfrom=paypa1-secure.com; dmarc=fail header.from=paypal.com
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="BOUND-001"
+
+--BOUND-001
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Dear Customer,
+
+Your account access has been LIMITED due to unusual activity. You must verify
+your identity within 24 hours or your account will be permanently suspended.
+Log in immediately at this secure link and confirm your billing details and password.
+
+--BOUND-001
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body>
+<p>Dear Customer,</p>
+<p>Your account access has been <b>LIMITED</b>. Verify now:</p>
+<p><a href="https://paypa1-secure.com/verify">PayPal</a></p>
+</body></html>
+
+--BOUND-001
+Content-Type: text/plain; charset=utf-8; name="statement.txt"
+Content-Disposition: attachment; filename="statement.txt"
+Content-Transfer-Encoding: base64
+
+WW91ciBhY2NvdW50IHN0YXRlbWVudCBpcyByZWFkeS4gdmlzaXQgaHR0cHM6Ly9wYXlwYT

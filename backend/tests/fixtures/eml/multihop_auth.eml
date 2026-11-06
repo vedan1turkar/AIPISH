@@ -1,0 +1,27 @@
+Received: from mx.boundary-mail.net (mx.boundary-mail.net [96.7.128.175])
+	by mx.receiver.net (Postfix) with ESMTPS id 999
+	for <victim@receiver.net>; Sat, 10 Oct 2026 09:15:05 +0000 (UTC)
+Received: from relay-first.example.org (relay-first.example.org [172.217.14.99])
+	by mx.boundary-mail.net with ESMTP id abc123;
+	Sat, 10 Oct 2026 09:15:03 +0000 (UTC)
+Received: from [IPv6:2001:4860:4860::8888]
+	by relay-first.example.org with ESMTP id xyz;
+	Sat, 10 Oct 2026 09:15:01 +0000 (UTC)
+Received: from mail.privatecorp.local (unknown [10.0.0.42])
+	by internal-gw.local; Sat, 10 Oct 2026 09:14:30 +0000 (UTC)
+From: Real Sender <sender@legit-brand.com>
+To: victim@receiver.net
+Cc: watcher@receiver.net
+Reply-To: divergent@elsewhere.net
+Return-Path: <bounces@other-mailer.com>
+Message-ID: <abc123@elsewhere.net>
+Authentication-Results: mx.receiver.net; spf=fail smtp.mailfrom=other-mailer.com; dkim=pass header.d=legit-brand.com; dmarc=fail header.from=legit-brand.com
+DKIM-Signature: v=1; a=rsa-sha256; d=legit-brand.com; s=s1; c=relaxed/relaxed;
+	h=from:subject; bh=abc=; b=fakesig
+Subject: Invoice attached
+Date: Sat, 10 Oct 2026 09:14:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Please process the attached invoice.
+
