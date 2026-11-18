@@ -24,6 +24,7 @@ from app.core.db import get_db
 from app.auth import run_auth_analysis
 from app.core.config import get_settings
 from app.core.models import Analysis
+from app.cases import service as case_service
 from app.detection import run_detection
 from app.enrichment import run_enrichment, EnrichmentResult
 from app.enrichment.iocs import is_private_ip, is_global_ip
@@ -219,6 +220,7 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
         auth_json=auth.to_dict(),
         enrichment_json=enr_result.to_dict(),
         parse_defects=parsed.parse_defects,
+        evidence_blob=raw if case_service.CASE_EVIDENCE_STORE == "raw" else None,
     )
     db.add(rec)
     db.commit()

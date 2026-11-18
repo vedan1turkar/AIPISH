@@ -140,7 +140,7 @@ def check_spf_live(
     """Returns (verdict|None, reason). Verdict in pass/fail/softfail/neutral/none/temperror/permerror."""
     try:
         import spf
-        res, _code, _txt = spf.check2(i=ip, s=sender, h=helo, querytime=TIMEOUT_SECONDS)
+        res, _txt = spf.check2(i=ip, s=sender, h=helo, querytime=TIMEOUT_SECONDS)
         return res.lower(), "live check"
     except Exception as exc:
         return None, f"spf_error:{type(exc).__name__}"
@@ -234,12 +234,13 @@ def run_auth_analysis(
         sender = claims["spf"][0][1] if claims["spf"] and claims["spf"][0][1] else (f"postmaster@{rp_dom}" if rp_dom else f"postmaster@{from_dom}")
         ip = relay_origin_ip or ""
         helo = from_dom
+        spf_dom = sender.rsplit("@", 1)[-1].lower()
         if ip:
             verdict, reason = check_spf_live(sender, ip, helo)
             if verdict == "pass":
-                spf = Status("spf", "verified_pass", spf.claims, spf.claim_texts, reason=None, detail={"ip": ip, "checked_domain": from_dom})
+                spf = Status("spf", "verified_pass", spf.claims, spf.claim_texts, reason=None, detail={"ip": ip, "checked_domain": spf_dom})
             elif verdict == "fail":
-                spf = Status("spf", "verified_fail", spf.claims, spf.claim_texts, reason=reason, detail={"ip": ip, "checked_domain": from_dom})
+                spf = Status("spf", "verified_fail", spf.claims, spf.claim_texts, reason=reason, detail={"ip": ip, "checked_domain": spf_dom})
             elif verdict in ("softfail", "neutral", "none"):
                 spf = Status("spf", "unknown", spf.claims, spf.claim_texts, reason=f"live={verdict}", detail={"ip": ip})
             elif verdict in ("temperror", "permerror"):

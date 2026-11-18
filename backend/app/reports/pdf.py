@@ -126,7 +126,7 @@ def build_report_pdf(
     integ_status = integrity.get("result", "unavailable")
     integ_rows = [
         ("Evidence SHA-256", esc(analysis_row.get("sha256", "unavailable"))),
-        ("Evidence size", f"{analysis_row.get('size_bytes', 'unavailable')} bytes"),
+        ("Evidence size", esc(f"{analysis_row.get('size_bytes', 'unavailable')} bytes")),
         ("Report generation time", esc(generated_at)),
         ("Integrity re-verification", esc(integ_status)),
         ("Integrity detail", esc(integrity.get("detail", ""))),
@@ -147,8 +147,8 @@ def build_report_pdf(
     story.append(Paragraph("2. Email Metadata", H2))
     sender = analysis_row.get("sender") or {}
     meta_rows = [
-        ("From", f"{sender.get('display_name') or 'unavailable'} <{sender.get('email') or 'unavailable'}> "
-                 f"(domain: {sender.get('domain') or 'unavailable'})"),
+        ("From", esc(f"{sender.get('display_name') or 'unavailable'} <{sender.get('email') or 'unavailable'}> "
+                     f"(domain: {sender.get('domain') or 'unavailable'})")),
         ("Subject", esc(analysis_row.get("subject", "unavailable"))),
         ("Date header", esc(analysis_row.get("date", "unavailable"))),
         ("Message-ID", esc(analysis_row.get("message_id", "unavailable"))),

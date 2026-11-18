@@ -21,6 +21,15 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "eml"
 PHISH_RAW = (FIXTURES / "phishing_multipart.eml").read_bytes()
 
 
+@pytest.fixture(autouse=True)
+def _no_live_dns(monkeypatch):
+    """Default every live lookup to an offline 'unavailable' stub; tests that
+    need a specific live verdict patch the function themselves (overrides this)."""
+    monkeypatch.setattr(auth_mod, "safe_dns_query", lambda *a, **k: (None, "offline-stub"))
+    monkeypatch.setattr(auth_mod, "check_spf_live", lambda *a, **k: (None, "spf_error:offline-stub"))
+    monkeypatch.setattr(auth_mod, "check_dkim_live", lambda *a, **k: (None, "dkim_error:offline-stub"))
+
+
 def _mk(raw=PHISH_RAW, extra_relay_ip=None, **kw):
     """Build an offline auth analysis; kw keys override defaults (live etc.)."""
     defaults: dict = dict(live=False)

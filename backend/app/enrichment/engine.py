@@ -166,6 +166,8 @@ def ipgeo_lookup(ip: str, cfg: EnrichmentConfig) -> dict[str, Any]:
             "country": data.get("country"),
             "region": data.get("regionName"),
             "city": data.get("city"),
+            "latitude": data.get("lat"),
+            "longitude": data.get("lon"),
             "isp": data.get("isp"),
             "org": data.get("org"),
             "as": data.get("as"),
@@ -199,7 +201,19 @@ _ENABLED_PROVIDERS: dict[str, Callable[[str, EnrichmentConfig], dict[str, Any]]]
 }
 
 
+_SWITCHES = {"dns": "enable_dns", "rdap": "enable_rdap", "ipgeo_http": "enable_ipgeo"}
+
+
+def _switched_off(name: str, cfg: EnrichmentConfig) -> bool:
+    attr = _SWITCHES.get(name)
+    return bool(attr) and not getattr(cfg, attr)
+
+
 def _providers_for(ioc: Ioc, cfg: EnrichmentConfig) -> list[tuple[str, Callable]]:
+    return [(n, fn) for n, fn in _providers_for_all(ioc, cfg) if not _switched_off(n, cfg)]
+
+
+def _providers_for_all(ioc: Ioc, cfg: EnrichmentConfig) -> list[tuple[str, Callable]]:
     if ioc.kind == "hostname":
         return [("dns", _ENABLED_PROVIDERS["dns"])]
     if ioc.kind == "domain":

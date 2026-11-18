@@ -2,7 +2,12 @@ fastapi>=0.115,<1.0
 uvicorn[standard]>=0.30
 pydantic>=2.7,<3.0
 pydantic-settings>=2.3,<3.0
+python-dotenv>=1.0
 sqlalchemy>=2.0,<3.0
 python-multipart>=0.0.9
 httpx>=0.27
 reportlab>=4.0
+# live SPF / DKIM / DMARC verification and DNS enrichment
+dnspython>=2.6
+dkimpy>=1.1
+pyspf>=2.0.14

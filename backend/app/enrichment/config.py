@@ -59,7 +59,7 @@ class EnrichmentConfig:
 
     rdap_base_url: str = field(default_factory=lambda: _str("ENRICH_RDAP_BASE", "https://rdap.org/domain/"))
     ipgeo_base_url: str = field(default_factory=lambda: _str(
-        "ENRICH_IPGEO_BASE", "http://ip-api.com/json/{ip}?fields=status,country,regionName,city,isp,org,as,query"
+        "ENRICH_IPGEO_BASE", "http://ip-api.com/json/{ip}?fields=status,country,regionName,city,lat,lon,isp,org,as,query"
     ))
 
     def credential_status(self) -> dict[str, bool]:

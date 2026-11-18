@@ -32,6 +32,9 @@ MULTIHOP = (FIXTURES / "multihop_auth.eml").read_bytes()
 def offline_env(monkeypatch):
     """Force offline: stub providers to avoid any real network + clear cache."""
     monkeypatch.setenv("ENRICH_ENABLE_ALL", "0")
+    offline = lambda value, cfg, *a, **k: {"status": "unavailable", "reason": "offline-stub"}  # noqa: E731
+    for name in ("dns", "rdap", "ipgeo_http"):
+        monkeypatch.setitem(E._ENABLED_PROVIDERS, name, offline)
     E._cache.clear()      # never let one test's cached answers leak into another
     yield
     E._cache.clear()
