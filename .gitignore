@@ -28,3 +28,7 @@ db/
 
 # Local tooling / build info
 *.tsbuildinfo
+
+# ML dataset (raw corpora and processed text stay local; only manifest/stats/data card are tracked)
+data/raw/
+data/processed/

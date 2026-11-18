@@ -1,0 +1,219 @@
+{
+  "by_label": {
+    "fraud": 365,
+    "impersonated": 207,
+    "legitimate": 7499,
+    "phishing": 3218,
+    "suspicious": 0
+  },
+  "by_original_label": {
+    "enron/sent_mail": 3395,
+    "nazario/phishing": 3218,
+    "spamassassin/easy_ham": 2470,
+    "spamassassin/easy_ham_2": 1388,
+    "spamassassin/hard_ham": 246,
+    "synthetic/advance_fee": 75,
+    "synthetic/bec_payroll_redirect": 74,
+    "synthetic/bec_wire_transfer": 75,
+    "synthetic/exec_impersonation": 75,
+    "synthetic/gift_card_request": 72,
+    "synthetic/invoice_bank_change": 69,
+    "synthetic/it_support_impersonation": 57,
+    "synthetic/vendor_impersonation": 75
+  },
+  "by_source_label": {
+    "enron": {
+      "fraud": 0,
+      "impersonated": 0,
+      "legitimate": 3395,
+      "phishing": 0,
+      "suspicious": 0
+    },
+    "nazario": {
+      "fraud": 0,
+      "impersonated": 0,
+      "legitimate": 0,
+      "phishing": 3218,
+      "suspicious": 0
+    },
+    "spamassassin": {
+      "fraud": 0,
+      "impersonated": 0,
+      "legitimate": 4104,
+      "phishing": 0,
+      "suspicious": 0
+    },
+    "synthetic": {
+      "fraud": 365,
+      "impersonated": 207,
+      "legitimate": 0,
+      "phishing": 0,
+      "suspicious": 0
+    }
+  },
+  "date_range_by_source": {
+    "enron": [
+      "1999-02-17",
+      "2002-07-12"
+    ],
+    "nazario": [
+      "1999-04-07",
+      "2007-08-06"
+    ],
+    "spamassassin": [
+      "2002-01-02",
+      "2002-12-04"
+    ],
+    "synthetic": [
+      "2000-01-02",
+      "2007-12-28"
+    ]
+  },
+  "date_range_by_split": {
+    "test": [
+      "1999-09-17",
+      "2007-12-22"
+    ],
+    "train": [
+      "1999-02-17",
+      "2007-12-28"
+    ],
+    "validation": [
+      "1999-04-07",
+      "2007-12-17"
+    ]
+  },
+  "exclusions_by_reason": {
+    "empty_or_tiny_body": 299,
+    "exact_duplicate": 1737,
+    "exact_duplicate_raw": 6,
+    "mbox_internal_record": 1
+  },
+  "exclusions_by_source_reason": {
+    "enron": {
+      "empty_or_tiny_body": 117,
+      "exact_duplicate": 60
+    },
+    "nazario": {
+      "empty_or_tiny_body": 180,
+      "exact_duplicate": 1605,
+      "exact_duplicate_raw": 6,
+      "mbox_internal_record": 1
+    },
+    "spamassassin": {
+      "empty_or_tiny_body": 2,
+      "exact_duplicate": 44
+    },
+    "synthetic": {
+      "exact_duplicate": 28
+    }
+  },
+  "groups": {
+    "count": 2144,
+    "largest_label_mix": {
+      "phishing": 915
+    },
+    "largest_size": 915
+  },
+  "labels": [
+    "legitimate",
+    "suspicious",
+    "impersonated",
+    "phishing",
+    "fraud"
+  ],
+  "leakage": {
+    "campaign_subject": 0,
+    "group": 0,
+    "near_dup_cluster": 0,
+    "norm_sha256": 0,
+    "synthetic_template": 0,
+    "thread": 0
+  },
+  "manifest_sha256": "d8d583a30ffc85b81010485498cc3a2f4cdf0e2beb3ca677c0eaf13bb9f60ab7",
+  "missing_date_by_source": {
+    "enron": 0,
+    "nazario": 15,
+    "spamassassin": 1,
+    "synthetic": 0
+  },
+  "near_duplicate": {
+    "clusters_with_2plus": 498,
+    "largest_cluster": 66,
+    "messages_in_2plus_clusters": 1973
+  },
+  "real": 10717,
+  "sender_overlap": {
+    "sender_keys": 1478,
+    "sender_keys_in_multiple_splits": 31,
+    "test": {
+      "messages": 1709,
+      "sender_disjoint": 1514,
+      "sender_seen_in_train": 195
+    },
+    "validation": {
+      "messages": 1681,
+      "sender_disjoint": 1448,
+      "sender_seen_in_train": 233
+    }
+  },
+  "split_counts": {
+    "test": {
+      "fraud": 66,
+      "impersonated": 36,
+      "legitimate": 1125,
+      "phishing": 482,
+      "suspicious": 0
+    },
+    "train": {
+      "fraud": 250,
+      "impersonated": 146,
+      "legitimate": 5249,
+      "phishing": 2254,
+      "suspicious": 0
+    },
+    "validation": {
+      "fraud": 49,
+      "impersonated": 25,
+      "legitimate": 1125,
+      "phishing": 482,
+      "suspicious": 0
+    }
+  },
+  "split_counts_sender_disjoint": {
+    "test": {
+      "fraud": 66,
+      "impersonated": 36,
+      "legitimate": 1125,
+      "phishing": 287,
+      "suspicious": 0
+    },
+    "train": {
+      "fraud": 250,
+      "impersonated": 146,
+      "legitimate": 5249,
+      "phishing": 2254,
+      "suspicious": 0
+    },
+    "validation": {
+      "fraud": 49,
+      "impersonated": 25,
+      "legitimate": 1125,
+      "phishing": 249,
+      "suspicious": 0
+    }
+  },
+  "split_fractions_target": {
+    "test": 0.15,
+    "train": 0.7,
+    "validation": 0.15
+  },
+  "split_totals": {
+    "test": 1709,
+    "train": 7899,
+    "validation": 1681
+  },
+  "synthetic": 572,
+  "synthetic_fraction": 0.0507,
+  "total": 11289
+}
