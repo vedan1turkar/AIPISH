@@ -33,3 +33,17 @@ def ml_classify(file: UploadFile = File(..., alias="file")) -> dict:
                 "model outputs, not ground truth; untrained classes are never predicted.",
     }
 
+
+@router.post("/explain")
+def ml_explain(file: UploadFile = File(..., alias="file")) -> dict:
+    """Classification + SHAP feature contributions. Rule evidence is returned unchanged."""
+    from app.ml.explain import explain_raw
+    raw = _ok_file(file)
+    detection = run_rules_offline(raw)
+    return {
+        "ml": inference.classify_raw(raw, detection).to_dict(),
+        "explanation": explain_raw(raw, detection),
+        "rules": {"score": detection.get("score"), "verdict": detection.get("verdict"),
+                  "fired": [f["rule_id"] for f in detection.get("findings", [])],
+                  "findings": detection.get("findings", []), "error": detection.get("error")},
+    }

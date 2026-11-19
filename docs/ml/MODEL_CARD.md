@@ -57,7 +57,7 @@ The rules were run offline (no live DNS, SPF/DKIM or enrichment), so they are we
 2. **Synthetic `impersonated`/`fraud`.** The test set holds only 4 unseen templates (102 messages). The 0.98–1.00 scores measure generalisation to new templates written by the same author, **not** to real BEC.
 3. **Era and source confound.** Legitimate mail dates from 1999–2003 and phishing mostly from 2004–2007, and each class comes from one or two corpora. Part of the accuracy can come from corpus style rather than threat signals. Expect lower performance on modern mail.
 4. **Most remaining errors are phishing missed as legitimate** (43 of 482 test phishing messages). 17 legitimate messages were flagged as phishing.
-5. **Not explained here.** Per-email explanations (SHAP) are a separate task (P2c). The transformer is a black box.
+5. **Explanations cover only part of the ensemble (see below).** The transformer has 50% weight and is a black box. SHAP covers the XGBoost component only.
 6. **Rule-engine parse failure.** The existing `.eml` parser raised `AttributeError` on 1 of 11,289 corpus messages (a group-syntax address header, stdlib bug path). Its rule features are recorded as missing (NaN), never as "no rule fired". The parser itself was not modified (out of scope).
 
 ## Serving
@@ -68,3 +68,29 @@ The rules were run offline (no live DNS, SPF/DKIM or enrichment), so they are we
   - On macOS, torch and xgboost each ship `libomp`, and multi-threaded CPU torch deadlocks once xgboost is loaded. The default is therefore `AIPISH_TORCH_THREADS=1`.
 - **Failure handling:** missing ML dependencies, missing or corrupt files or a label-order mismatch give `status: "unavailable"` with a reason and `label: null`. An inference exception gives `status: "error"`. A message the corpus rules would exclude, such as an empty body, gives `not_applicable`. **There is never a silent fallback to `legitimate`.**
 - **Parity check (19 Nov 2026):** the served path on CPU reproduces the training-time test evaluation exactly, with an identical confusion matrix.
+
+## Explanations (R4, SHAP) — `POST /api/v1/ml/explain`, `app/ml/explain.py`
+
+- **What is explained.** Every component with a non-zero ensemble weight that has a SHAP explainer:
+  - `xgb`: `shap.TreeExplainer`, exact TreeSHAP in XGBoost's raw-margin space for the predicted class.
+  - `lr`: `shap.LinearExplainer` with an empty-document background. The served v1 ensemble gives LR weight 0, so it is not explained there.
+  - The transformer is listed under `not_explained` with the reason. Its 50% share of the prediction is **not covered**, and the response does not pretend otherwise.
+- **Response structure:**
+  - `status`: `ok`, `unavailable`, `not_applicable` or `error`.
+  - `explained_label` and `model_version`.
+  - Per component: `explainer`, `output_space`, `base_value`, `output_value` and `additivity_ok`. The last checks that base plus the sum of SHAP values equals the model output.
+  - Also per component: `top_contributions`, up to 10, each with `feature`, `group` (structural, rule_engine or text_term), the feature `value`, `shap_value` and `direction` (toward or away from the class).
+  - Also per component: `aggregated` rows (text SVD components, withheld terms, character n-grams).
+  - At the top level: `not_explained` and `disclaimer`.
+- **Not causal.** SHAP values show which inputs this model relied on, relative to a baseline. They are associations learned from the P2a corpus, not causes or evidence of intent. Example: `has_html = 0` pushes away from `phishing`, which reflects the era and source confound (Enron and SpamAssassin mail is mostly plain text), not a real-world rule.
+- **Privacy:**
+  - No subject or body text, addresses or URLs are returned.
+  - Text terms appear only if they are plain words found in at least 25 training emails. Rarer terms, which could include names, IDs and codes, and all character n-grams are summed into aggregate rows, with a count of withheld terms.
+  - Explanations are computed on request and not stored.
+- **Failures never produce made-up contributions.**
+  - SHAP not installed, model missing or corrupt: `unavailable`.
+  - A message the corpus would exclude: `not_applicable`.
+  - An exception during SHAP: `error`.
+  - All of these return an empty `components`. If one component fails, it is reported in `not_explained` and the others are still returned.
+- **18-rule evidence.** The response's `rules` block carries the unchanged rule findings next to the explanation.
+- **Speed:** about 0.04–0.3 s per email on CPU (19 Nov 2026, M4).
