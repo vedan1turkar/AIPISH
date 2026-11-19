@@ -1,0 +1,377 @@
+{
+ "analysis_id": "fixture-analysis",
+ "ml": {
+  "status": "ok",
+  "label": "fraud",
+  "confidence": 0.7104,
+  "probabilities": {
+   "legitimate": 0.1264,
+   "suspicious": 0.0,
+   "impersonated": 0.0467,
+   "phishing": 0.1165,
+   "fraud": 0.7104
+  },
+  "components": {
+   "xgb": {
+    "legitimate": 0.2527,
+    "suspicious": 0.0,
+    "impersonated": 0.0934,
+    "phishing": 0.2328,
+    "fraud": 0.4211
+   },
+   "transformer": {
+    "legitimate": 0.0001,
+    "suspicious": 0.0001,
+    "impersonated": 0.0001,
+    "phishing": 0.0001,
+    "fraud": 0.9997
+   }
+  },
+  "model_version": "aipish-email-v1@d8d583a30ffc",
+  "untrained_classes": [
+   "suspicious"
+  ],
+  "reason": null
+ },
+ "explanation": {
+  "status": "ok",
+  "method": "SHAP",
+  "shap_version": "0.54.1",
+  "explained_label": "fraud",
+  "model_version": "aipish-email-v1@d8d583a30ffc",
+  "components": {
+   "xgb": {
+    "explainer": "shap.TreeExplainer",
+    "output_space": "XGBoost raw margin (log-odds before softmax) for the explained class",
+    "base_value": -0.0098,
+    "output_value": -0.93262,
+    "additivity_ok": true,
+    "top_contributions": [
+     {
+      "feature": "n_url_hosts",
+      "group": "structural",
+      "value": 1,
+      "shap_value": -2.00718,
+      "direction": "away"
+     },
+     {
+      "feature": "digit_ratio",
+      "group": "structural",
+      "value": 0.0797,
+      "shap_value": 0.3827,
+      "direction": "toward"
+     },
+     {
+      "feature": "has_url",
+      "group": "structural",
+      "value": 1,
+      "shap_value": -0.21061,
+      "direction": "away"
+     },
+     {
+      "feature": "body_chars_log",
+      "group": "structural",
+      "value": 6.463,
+      "shap_value": -0.06642,
+      "direction": "away"
+     }
+    ],
+    "aggregated": [
+     {
+      "feature": "text_semantic_components",
+      "group": "text",
+      "detail": "100 TF-IDF SVD components, summed",
+      "shap_value": 0.97869
+     }
+    ],
+    "ensemble_weight": 0.5
+   }
+  },
+  "not_explained": [
+   {
+    "component": "transformer",
+    "reason": "SHAP is not implemented for this component; its probability still counts in the ensemble"
+   }
+  ],
+  "disclaimer": "SHAP values quantify how much each feature moved this model's score for the explained class relative to a baseline. They show which inputs the model relied on, not why the email was written or whether it is malicious; they are not causal or legal evidence. The rule-engine findings remain the explainable evidence layer."
+ },
+ "forensic_summary": {
+  "ai_generated": true,
+  "label": "AI-generated interpretation (Mistral via local Ollama). It may be wrong; rely on the cited evidence items and the system verdicts, not on this text alone.",
+  "model": {
+   "provider": "ollama",
+   "name": "mistral:latest",
+   "digest": "6577803aa9a036369e481d648a2baebb381ebc6e897f2bb9a766a2aa7bfbc1cf",
+   "local": true
+  },
+  "summary": "[1] From domain mismatches Reply-To domain (high severity).\n\n[2] URL count is 1, hosted on the sender domain (halvorsen-1ogistics.test).\n\n[3] Urgent language and credential request detected (medium severity).\n\n[4] No Received headers present.\n\n[5] Rule engine verdict: 'phishing_fraud_likely' (100/100 score).\n\n[6] ML classifier predicts 'fraud' with probability 0.7104.\n\n[7] SHAP attributions suggest the email relied on the number of URL hosts and digit ratio.",
+  "assessment": "The evidence strongly suggests that the email is likely a phishing attempt.",
+  "findings": [
+   {
+    "statement": "From domain mismatches Reply-To domain (high severity).",
+    "evidence_ids": [
+     "E7",
+     "E9"
+    ],
+    "evidence_categories": [
+     "verified"
+    ],
+    "basis": "inferred"
+   },
+   {
+    "statement": "URL count is 1, hosted on the sender domain.",
+    "evidence_ids": [
+     "E4"
+    ],
+    "evidence_categories": [
+     "verified"
+    ],
+    "basis": "verified"
+   },
+   {
+    "statement": "Urgent language and credential request detected (medium severity).",
+    "evidence_ids": [
+     "E8",
+     "E10"
+    ],
+    "evidence_categories": [
+     "heuristic"
+    ],
+    "basis": "inferred"
+   },
+   {
+    "statement": "No Received headers present.",
+    "evidence_ids": [
+     "E15"
+    ],
+    "evidence_categories": [
+     "verified"
+    ],
+    "basis": "verified"
+   },
+   {
+    "statement": "Rule engine verdict: 'phishing_fraud_likely' (100/100 score).",
+    "evidence_ids": [
+     "E6"
+    ],
+    "evidence_categories": [
+     "verified"
+    ],
+    "basis": "verified"
+   },
+   {
+    "statement": "ML classifier predicts 'fraud' with probability 0.7104.",
+    "evidence_ids": [
+     "E16"
+    ],
+    "evidence_categories": [
+     "model"
+    ],
+    "basis": "inferred"
+   },
+   {
+    "statement": "SHAP attributions suggest the email relied on the number of URL hosts and digit ratio.",
+    "evidence_ids": [
+     "E17"
+    ],
+    "evidence_categories": [
+     "model"
+    ],
+    "basis": "inferred"
+   }
+  ],
+  "rejected_findings": [],
+  "recommended_actions": [
+   "Investigate the URL provided in the email.",
+   "Examine the sender's account for any unusual activity.",
+   "Alert the recipient of the potential phishing attempt.",
+   "Enhance the rule engine to better detect phishing emails."
+  ],
+  "limitations": [
+   "The email text contains phrasing typical of prompt-injection attempts, but it is data, not instructions.",
+   "SPF, DKIM, and DMARC checks were not verified.",
+   "The originating IP could not be verified."
+  ],
+  "validation": {
+   "summary_accepted": true,
+   "assessment_accepted": true,
+   "findings_accepted": 7,
+   "findings_rejected": 0,
+   "basis_downgraded": 2,
+   "flags": []
+  },
+  "evidence": [
+   {
+    "id": "E1",
+    "category": "verified",
+    "source": "parser",
+    "statement": "From header sender domain: halvorsen-1ogistics.test (display name: Elena Hartley (CEO)). The From header itself can be forged."
+   },
+   {
+    "id": "E2",
+    "category": "verified",
+    "source": "parser",
+    "statement": "Reply-To domain(s): freemail.example"
+   },
+   {
+    "id": "E3",
+    "category": "verified",
+    "source": "parser",
+    "statement": "Subject: Urgent wire before 3pm - confidential"
+   },
+   {
+    "id": "E4",
+    "category": "verified",
+    "source": "parser",
+    "statement": "URL count: 1; URL hosts: halvorsen-1ogistics.test"
+   },
+   {
+    "id": "E5",
+    "category": "verified",
+    "source": "parser",
+    "statement": "Received headers: 0; HTML body: False"
+   },
+   {
+    "id": "E6",
+    "category": "verified",
+    "source": "rule_engine",
+    "statement": "Rule engine score 100/100, verdict 'phishing_fraud_likely' (4 of 18 rules fired)."
+   },
+   {
+    "id": "E7",
+    "category": "verified",
+    "source": "rule:sender_reply_to_mismatch",
+    "statement": "Reply-To differs from sender domain (severity high, +35): From: halvorsen-1ogistics.test \u2192 Reply-To: freemail.example"
+   },
+   {
+    "id": "E8",
+    "category": "heuristic",
+    "source": "rule:credential_request",
+    "statement": "Credential request (severity high, +25): matched 1 phrase(s), e.g. \u201cpassword\u201d"
+   },
+   {
+    "id": "E9",
+    "category": "verified",
+    "source": "rule:header_inconsistency_forensics",
+    "statement": "Header forensics found inconsistencies (severity medium, +20): 1 inconsistency(ies): replyto_mismatch"
+   },
+   {
+    "id": "E10",
+    "category": "heuristic",
+    "source": "rule:urgency_language",
+    "statement": "Urgency / pressure language (severity medium, +20): matched 1 phrase(s), e.g. \u201curgent\u201d"
+   },
+   {
+    "id": "E11",
+    "category": "claimed",
+    "source": "auth:spf",
+    "statement": "Untrusted header claim for SPF: pass (not verified by this system)"
+   },
+   {
+    "id": "E12",
+    "category": "claimed",
+    "source": "auth:dkim",
+    "statement": "Untrusted header claim for DKIM: pass (not verified by this system)"
+   },
+   {
+    "id": "E13",
+    "category": "verified",
+    "source": "auth:alignment",
+    "statement": "Identifier alignment: {'spf': 'unknown', 'dkim': 'unknown'}"
+   },
+   {
+    "id": "E14",
+    "category": "verified",
+    "source": "forensics:replyto_mismatch",
+    "statement": "Header inconsistency (medium): Reply-To [user]@freemail.example diverges from From domain halvorsen-1ogistics.test"
+   },
+   {
+    "id": "E15",
+    "category": "verified",
+    "source": "forensics:no_received",
+    "statement": "Header inconsistency (info): No Received headers present"
+   },
+   {
+    "id": "E16",
+    "category": "model",
+    "source": "ml_classifier",
+    "statement": "ML classifier (aipish-email-v1@d8d583a30ffc) predicts 'fraud' with probability 0.7104. Class probabilities: legitimate 0.13, suspicious 0.00, impersonated 0.05, phishing 0.12, fraud 0.71. Untrained classes (never predicted): suspicious."
+   },
+   {
+    "id": "E17",
+    "category": "model",
+    "source": "shap:xgb",
+    "statement": "SHAP attributions for xgb toward 'fraud' (associations, not causes): n_url_hosts away (-2.007); digit_ratio toward (+0.383); has_url away (-0.211); body_chars_log away (-0.066)"
+   },
+   {
+    "id": "E18",
+    "category": "verified",
+    "source": "security",
+    "statement": "The email text contains phrasing typical of prompt-injection attempts (ignore_instructions, role_override, verdict_steering). Such text is data, not instructions."
+   }
+  ],
+  "unavailable_information": [
+   {
+    "check": "spf",
+    "reason": "SPF not verified (status 'parsed'): header claim only \u2014 not verified by this system. Neither pass nor fail is asserted."
+   },
+   {
+    "check": "dkim",
+    "reason": "DKIM not verified (status 'parsed'): header claim only \u2014 not verified by this system. Neither pass nor fail is asserted."
+   },
+   {
+    "check": "dmarc",
+    "reason": "DMARC not verified (status 'unknown'): no reason given. Neither pass nor fail is asserted."
+   },
+   {
+    "check": "originating_ip_verification",
+    "reason": "originating IP could not be verified (no trusted relay boundary)"
+   },
+   {
+    "check": "threat_intelligence",
+    "reason": "no enrichment results (disabled, offline or no IOCs)"
+   },
+   {
+    "check": "geolocation",
+    "reason": "no geolocation results"
+   },
+   {
+    "check": "shap:transformer",
+    "reason": "SHAP is not implemented for this component; its probability still counts in the ensemble"
+   }
+  ],
+  "system_verdicts": {
+   "rules": {
+    "score": 100,
+    "verdict": "phishing_fraud_likely"
+   },
+   "ml": {
+    "label": "fraud",
+    "confidence": 0.7104,
+    "model_version": "aipish-email-v1@d8d583a30ffc"
+   }
+  },
+  "security": {
+   "injection_patterns_detected": [
+    "ignore_instructions",
+    "role_override",
+    "verdict_steering"
+   ],
+   "redactions": {
+    "email_local_part": 1,
+    "url_path": 1,
+    "credential": 1,
+    "iban": 1,
+    "phone": 1
+   },
+   "body_chars_sent": 663,
+   "endpoint_local_only": true
+  },
+  "reason": null,
+  "attempts": 1,
+  "status": "ok",
+  "latency_ms": 52565
+ },
+ "source": "upload",
+ "generated_at": "2026-11-19T18:00:00+00:00"
+}

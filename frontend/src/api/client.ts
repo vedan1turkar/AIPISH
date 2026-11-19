@@ -339,3 +339,172 @@ export async function downloadReport(caseId: string, analysisId: string): Promis
   a.click()
   URL.revokeObjectURL(url)
 }
+
+// ── ML classification, SHAP and local-LLM assessment (P4) ──────────────────
+// Shapes mirror the backend exactly (app/ml/inference.py, app/ml/explain.py,
+// app/llm/service.py, app/api/llm_router.py). Most fields are optional because
+// failure responses carry only {status, reason}; the UI never fills them in.
+export type ComponentStatus =
+  | 'ok'
+  | 'unavailable'
+  | 'timeout'
+  | 'invalid_output'
+  | 'error'
+  | 'not_applicable'
+  | string
+
+export interface MlResult {
+  status: ComponentStatus
+  label?: string | null
+  confidence?: number | null
+  probabilities?: Record<string, number>
+  components?: Record<string, Record<string, number>>
+  model_version?: string | null
+  untrained_classes?: string[]
+  reason?: string | null
+}
+
+export interface ShapContribution {
+  feature: string
+  group: string
+  value?: number | string | null
+  shap_value: number
+  direction?: 'toward' | 'away' | string
+  detail?: string
+}
+
+export interface ShapComponent {
+  explainer: string
+  output_space: string
+  base_value: number
+  output_value: number
+  additivity_ok: boolean
+  top_contributions: ShapContribution[]
+  aggregated: ShapContribution[]
+  ensemble_weight?: number
+  background?: string
+  redaction?: { withheld_terms: number; min_training_doc_freq: number }
+}
+
+export interface ShapExplanation {
+  status: ComponentStatus
+  method?: string
+  shap_version?: string
+  explained_label?: string
+  model_version?: string
+  components?: Record<string, ShapComponent>
+  not_explained?: { component: string; reason: string }[]
+  disclaimer?: string
+  reason?: string | null
+}
+
+export interface EvidenceItem {
+  id: string
+  category: 'verified' | 'provider' | 'heuristic' | 'claimed' | 'model' | string
+  source: string
+  statement: string
+}
+
+export interface SummaryFinding {
+  statement: string
+  evidence_ids: string[]
+  evidence_categories?: string[]
+  basis: 'verified' | 'inferred' | string
+}
+
+export interface ForensicSummary {
+  status: ComponentStatus
+  ai_generated?: boolean
+  label?: string
+  model?: { provider: string; name: string; digest: string | null; local: boolean }
+  summary?: string | null
+  assessment?: string | null
+  findings?: SummaryFinding[]
+  rejected_findings?: { statement: string; reason: string }[]
+  recommended_actions?: string[]
+  limitations?: string[]
+  validation?: {
+    summary_accepted: boolean
+    assessment_accepted: boolean
+    findings_accepted: number
+    findings_rejected: number
+    basis_downgraded: number
+    flags: { field: string; problems: string[]; text?: string }[]
+  } | null
+  evidence?: EvidenceItem[]
+  unavailable_information?: { check: string; reason: string }[]
+  system_verdicts?: {
+    rules?: { score: number; verdict: string }
+    ml?: { label: string; confidence: number; model_version: string }
+  }
+  security?: {
+    injection_patterns_detected: string[]
+    redactions: Record<string, number>
+    body_chars_sent: number
+    endpoint_local_only: boolean
+  }
+  reason?: string | null
+  attempts?: number
+  latency_ms?: number
+}
+
+export interface Assessment {
+  analysis_id: string
+  source?: 'upload' | 'stored_analysis' | string
+  generated_at?: string | null
+  ml: MlResult | null
+  explanation: ShapExplanation | null
+  forensic_summary: ForensicSummary | null
+}
+
+export interface MlStatus {
+  status: ComponentStatus
+  reason?: string
+  model_version?: string
+  trained_classes?: string[]
+  untrained_classes?: string[]
+  components?: string[]
+  ensemble_weights?: Record<string, number>
+}
+
+export interface LlmStatus {
+  status: ComponentStatus
+  reason?: string
+  model?: string
+  digest?: string
+  local_only?: boolean
+  timeout_seconds?: number
+}
+
+export async function getMlStatus(signal?: AbortSignal): Promise<MlStatus> {
+  return request<MlStatus>(`/api/v1/ml/status`, { signal })
+}
+
+export async function getLlmStatus(signal?: AbortSignal): Promise<LlmStatus> {
+  return request<LlmStatus>(`/api/v1/llm/status`, { signal })
+}
+
+/** Stored assessment, or null when it has never been generated for this analysis. */
+export async function getAssessment(id: string, signal?: AbortSignal): Promise<Assessment | null> {
+  try {
+    return await request<Assessment>(`/api/v1/analyses/${encodeURIComponent(id)}/assessment`, { signal })
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404 && err.code === 'ASSESSMENT_NOT_GENERATED') return null
+    throw err
+  }
+}
+
+/** (Re)generate for a stored analysis. ML/SHAP need retained bytes (see hash_only). */
+export async function generateAssessment(id: string, signal?: AbortSignal): Promise<Assessment> {
+  return request<Assessment>(`/api/v1/analyses/${encodeURIComponent(id)}/forensic-summary`, {
+    method: 'POST',
+    signal,
+  })
+}
+
+/** Upload + full analysis + ML/SHAP on the in-memory bytes + local-LLM summary. */
+export async function uploadEmlWithAssessment(file: File, signal?: AbortSignal): Promise<Assessment> {
+  const form = new FormData()
+  form.append('file', file, file.name)
+  return request<Assessment>(`/api/v1/llm/forensic-summary`, { method: 'POST', body: form, signal })
+}

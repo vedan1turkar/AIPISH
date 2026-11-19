@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { uploadEml, ApiError, type AnalysisDetail } from '../api/client'
+import { uploadEml, uploadEmlWithAssessment, getAnalysis, ApiError, type AnalysisDetail } from '../api/client'
 import { ErrorAlert, Spinner } from './ui'
 
 const MAX_MB = 10
@@ -25,6 +25,9 @@ export default function UploadPage({
   const [status, setStatus] = useState<'idle' | 'uploading' | 'analyzing'>('idle')
   const [error, setError] = useState<{ message: string; code?: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Opt-in: ML + SHAP must read the original bytes, which the default hash_only
+  // policy discards after this request, so they can only run at upload time.
+  const [runAi, setRunAi] = useState(false)
 
   function pickFile(file: File | null | undefined) {
     setError(null)
@@ -44,7 +47,9 @@ export default function UploadPage({
     setError(null)
     try {
       setStatus('analyzing')
-      const detail = await uploadEml(selectedFile)
+      const detail = runAi
+        ? await getAnalysis((await uploadEmlWithAssessment(selectedFile)).analysis_id)
+        : await uploadEml(selectedFile)
       onAnalyzed(detail)
       pickFile(null)
       if (inputRef.current) inputRef.current.value = ''
@@ -117,6 +122,23 @@ export default function UploadPage({
             </div>
           )}
 
+          <label className="mt-4 flex items-start gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={runAi}
+              onChange={(e) => setRunAi(e.target.checked)}
+              disabled={status === 'uploading' || status === 'analyzing'}
+            />
+            <span>
+              Run AI assessment: ML classification, SHAP explanation and a local Mistral forensic summary
+              <span className="block text-xs text-gray-400">
+                This adds about one minute. It runs on this backend's local models, and no email data leaves
+                the server. ML and SHAP can only run now, while the original bytes are available.
+              </span>
+            </span>
+          </label>
+
           <button
             onClick={submit}
             disabled={!selectedFile || status === 'uploading' || status === 'analyzing'}
@@ -141,7 +163,9 @@ export default function UploadPage({
               <p className="mt-2 text-center text-xs text-gray-400">
                 {status === 'uploading'
                   ? 'Uploading the .eml to the backend…'
-                  : 'Running header forensics, authentication checks and scoring…'}
+                  : runAi
+                    ? 'Running forensics, scoring, ML and SHAP, then the local language model (about 1 minute)…'
+                    : 'Running header forensics, authentication checks and scoring…'}
               </p>
             </div>
           )}

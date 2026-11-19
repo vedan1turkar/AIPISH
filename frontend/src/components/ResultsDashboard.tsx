@@ -1,11 +1,18 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import type { AnalysisDetail } from '../api/client'
 import {
   createInvestigation,
   downloadReport,
+  generateAssessment,
+  getAssessment,
+  getLlmStatus,
+  getMlStatus,
   verifyIntegrity,
+  type Assessment,
   type InvestigationCase,
   type IntegrityResult,
+  type LlmStatus,
+  type MlStatus,
 } from '../api/client'
 import {
   ErrorAlert,
@@ -21,8 +28,9 @@ import {
 } from './ui'
 import { HeaderForensicsPanel, AnomaliesPanel, IntelligenceDetailsPanel } from './ForensicsPanels'
 import TraceView from './trace/TraceView'
+import { AssessmentOverviewCard, AssessmentView } from './assessment/AssessmentPanels'
 
-type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'trace'
+type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'trace' | 'ai'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'overview', label: 'Overview', icon: '📋' },
@@ -31,6 +39,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'headers', label: 'Headers & relay', icon: '🔀' },
   { id: 'intel', label: 'IP & domain intel', icon: '🌐' },
   { id: 'trace', label: 'Trace view', icon: '🕸️' },
+  { id: 'ai', label: 'AI assessment', icon: '🤖' },
 ]
 
 export default function ResultsDashboard({
@@ -49,6 +58,44 @@ export default function ResultsDashboard({
   const [integrityError, setIntegrityError] = useState<string | null>(null)
   const [pdfBusy, setPdfBusy] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
+  const [assessment, setAssessment] = useState<Assessment | null>(null)
+  const [assessmentLoading, setAssessmentLoading] = useState(true)
+  const [assessmentError, setAssessmentError] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
+  const [mlStatus, setMlStatus] = useState<MlStatus | null>(null)
+  const [llmStatus, setLlmStatus] = useState<LlmStatus | null>(null)
+
+  // One stored assessment feeds the AI tab, the overview card and the PDF.
+  useEffect(() => {
+    const ctl = new AbortController()
+    setAssessment(null)
+    setAssessmentError(null)
+    setAssessmentLoading(true)
+    getAssessment(analysis.id, ctl.signal)
+      .then(setAssessment)
+      .catch((err) => {
+        if (!(err instanceof DOMException && err.name === 'AbortError'))
+          setAssessmentError(err instanceof Error ? err.message : 'request failed')
+      })
+      .finally(() => setAssessmentLoading(false))
+    getMlStatus(ctl.signal).then(setMlStatus).catch(() => setMlStatus(null))
+    getLlmStatus(ctl.signal).then(setLlmStatus).catch(() => setLlmStatus(null))
+    return () => ctl.abort()
+  }, [analysis.id])
+
+  const handleGenerate = useCallback(async () => {
+    setGenerating(true)
+    setGenerateError(null)
+    try {
+      setAssessment(await generateAssessment(analysis.id))
+      setAssessmentError(null)
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : 'Generation failed.')
+    } finally {
+      setGenerating(false)
+    }
+  }, [analysis.id])
 
   async function ensureCase(): Promise<InvestigationCase> {
     if (caseInfo) return caseInfo
@@ -167,6 +214,13 @@ export default function ResultsDashboard({
           integrityBusy={integrityBusy}
           integrityError={integrityError}
           onIntegrityCheck={handleIntegrityCheck}
+          assessmentCard={
+            <AssessmentOverviewCard
+              assessment={assessment}
+              loading={assessmentLoading}
+              onOpen={() => setTab('ai')}
+            />
+          }
         />
       )}
       {tab === 'findings' && <FindingsTab analysis={analysis} />}
@@ -174,6 +228,18 @@ export default function ResultsDashboard({
       {tab === 'headers' && <HeadersTab analysis={analysis} />}
       {tab === 'intel' && <IntelTab analysis={analysis} />}
       {tab === 'trace' && <TraceView analysis={analysis} />}
+      {tab === 'ai' && (
+        <AssessmentView
+          assessment={assessment}
+          loading={assessmentLoading}
+          error={assessmentError}
+          generating={generating}
+          generateError={generateError}
+          onGenerate={handleGenerate}
+          mlStatus={mlStatus}
+          llmStatus={llmStatus}
+        />
+      )}
     </div>
   )
 }
@@ -188,6 +254,7 @@ function OverviewTab({
   integrityBusy,
   integrityError,
   onIntegrityCheck,
+  assessmentCard,
 }: {
   analysis: AnalysisDetail
   caseInfo: InvestigationCase | null
@@ -197,6 +264,7 @@ function OverviewTab({
   integrityBusy: boolean
   integrityError: string | null
   onIntegrityCheck: () => void
+  assessmentCard: ReactNode
 }) {
   const d = analysis.detection
   const f = analysis.forensics
@@ -284,6 +352,7 @@ function OverviewTab({
 
       {/* side column */}
       <div className="space-y-4">
+        {assessmentCard}
         <Panel title="Investigation case">
           {caseInfo ? (
             <>

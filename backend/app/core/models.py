@@ -120,3 +120,20 @@ class AuditEvent(Base):
     case_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class AnalysisAssessment(Base):
+    """Latest ML + SHAP + local-LLM assessment for one analysis (P4).
+
+    Stored once when it is generated so the dashboard and the PDF report show
+    the same result (the LLM takes ~1 min and is never re-run for a report).
+    Holds derived results only — never raw email bytes.
+    """
+    __tablename__ = "analysis_assessment"
+
+    analysis_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    source: Mapped[str] = mapped_column(String(24))   # upload | stored_analysis
+    ml_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    explanation_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    summary_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

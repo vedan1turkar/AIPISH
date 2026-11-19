@@ -82,6 +82,7 @@ def build_report_pdf(
     integrity: dict,
     report_id: str,
     generated_at: str | None = None,
+    assessment: dict | None = None,
 ) -> bytes:
     """Builds the full PDF. Returns bytes; raises nothing — caller handles."""
     generated_at = generated_at or datetime.now(timezone.utc).isoformat()
@@ -299,8 +300,11 @@ def build_report_pdf(
     if enr.get("degraded"):
         story.append(Paragraph("<b>Degraded providers:</b> " + esc("; ".join(enr["degraded"][:5])), CAVEAT))
 
+    # ── 8. ML, SHAP and AI-assisted interpretation (P4) ──────────────────
+    _assessment_section(story, assessment)
+
     # ── 9. Confidence + limitations ───────────────────────────────────────
-    story.append(Paragraph("8. Confidence & Limitations", H2))
+    story.append(Paragraph("9. Confidence & Limitations", H2))
     for line in [
         "<b>Attribution and geolocation are investigative indicators, not proof</b> of any "
         "person's identity or physical location; an IP identifies network infrastructure only.",
@@ -329,3 +333,158 @@ def build_report_pdf(
 
     doc.build(story)
     return buf.getvalue()
+
+
+# ── ML / SHAP / local-LLM section ─────────────────────────────────────────
+AI_STATUS_TEXT = {
+    "ok": "completed",
+    "unavailable": "UNAVAILABLE — did not run",
+    "timeout": "TIMED OUT — no output",
+    "invalid_output": "INVALID OUTPUT — rejected, nothing shown",
+    "error": "ERROR — did not complete",
+    "not_applicable": "NOT APPLICABLE — message outside model scope",
+}
+
+
+def _status_line(label: str, block: dict | None) -> Paragraph:
+    status = (block or {}).get("status") or "missing"
+    text = AI_STATUS_TEXT.get(status, f"{status.upper()} — not reported")
+    reason = (block or {}).get("reason")
+    extra = f" — {esc(reason)}" if reason and status != "ok" else ""
+    return Paragraph(f"<b>{esc(label)}:</b> {esc(text)}{extra}", BODY)
+
+
+def _grid(rows: list, widths: list) -> Table:
+    t = Table(rows, colWidths=widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8e8e8")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    return t
+
+
+def _num(v: Any, fmt: str = "{:.4f}") -> str:
+    return fmt.format(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else "n/a"
+
+
+def _assessment_section(story: list, a: dict | None) -> None:
+    story.append(Paragraph("8. ML Classification, SHAP and AI-Assisted Interpretation", H2))
+    story.append(Paragraph(
+        "These components are separate from, and do not replace, the 18-rule verdict above. "
+        "Each block states whether it actually ran.", CAVEAT))
+    if not a:
+        story.append(Paragraph("No ML / SHAP / AI assessment has been generated for this analysis; "
+                               "none of these components are reported.", BODY))
+        return
+    story.append(Paragraph(f"Assessment generated {esc(a.get('generated_at') or 'at an unknown time')} "
+                           f"(source: {esc(a.get('source') or 'unknown')}).", BODY))
+
+    # 8.1 ML
+    ml = a.get("ml") or {}
+    story.append(Paragraph("<b>8.1 ML classification</b>", BODY))
+    story.append(_status_line("Classifier", ml))
+    if ml.get("status") == "ok":
+        story.append(_kv_table([
+            ("Predicted class", "<b>%s</b>" % esc(ml.get("label"))),
+            ("Ensemble score", esc(_num(ml.get("confidence"))) + " (model probability for the predicted "
+             "class; uncalibrated, not a certainty)"),
+            ("Model version", esc(ml.get("model_version"))),
+            ("Never-predicted classes", esc(", ".join(ml.get("untrained_classes") or []) or "none")),
+        ]))
+        probs = ml.get("probabilities") or {}
+        if probs:
+            rows = [[Paragraph("<b>Class</b>", BODY), Paragraph("<b>Score</b>", BODY)]]
+            rows += [[Paragraph(esc(k), BODY), Paragraph(esc(_num(v)), BODY)] for k, v in probs.items()]
+            story.append(_grid(rows, [60 * mm, 30 * mm]))
+
+    # 8.2 SHAP
+    ex = a.get("explanation") or {}
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("<b>8.2 SHAP feature contributions</b>", BODY))
+    story.append(_status_line("Explanation", ex))
+    comps = ex.get("components") or {}
+    if ex.get("status") == "ok" and comps:
+        for name, c in comps.items():
+            story.append(Paragraph(
+                f"Component <b>{esc(name)}</b> ({esc(c.get('explainer'))}, ensemble weight "
+                f"{esc(_num(c.get('ensemble_weight'), '{:.2f}'))}) toward class "
+                f"<b>{esc(ex.get('explained_label'))}</b>; output space: {esc(c.get('output_space'))}; "
+                f"base {esc(_num(c.get('base_value')))} → output {esc(_num(c.get('output_value')))}; "
+                f"additivity check {'passed' if c.get('additivity_ok') else 'FAILED'}.", BODY))
+            rows = [[Paragraph(h, BODY) for h in ("<b>Feature</b>", "<b>Group</b>", "<b>Value</b>",
+                                                   "<b>SHAP</b>", "<b>Direction</b>")]]
+            for r in (c.get("top_contributions") or []) + (c.get("aggregated") or []):
+                rows.append([Paragraph(esc(r.get("feature")), MONO), Paragraph(esc(r.get("group")), BODY),
+                             Paragraph(esc(r.get("value") if r.get("value") is not None
+                                           else (r.get("detail") or "")), BODY),
+                             Paragraph(esc(_num(r.get("shap_value"), "{:+.4f}")), BODY),
+                             Paragraph(esc(r.get("direction") or "aggregate"), BODY)])
+            story.append(_grid(rows, [45 * mm, 24 * mm, 50 * mm, 20 * mm, 21 * mm]))
+    for ne in ex.get("not_explained") or []:
+        story.append(Paragraph(f"Not explained: <b>{esc(ne.get('component'))}</b> — {esc(ne.get('reason'))}",
+                               CAVEAT))
+    story.append(Paragraph(
+        "SHAP covers only the explained component(s) listed above (the XGBoost half of the served "
+        "ensemble); it does not explain the DistilRoBERTa component or the ensemble as a whole.", CAVEAT))
+    if ex.get("disclaimer"):
+        story.append(Paragraph(esc(ex["disclaimer"]), CAVEAT))
+
+    # 8.3 LLM
+    fs = a.get("forensic_summary") or {}
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("<b>8.3 AI-generated forensic interpretation (local LLM)</b>", BODY))
+    model = fs.get("model") or {}
+    story.append(Paragraph(
+        "<b>AI-GENERATED INTERPRETATION.</b> " + esc(fs.get("label") or "Produced by a language model; "
+        "may be wrong.") + " It never replaces the rule-engine or ML verdicts.", CAVEAT))
+    story.append(_status_line("Summary", fs))
+    if model:
+        story.append(Paragraph(f"Model: {esc(model.get('provider'))} / {esc(model.get('name'))} "
+                               f"(digest {esc(str(model.get('digest') or 'n/a')[:12])}, local: "
+                               f"{esc(model.get('local'))})", BODY))
+    if fs.get("status") == "ok":
+        if fs.get("summary"):
+            story.append(Paragraph("<b>Summary:</b> " + esc(fs["summary"]).replace("\n", "<br/>"), BODY))
+        else:
+            story.append(Paragraph("Summary withheld: it failed evidence validation.", CAVEAT))
+        if fs.get("assessment"):
+            story.append(Paragraph("<b>Assessment:</b> " + esc(fs["assessment"]), BODY))
+        findings = fs.get("findings") or []
+        if findings:
+            rows = [[Paragraph(h, BODY) for h in ("<b>#</b>", "<b>Finding</b>", "<b>Basis</b>",
+                                                   "<b>Evidence</b>")]]
+            for i, f in enumerate(findings, 1):
+                basis = "VERIFIED" if f.get("basis") == "verified" else "INFERRED"
+                rows.append([Paragraph(str(i), BODY), Paragraph(esc(f.get("statement")), BODY),
+                             Paragraph(f"<b>{basis}</b>", BODY),
+                             Paragraph(esc(", ".join(f.get("evidence_ids") or [])), MONO)])
+            story.append(_grid(rows, [8 * mm, 112 * mm, 20 * mm, 20 * mm]))
+        else:
+            story.append(Paragraph("No findings passed validation.", BODY))
+        rejected = fs.get("rejected_findings") or []
+        if rejected:
+            story.append(Paragraph("<b>Rejected by validation (not evidence):</b>", BODY))
+            for r in rejected:
+                story.append(Paragraph(f"• {esc(r.get('statement'))} — <i>{esc(r.get('reason'))}</i>", CAVEAT))
+        for title, key in (("Recommended actions", "recommended_actions"), ("Model-stated limitations", "limitations")):
+            items = fs.get(key) or []
+            if items:
+                story.append(Paragraph(f"<b>{title}:</b>", BODY))
+                for x in items:
+                    story.append(Paragraph("• " + esc(x), BODY))
+    unavailable = fs.get("unavailable_information") or []
+    if unavailable:
+        story.append(Paragraph("<b>Checks unavailable to the interpretation (not passed):</b>", BODY))
+        for u in unavailable:
+            story.append(Paragraph(f"• {esc(u.get('check'))}: {esc(u.get('reason'))}", CAVEAT))
+    evidence = fs.get("evidence") or []
+    if evidence:
+        story.append(Paragraph("<b>Evidence items cited above</b> (deterministic, produced by the pipeline — "
+                               "not by the LLM)", BODY))
+        rows = [[Paragraph(h, BODY) for h in ("<b>ID</b>", "<b>Category</b>", "<b>Source</b>", "<b>Statement</b>")]]
+        for e in evidence:
+            rows.append([Paragraph(esc(e.get("id")), MONO), Paragraph(esc(e.get("category")), BODY),
+                         Paragraph(esc(e.get("source")), MONO), Paragraph(esc(e.get("statement")), BODY)])
+        story.append(_grid(rows, [12 * mm, 20 * mm, 38 * mm, 110 * mm]))

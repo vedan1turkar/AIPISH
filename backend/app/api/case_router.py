@@ -103,6 +103,14 @@ def evidence_integrity(case_id: str, analysis_id: str, db: Session = Depends(get
     return {"analysis_id": analysis_id, "sha256_recorded": rec.raw_sha256, **result}
 
 
+def _assessment_for(db: Session, analysis_id: str) -> dict | None:
+    """The same stored ML/SHAP/LLM assessment the dashboard shows (never re-run here)."""
+    from app.api.llm_router import assessment_dict
+    from app.core.models import AnalysisAssessment
+    row = db.get(AnalysisAssessment, analysis_id)
+    return assessment_dict(row) if row else None
+
+
 @router.get("/{case_id}/report/{analysis_id}")
 def report_pdf(
     case_id: str,
@@ -152,6 +160,7 @@ def report_pdf(
         enrichment=rec.enrichment_json or {},
         integrity=integrity,
         report_id=report_id,
+        assessment=_assessment_for(db, rec.id),
     )
     record_audit(db, "report_generated", analysis_id=rec.id, case_id=case.id,
                  detail={"report_id": report_id, "size_bytes": len(pdf)})
