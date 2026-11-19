@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.errors import generic_error_handler, http_error_handler, validation_error_handler
 from app.api.case_router import router as case_router
 from app.api.ml_router import router as ml_router
+from app.api.llm_router import router as llm_router
 from app.api.router import router
 from app.core.config import get_settings
 from app.core.db import Base, engine
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(router, prefix="/api/v1")
     app.include_router(case_router, prefix="/api/v1")
     app.include_router(ml_router, prefix="/api/v1")
+    app.include_router(llm_router, prefix="/api/v1")
     return app
 
 
