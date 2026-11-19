@@ -34,6 +34,11 @@ def create_app() -> FastAPI:
 
     # Create tables on startup (SQLite-friendly for the MVP).
     Base.metadata.create_all(bind=engine)
+    # Additive, idempotent migration of P4 assessments into versioned history.
+    from app.core.db import SessionLocal
+    from app.core.models import migrate_assessments
+    with SessionLocal() as db:
+        migrate_assessments(db)
 
     # Uniform error envelope for every non-2xx.
     app.add_exception_handler(RequestValidationError, validation_error_handler)

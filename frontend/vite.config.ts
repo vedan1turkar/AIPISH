@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000',
           changeOrigin: true,
+          // Local AI assessments (ML + SHAP + Mistral) can take 1-2+ minutes; never cut
+          // a valid request short. LLM_TIMEOUT_SECONDS bounds each model call server-side.
+          timeout: 600_000,
+          proxyTimeout: 600_000,
         },
       },
     },

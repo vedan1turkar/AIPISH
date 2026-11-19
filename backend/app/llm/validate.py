@@ -154,10 +154,15 @@ def validate(data: dict, pack: EvidencePack) -> dict:
                 flags.append({"field": "recommended_actions", "problems": p, "text": act.strip()[:200]})
             else:
                 actions.append(act.strip()[:300])
+    from app.llm.recommend import ground
+    recommendations, rejected_recs = ground(actions, pack)
+    actions = [r["text"] for r in recommendations if r["origin"] == "model"]
     limitations = [x.strip()[:300] for x in data["limitations"][:8]
                    if isinstance(x, str) and not check_text(x, pack)]
     return {"summary": summary, "assessment": assessment, "findings": accepted,
-            "rejected_findings": rejected, "recommended_actions": actions, "limitations": limitations,
+            "rejected_findings": rejected, "recommended_actions": actions,
+            "recommendations": recommendations, "rejected_recommendations": rejected_recs,
+            "limitations": limitations,
             "validation": {"summary_accepted": summary is not None, "assessment_accepted": assessment is not None,
                            "findings_accepted": len(accepted), "findings_rejected": len(rejected),
                            "basis_downgraded": downgraded, "flags": flags}}

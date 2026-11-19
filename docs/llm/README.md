@@ -25,7 +25,17 @@ An AI-generated narrative is layered on top of the deterministic pipeline. The p
 |---|---|
 | `GET /llm/status` | Ollama reachability, model name and digest |
 | `POST /llm/forensic-summary` (multipart `file`) | Runs and stores the normal analysis, then ML, SHAP and the LLM summary on the same bytes |
-| `POST /analyses/{id}/forensic-summary` | Summary for a stored analysis. ML and SHAP need the raw bytes, so under the default `hash_only` evidence policy they are reported as unavailable |
+| `POST /analyses/{id}/forensic-summary` | Summary for a stored analysis. ML and SHAP need the raw bytes, so under the default `hash_only` evidence policy they are reported as unavailable, unless an earlier version already has them (then they are reused and `ml.reused_from_assessment` names the source version) |
+| `GET /analyses/{id}/assessment` | The latest stored assessment version |
+| `GET /analyses/{id}/assessments` | Assessment history, newest first |
+| `GET /analyses/{id}/assessments/{assessment_id}` | One stored version |
+| `GET /investigations/{case}/report/{id}?assessment_id=…` | PDF pinned to one assessment version. Without the parameter, the latest version is used, and the PDF identifies it |
+
+**History (P4.1).**
+- Every generation appends a new version, with its own id, version number, timestamp and source. Earlier versions are never updated.
+- P4 single-row assessments are copied once into the versioned table at startup. The copy is idempotent, and the legacy table is left untouched.
+- While a generation for an analysis is running, a second request gets `409 ASSESSMENT_IN_PROGRESS`.
+- This is application-level history, not tamper-proof storage.
 
 The response is `{analysis_id, ml, explanation, forensic_summary}`. `forensic_summary` contains:
 
@@ -33,6 +43,11 @@ The response is `{analysis_id, ml, explanation, forensic_summary}`. `forensic_su
   - `status`: one of `ok`, `unavailable`, `timeout`, `invalid_output`.
   - `ai_generated: true`, and a `label` marking the text as an AI interpretation.
   - `model`: provider, name, digest and `local`.
+- **Recommendations (P4.1):** `recommendations` items are tagged by kind:
+  - `evidence_linked`: has cited `evidence_ids`.
+  - `general` (`origin` model or system): not established by a specific evidence item.
+
+  `rejected_recommendations` lists model recommendations that asserted an email detail (a phone number, supplier, approval code …) that no deterministic evidence item establishes. `recommended_actions` keeps the accepted model texts for compatibility.
 - **The model's validated output:**
   - `summary` and `assessment`: set to null if they fail validation.
   - `findings`: each has a `statement`, cited `evidence_ids`, `evidence_categories`, and a `basis` of `verified` or `inferred`.
@@ -67,5 +82,7 @@ The input is [`sample_bec_injection.eml`](sample_bec_injection.eml). It is synth
 - **Speed.** About 40–60 s per summary on an M4 with 16 GB, using Mistral 7B Q4.
 - **Wording.** The model can still misstate details. In the example it called the high-severity credential-request finding "medium severity". Always check the cited evidence items.
 - **Validation is pattern-based.** It catches the hallucinations it was designed for (unknown entities, false passes, unwarranted "safe" verdicts), but not every wrong statement.
-- **Personal names.** Names inside the body excerpt, such as the recipient's first name, are not redacted, because there is no named-entity recognition.
+- **Personal names (partly addressed in P4.1).** Names taken from the message's own From/To/Cc headers are redacted in the body text, as are single names directly after a greeting or on the line after a sign-off. Recipients become `[RECIPIENT_NAME]` and the sender `[SENDER_NAME]`. Other names in the body, such as third parties, are **not** detected, because there is no local NER model, and may reach the local model. The sender's display name is kept in evidence item E1, because it is a sender-controlled header that impersonation analysis needs.
+- **Recommendation grounding is keyword-based.** A recommendation that names an artefact absent from the evidence, with assertive wording ("the phone number provided"), is rejected. Neutral advice is kept as general. Subtle unsupported claims can still pass.
+- **SHAP scope.** SHAP explains only the XGBoost component. When its raw margin moves away from the predicted class while the ensemble still predicts it, the dashboard, PDF and evidence item say so, quoting each component's probability.
 - **Injection detection** uses known phrasing. Novel wording may go undetected, but it remains fenced, and the output validation still applies.

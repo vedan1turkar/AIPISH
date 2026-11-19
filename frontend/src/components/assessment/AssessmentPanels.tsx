@@ -1,5 +1,14 @@
 import { useState, type ReactNode } from 'react'
-import type { Assessment, ForensicSummary, LlmStatus, MlStatus, ShapExplanation, MlResult } from '../../api/client'
+import type {
+  Assessment,
+  AssessmentSummary,
+  ForensicSummary,
+  LlmStatus,
+  MlStatus,
+  ShapExplanation,
+  MlResult,
+  Recommendation,
+} from '../../api/client'
 import { EmptyState, ErrorAlert, Panel, Spinner, StatusBadge, formatDate } from '../ui'
 import {
   basisKind,
@@ -11,6 +20,9 @@ import {
   formatScore,
   isHashOnly,
   mlView,
+  PRIVACY_NOTE,
+  recommendationGroups,
+  shapComponentView,
   shapCoverage,
   shapRows,
   type ComponentState,
@@ -48,12 +60,42 @@ const HASH_ONLY_NOTE =
   '(only the SHA-256 is stored). The ML classifier and SHAP must read the original bytes, so they cannot ' +
   'run on this stored analysis. To include them, upload the .eml again with "Run AI assessment" selected.'
 
-function scrollToEvidence(id: string) {
+/** Scroll to, focus and briefly highlight an evidence row. Never changes the URL. */
+export function scrollToEvidence(id: string): boolean {
   const el = document.getElementById(`evidence-${id}`)
-  if (!el) return
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (!el) return false
+  el.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+  el.focus({ preventScroll: true })
   el.classList.add('ring-2', 'ring-indigo-400')
-  window.setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-400'), 1600)
+  el.setAttribute('data-highlighted', 'true')
+  window.setTimeout(() => {
+    el.classList.remove('ring-2', 'ring-indigo-400')
+    el.removeAttribute('data-highlighted')
+  }, 1600)
+  return true
+}
+
+function EvidenceChip({ id, title }: { id: string; title: string }) {
+  return (
+    <a
+      href={`#evidence-${id}`}
+      onClick={(e) => {
+        e.preventDefault()
+        scrollToEvidence(id)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault() // handled here once; also stops Enter from navigating
+          scrollToEvidence(id)
+        }
+      }}
+      title={title}
+      aria-label={`Go to evidence ${id}`}
+      className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+    >
+      {id}
+    </a>
+  )
 }
 
 // ── A. ML classification ──────────────────────────────────────────────────
@@ -120,7 +162,7 @@ export function MlPanel({ ml, mlStatus }: { ml: MlResult | null | undefined; mlS
 }
 
 // ── B. SHAP ───────────────────────────────────────────────────────────────
-export function ShapPanel({ explanation }: { explanation: ShapExplanation | null | undefined }) {
+export function ShapPanel({ explanation, ml }: { explanation: ShapExplanation | null | undefined; ml?: MlResult | null }) {
   const state = componentState(explanation)
   const cov = shapCoverage(explanation)
   const comps = Object.entries(explanation?.components ?? {})
@@ -132,14 +174,21 @@ export function ShapPanel({ explanation }: { explanation: ShapExplanation | null
             {cov.sentence}
             {!cov.notExplained.some((n) => n.component === 'transformer') && ' SHAP does not explain the DistilRoBERTa component.'}
           </p>
-          {comps.map(([name, c]) => (
-            <div key={name} className="mt-3">
+          {comps.map(([name, c]) => {
+            const v = shapComponentView(name, c, explanation?.explained_label, ml)
+            return (
+            <div key={name} className="mt-3" data-testid={`shap-component-${name}`}>
               <p className="text-xs text-gray-500">
-                <strong>{componentName(name)}</strong> ({c.explainer}) toward class{' '}
-                <strong>{explanation?.explained_label ?? 'not reported'}</strong> · {c.output_space} · base{' '}
-                {formatScore(c.base_value)} → output {formatScore(c.output_value)} · additivity check{' '}
-                {c.additivity_ok ? 'passed' : 'FAILED'}
+                <strong>{componentName(name)}</strong> ({c.explainer}) for class{' '}
+                <strong>{explanation?.explained_label ?? 'not reported'}</strong>. Values are in the raw-margin space
+                ({c.output_space}); they are not probabilities.
               </p>
+              <p className="mt-1 text-xs text-gray-700" data-testid="shap-net">{v.netSentence}</p>
+              {v.divergenceNote && (
+                <p className="mt-1 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="shap-divergence">
+                  <strong>Why the ensemble still predicts this class:</strong> {v.divergenceNote}
+                </p>
+              )}
               <div className="mt-2 grid grid-cols-[minmax(8rem,14rem)_1fr_1fr_4.5rem] items-center gap-x-2 gap-y-1 text-xs">
                 <span className="font-semibold text-gray-500">Feature (value)</span>
                 <span className="text-right font-semibold text-blue-700">← away from class</span>
@@ -148,9 +197,27 @@ export function ShapPanel({ explanation }: { explanation: ShapExplanation | null
                 {shapRows(c).map((r) => (
                   <ShapBar key={r.feature} row={r} />
                 ))}
+                {v.hasRemainder && v.remainder !== undefined && (
+                  <>
+                    <span className="italic text-gray-500">other features (not listed)</span>
+                    <span />
+                    <span />
+                    <span className="text-right font-mono text-gray-700">
+                      {v.remainder > 0 ? '+' : ''}
+                      {v.remainder.toFixed(3)}
+                    </span>
+                  </>
+                )}
               </div>
+              <p className="mt-2 text-xs text-gray-500" data-testid="shap-additivity">
+                Additivity: base {formatScore(v.base)} + sum of contributions{' '}
+                {formatScore(v.shownSum + (v.hasRemainder ? (v.remainder ?? 0) : 0))} = output {formatScore(v.output)}{' '}
+                (check {v.displayedAdditivityOk || v.hasRemainder ? 'passed' : 'FAILED'}; backend check{' '}
+                {c.additivity_ok ? 'passed' : 'FAILED'}).
+              </p>
             </div>
-          ))}
+            )
+          })}
           {cov.notExplained.length > 0 && (
             <ul className="mt-3 space-y-0.5 text-xs text-gray-500">
               {cov.notExplained.map((n) => (
@@ -184,9 +251,13 @@ function ShapBar({ row }: { row: ReturnType<typeof shapRows>[number] }) {
     ) : null
   return (
     <>
-      <span className={`truncate ${row.aggregated ? 'italic text-gray-500' : 'text-gray-800'}`} title={row.value}>
+      <span className={row.aggregated ? 'break-words italic text-gray-500' : 'truncate text-gray-800'} title={row.value}>
         <span className="font-mono">{row.feature}</span>
-        {row.value !== '' && <span className="text-gray-400"> ({row.value})</span>}
+        {row.aggregated ? (
+          <span className="text-gray-400"> (aggregate of {row.value || 'components'}; not an individual word or phrase)</span>
+        ) : (
+          row.value !== '' && <span className="text-gray-400"> ({row.value})</span>
+        )}
       </span>
       <div data-direction={row.shap < 0 ? 'away' : 'toward'}>{bar('away')}</div>
       <div>{bar('toward')}</div>
@@ -267,18 +338,7 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
                     <div className="mt-1 flex flex-wrap gap-1" aria-label="Cited evidence">
                       {findingRefs(f, index).map((ref) =>
                         ref.item ? (
-                          <a
-                            key={ref.id}
-                            href={`#evidence-${ref.id}`}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              scrollToEvidence(ref.id)
-                            }}
-                            title={ref.item.statement}
-                            className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-indigo-700 hover:bg-indigo-50"
-                          >
-                            {ref.id}
-                          </a>
+                          <EvidenceChip key={ref.id} id={ref.id} title={ref.item.statement} />
                         ) : (
                           <span key={ref.id} className="rounded bg-red-50 px-1.5 py-0.5 font-mono text-[11px] text-red-700">
                             {ref.id} (not in evidence list)
@@ -306,7 +366,7 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
               </ul>
             </details>
           )}
-          <BulletList title="Recommended actions (suggested by the model)" items={fs?.recommended_actions} />
+          <Recommendations fs={fs} index={index} />
           <BulletList title="Limitations (stated by the model)" items={fs?.limitations} />
           {(fs?.validation?.flags ?? []).length > 0 && (
             <BulletList
@@ -317,6 +377,7 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
         </div>
       )}
 
+      <p className="mt-4 text-xs text-gray-500" data-testid="privacy-note">{PRIVACY_NOTE}</p>
       {(fs?.security?.injection_patterns_detected ?? []).length > 0 && (
         <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-xs text-red-800" data-testid="injection-warning">
           The email contains text that looks like a prompt-injection attempt (
@@ -332,6 +393,67 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
         </p>
       )}
     </Panel>
+  )
+}
+
+function Recommendations({ fs, index }: { fs: ForensicSummary | null | undefined; index: Map<string, unknown> }) {
+  const g = recommendationGroups(fs)
+  if (!g.graded)
+    return (
+      <BulletList
+        title="Recommended actions (model; generated before recommendation grounding, not checked against the evidence)"
+        items={g.legacy}
+      />
+    )
+  const item = (r: Recommendation, i: number) => (
+    <li key={i} data-testid={`rec-${r.kind}`}>
+      {r.text}
+      {r.kind === 'general' && <span className="ml-1 text-xs text-gray-400">({r.origin === 'system' ? 'system' : 'model'})</span>}
+      {r.evidence_ids.length > 0 && (
+        <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">
+          {r.evidence_ids.map((id) =>
+            index.has(id) ? <EvidenceChip key={id} id={id} title="Cited evidence" /> : (
+              <span key={id} className="rounded bg-red-50 px-1.5 py-0.5 font-mono text-[11px] text-red-700">{id} (not in evidence list)</span>
+            ),
+          )}
+        </span>
+      )}
+    </li>
+  )
+  return (
+    <section data-testid="recommendations">
+      {g.linked.length > 0 && (
+        <>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Evidence-linked recommendations (model; each relies on the cited items)
+          </h3>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-gray-700">{g.linked.map(item)}</ul>
+        </>
+      )}
+      {g.general.length > 0 && (
+        <>
+          <h3 className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            General investigative recommendations (not established by a specific evidence item)
+          </h3>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-gray-700">{g.general.map(item)}</ul>
+        </>
+      )}
+      {g.rejected.length > 0 && (
+        <details className="mt-3 rounded-md bg-gray-50 px-3 py-2" data-testid="rejected-recommendations">
+          <summary className="cursor-pointer text-xs font-semibold text-gray-600">
+            {g.rejected.length} model recommendation(s) rejected because they assert details the evidence does not establish
+          </summary>
+          <ul className="mt-2 space-y-1 text-xs text-gray-600">
+            {g.rejected.map((r, i) => (
+              <li key={i}>
+                <span className="line-through decoration-gray-400">{r.text}</span>{' '}
+                <span className="text-red-700">({r.reason})</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
   )
 }
 
@@ -365,7 +487,12 @@ export function EvidencePanel({ fs }: { fs: ForensicSummary | null | undefined }
           {evidence.map((e) => {
             const meta = categoryMeta(e.category)
             return (
-              <li key={e.id} id={`evidence-${e.id}`} className="flex flex-wrap items-start gap-2 rounded px-1 py-0.5 text-sm transition-shadow">
+              <li
+                key={e.id}
+                id={`evidence-${e.id}`}
+                tabIndex={-1}
+                className="flex flex-wrap items-start gap-2 rounded px-1 py-0.5 text-sm transition-shadow focus:outline-none"
+              >
                 <span className="w-9 shrink-0 font-mono text-xs text-gray-500">{e.id}</span>
                 <span title={meta.hint} className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset ${meta.className}`}>
                   {meta.label}
@@ -403,6 +530,9 @@ export function AssessmentView({
   onGenerate,
   mlStatus,
   llmStatus,
+  history = [],
+  onSelectVersion,
+  elapsedSeconds = 0,
 }: {
   assessment: Assessment | null
   loading: boolean
@@ -412,9 +542,29 @@ export function AssessmentView({
   onGenerate: () => void
   mlStatus?: MlStatus | null
   llmStatus?: LlmStatus | null
+  history?: AssessmentSummary[]
+  onSelectVersion?: (assessmentId: string) => void
+  elapsedSeconds?: number
 }) {
   const [showStatus, setShowStatus] = useState(false)
   if (loading) return <Spinner label="Loading AI assessment…" />
+  const latestId = history[0]?.assessment_id
+  const viewingOld = Boolean(assessment?.assessment_id && latestId && assessment.assessment_id !== latestId)
+  const generateButton = (label: string, primary: boolean) => (
+    <button
+      onClick={onGenerate}
+      disabled={generating}
+      aria-busy={generating}
+      data-testid="generate-button"
+      className={
+        primary
+          ? 'rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300'
+          : 'rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300'
+      }
+    >
+      {generating ? 'Generating…' : label}
+    </button>
+  )
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-600 shadow-sm">
@@ -441,48 +591,84 @@ export function AssessmentView({
         )}
       </div>
 
+      {generating && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900" role="status" data-testid="generating">
+          <div className="flex items-center gap-2">
+            <Spinner />
+            <span>
+              Generating the AI assessment locally… <strong data-testid="elapsed">{elapsedSeconds}s</strong> elapsed.
+            </span>
+          </div>
+          <p className="mt-1 text-xs">
+            Local analysis usually takes about 1–2 minutes. The backend runs forensics, then ML and SHAP when the
+            original bytes are available, then the local Mistral model. It does not report which stage is running,
+            so no progress percentage is shown. The rule-based analysis on the other tabs stays available.
+          </p>
+        </div>
+      )}
+
       {error && <ErrorAlert message={`Could not load the stored assessment: ${error}`} />}
-      {generateError && <ErrorAlert message={`Generation failed: ${generateError}`} />}
+      {generateError && (
+        <div data-testid="generate-error">
+          <ErrorAlert message={`Generation failed: ${generateError}`} />
+          {!generating && <div className="mt-2">{generateButton('Retry', false)}</div>}
+        </div>
+      )}
 
       {!assessment && !error ? (
         <div className="space-y-3">
           <EmptyState
             icon="🤖"
             title="No AI assessment has been generated for this analysis"
-            hint="You can generate the local-LLM forensic summary now. It takes about a minute. ML and SHAP need the original email bytes, which a stored analysis keeps only under the raw evidence policy."
+            hint="You can generate the local-LLM forensic summary now. It takes about 1–2 minutes. ML and SHAP need the original email bytes, which a stored analysis keeps only under the raw evidence policy."
           />
-          <div className="text-center">
-            <button
-              onClick={onGenerate}
-              disabled={generating}
-              className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              {generating ? 'Generating… (local model, up to ~2 min)' : 'Generate AI forensic summary'}
-            </button>
-          </div>
+          <div className="text-center">{generateButton('Generate AI forensic summary', true)}</div>
         </div>
       ) : assessment ? (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-400">
-            <span>
-              Generated {assessment.generated_at ? formatDate(assessment.generated_at) : 'at an unknown time'} · source{' '}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+            <span data-testid="assessment-version">
+              {assessment.version !== undefined ? `Version v${assessment.version}` : 'Unversioned assessment'}
+              {latestId && assessment.assessment_id === latestId && ' (latest)'} · generated{' '}
+              {assessment.generated_at ? formatDate(assessment.generated_at) : 'at an unknown time'} · source{' '}
               {assessment.source === 'upload'
                 ? 'upload (original bytes available)'
                 : assessment.source === 'stored_analysis'
                   ? 'stored analysis (original bytes not retained unless the evidence policy is raw)'
                   : (assessment.source ?? 'unknown')}
             </span>
-            <button
-              onClick={onGenerate}
-              disabled={generating}
-              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:text-gray-300"
-            >
-              {generating ? 'Regenerating…' : 'Regenerate summary'}
-            </button>
+            <span className="flex items-center gap-2">
+              {history.length > 1 && onSelectVersion && (
+                <label className="flex items-center gap-1">
+                  History
+                  <select
+                    data-testid="version-select"
+                    className="rounded border border-gray-300 bg-white px-1 py-0.5 text-xs"
+                    value={assessment.assessment_id ?? ''}
+                    onChange={(e) => onSelectVersion(e.target.value)}
+                    disabled={generating}
+                  >
+                    {history.map((h, i) => (
+                      <option key={h.assessment_id} value={h.assessment_id}>
+                        v{h.version}
+                        {i === 0 ? ' (latest)' : ''} · {h.generated_at ? formatDate(h.generated_at) : 'unknown time'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {generateButton('Regenerate (new version)', false)}
+            </span>
           </div>
+          {viewingOld && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="old-version-banner">
+              You are viewing an earlier version (v{assessment.version}). The latest is v{history[0]?.version}. A PDF
+              downloaded now will contain this version.
+            </p>
+          )}
           <div className="grid gap-4 lg:grid-cols-2">
             <MlPanel ml={assessment.ml} mlStatus={mlStatus} />
-            <ShapPanel explanation={assessment.explanation} />
+            <ShapPanel explanation={assessment.explanation} ml={assessment.ml} />
           </div>
           <SummaryPanel fs={assessment.forensic_summary} llmStatus={llmStatus} />
           <EvidencePanel fs={assessment.forensic_summary} />

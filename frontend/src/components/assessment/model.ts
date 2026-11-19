@@ -9,6 +9,7 @@ import type {
   EvidenceItem,
   ForensicSummary,
   MlResult,
+  Recommendation,
   ShapComponent,
   ShapExplanation,
   SummaryFinding,
@@ -202,3 +203,100 @@ export function categoryMeta(cat: string) {
 export function formatScore(v: number | undefined): string {
   return typeof v === 'number' && Number.isFinite(v) ? v.toFixed(2) : 'n/a'
 }
+
+// ── P4.1: SHAP component interpretation (mirror of backend app/ml/shap_view.py) ──
+export const ADDITIVITY_TOL = 1e-3
+
+export interface ShapComponentView {
+  name: string
+  base?: number
+  output?: number
+  net?: number
+  direction: 'toward' | 'away' | 'neutral' | 'unknown'
+  netSentence: string
+  divergenceNote: string | null
+  shownSum: number
+  remainder?: number
+  hasRemainder: boolean
+  displayedAdditivityOk: boolean
+}
+
+const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+const fmt4 = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(4)
+
+export function shapComponentView(
+  key: string,
+  c: ShapComponent,
+  explainedLabel: string | undefined,
+  ml: MlResult | null | undefined,
+): ShapComponentView {
+  const name = componentName(key)
+  const base = num(c.base_value)
+  const output = num(c.output_value)
+  const rows = [...(c.top_contributions ?? []), ...(c.aggregated ?? [])].filter((r) => num(r.shap_value) !== undefined)
+  const shownSum = rows.reduce((s, r) => s + r.shap_value, 0)
+  const net = base !== undefined && output !== undefined ? output - base : undefined
+  const remainder = net !== undefined ? net - shownSum : undefined
+  const direction: ShapComponentView['direction'] =
+    net === undefined ? 'unknown' : Math.abs(net) < ADDITIVITY_TOL ? 'neutral' : net > 0 ? 'toward' : 'away'
+  const label = explainedLabel ?? 'the explained class'
+  let netSentence: string
+  if (net === undefined || base === undefined || output === undefined)
+    netSentence = `The net ${name} contribution could not be determined (base or output missing).`
+  else if (direction === 'neutral') netSentence = `The net ${name} contribution to '${label}' is approximately zero.`
+  else
+    netSentence = `Net ${name} contribution: its raw margin for '${label}' moved from ${fmt4(base)} to ${fmt4(output)} (${fmt4(net)}), i.e. ${direction === 'toward' ? 'toward' : 'away from'} '${label}' overall.`
+  let divergenceNote: string | null = null
+  if (direction === 'away' && ml?.label && ml.label === explainedLabel) {
+    const probs = Object.entries(ml.components ?? {})
+      .map(([k, v]) => [k, v?.[label]] as const)
+      .filter(([, v]) => num(v) !== undefined)
+    const detail = probs.length
+      ? ` The ensemble score is a weighted average of component probabilities: ${probs
+          .map(([k, v]) => `${componentName(k)} gave '${label}' ${(v as number).toFixed(4)}`)
+          .join(', ')}${num(ml.confidence) !== undefined ? `, giving the ensemble score ${(ml.confidence as number).toFixed(4)}.` : '.'}`
+      : ''
+    divergenceNote =
+      `For this email the ${name} raw margin for '${label}' ended below its baseline, i.e. its explained contribution moved away from '${label}', yet the whole ensemble still predicts '${label}'. ` +
+      `A margin below baseline is not the same as ${name} rejecting '${label}': it is relative to the model's average output.${detail} ` +
+      'The ensemble also includes DistilRoBERTa, which SHAP does not explain, so these SHAP values do not explain the ensemble prediction.'
+  }
+  return {
+    name,
+    base,
+    output,
+    net,
+    direction,
+    netSentence,
+    divergenceNote,
+    shownSum,
+    remainder,
+    hasRemainder: remainder !== undefined && Math.abs(remainder) >= ADDITIVITY_TOL,
+    displayedAdditivityOk: remainder !== undefined && Math.abs(remainder) < ADDITIVITY_TOL,
+  }
+}
+
+// ── P4.1: recommendations ──────────────────────────────────────────────
+export interface RecommendationGroups {
+  graded: boolean
+  linked: Recommendation[]
+  general: Recommendation[]
+  rejected: { text: string; reason: string }[]
+  legacy: string[]
+}
+
+export function recommendationGroups(fs: ForensicSummary | null | undefined): RecommendationGroups {
+  const recs = fs?.recommendations
+  if (!Array.isArray(recs))
+    return { graded: false, linked: [], general: [], rejected: [], legacy: fs?.recommended_actions ?? [] }
+  return {
+    graded: true,
+    linked: recs.filter((r) => r.kind === 'evidence_linked'),
+    general: recs.filter((r) => r.kind === 'general'),
+    rejected: fs?.rejected_recommendations ?? [],
+    legacy: [],
+  }
+}
+
+export const PRIVACY_NOTE =
+  'Before anything reaches the local model, secrets, account and card numbers, phone numbers, address local parts and URL paths are redacted. So are personal names taken from the From/To/Cc headers and names after greetings or sign-offs. Other personal names in the body are not reliably detected and may reach the local model. Nothing is sent to an external service.'

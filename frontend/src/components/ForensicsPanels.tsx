@@ -27,7 +27,7 @@ export function HeaderForensicsPanel({ data }: { data: Forensics }) {
               <EmptyState
                 icon="🔀"
                 title="No relay hops found"
-                hint="No Received headers could be parsed. The message may not have traversed public SMTP (e.g. an internal export), or the headers were stripped."
+                hint="No Received headers are present. The message's transport path cannot be reconstructed from the available evidence."
               />
             </div>
           ) : (

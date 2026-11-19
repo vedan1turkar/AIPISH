@@ -123,11 +123,11 @@ class AuditEvent(Base):
 
 
 class AnalysisAssessment(Base):
-    """Latest ML + SHAP + local-LLM assessment for one analysis (P4).
+    """LEGACY (P4): one latest assessment per analysis, overwritten on regeneration.
 
-    Stored once when it is generated so the dashboard and the PDF report show
-    the same result (the LLM takes ~1 min and is never re-run for a report).
-    Holds derived results only — never raw email bytes.
+    Kept read-only so existing databases are never altered destructively; its
+    rows are copied once into ``AssessmentVersion`` by ``migrate_assessments``.
+    New assessments are written only to ``AssessmentVersion``.
     """
     __tablename__ = "analysis_assessment"
 
@@ -137,3 +137,47 @@ class AnalysisAssessment(Base):
     explanation_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     summary_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AssessmentVersion(Base):
+    """One generated ML + SHAP + local-LLM assessment (P4.1). Append-only in the API.
+
+    Regeneration inserts a new row (version n+1); earlier rows are never
+    updated, so a report produced from an assessment id stays reproducible.
+    This is application-level history, not tamper-proof storage. Holds derived
+    results only — never raw email bytes.
+    """
+    __tablename__ = "assessment_version"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    analysis_id: Mapped[str] = mapped_column(String(32), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(24))   # upload | stored_analysis | migrated_p4
+    ml_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    explanation_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    summary_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+def migrate_assessments(session) -> int:
+    """Copy P4 single-row assessments into assessment_version once (idempotent).
+
+    The legacy row keeps its original timestamp and becomes version 1 of its
+    analysis (id ``p4-<analysis_id>``). The legacy table is left untouched.
+    Returns the number of rows copied.
+    """
+    copied = 0
+    for old in session.query(AnalysisAssessment).all():
+        legacy_id = f"p4-{old.analysis_id}"[:32]
+        if session.get(AssessmentVersion, legacy_id) is not None:
+            continue
+        existing = session.query(AssessmentVersion).filter_by(analysis_id=old.analysis_id).count()
+        session.add(AssessmentVersion(
+            id=legacy_id, analysis_id=old.analysis_id, version=existing + 1,
+            source=old.source or "migrated_p4", ml_json=old.ml_json,
+            explanation_json=old.explanation_json, summary_json=old.summary_json,
+            created_at=old.created_at or utcnow()))
+        copied += 1
+    if copied:
+        session.commit()
+    return copied

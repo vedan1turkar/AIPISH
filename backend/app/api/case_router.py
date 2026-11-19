@@ -103,11 +103,16 @@ def evidence_integrity(case_id: str, analysis_id: str, db: Session = Depends(get
     return {"analysis_id": analysis_id, "sha256_recorded": rec.raw_sha256, **result}
 
 
-def _assessment_for(db: Session, analysis_id: str) -> dict | None:
-    """The same stored ML/SHAP/LLM assessment the dashboard shows (never re-run here)."""
-    from app.api.llm_router import assessment_dict
-    from app.core.models import AnalysisAssessment
-    row = db.get(AnalysisAssessment, analysis_id)
+def _assessment_for(db: Session, analysis_id: str, assessment_id: str | None) -> dict | None:
+    """A stored assessment version (never re-run here): the requested one, else the latest."""
+    from app.api.llm_router import assessment_dict, get_version, latest_assessment
+    if assessment_id:
+        row = get_version(db, analysis_id, assessment_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail={"code": "ASSESSMENT_NOT_FOUND",
+                                                         "message": "No such assessment for this analysis."})
+        return assessment_dict(row)
+    row = latest_assessment(db, analysis_id)
     return assessment_dict(row) if row else None
 
 
@@ -116,9 +121,13 @@ def report_pdf(
     case_id: str,
     analysis_id: str,
     x_evidence_key: str | None = Header(default=None, convert_underscores=True),
+    assessment_id: str | None = None,
     db: Session = Depends(get_db),
 ):
-    """Download the forensic PDF for one analysis inside an investigation."""
+    """Download the forensic PDF for one analysis inside an investigation.
+
+    `assessment_id` pins the AI-assessment version printed in section 8; without
+    it the latest version at generation time is used and identified in the PDF."""
     case = _get_case_or_404(db, case_id)
     rec = db.get(Analysis, analysis_id)
     if rec is None:
@@ -160,10 +169,12 @@ def report_pdf(
         enrichment=rec.enrichment_json or {},
         integrity=integrity,
         report_id=report_id,
-        assessment=_assessment_for(db, rec.id),
+        assessment=(assessment := _assessment_for(db, rec.id, assessment_id)),
     )
     record_audit(db, "report_generated", analysis_id=rec.id, case_id=case.id,
-                 detail={"report_id": report_id, "size_bytes": len(pdf)})
+                 detail={"report_id": report_id, "size_bytes": len(pdf),
+                         "assessment_id": (assessment or {}).get("assessment_id"),
+                         "assessment_version": (assessment or {}).get("version")})
     db.commit()
     filename = f"forensic-report-{report_id}.pdf"
     return Response(

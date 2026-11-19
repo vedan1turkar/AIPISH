@@ -174,8 +174,8 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
             conflicts.append(f"{name}: header claimed fail, locally verified pass")
 
     # Only findings of medium+ severity bridge into the threat score.
-    # Informational ones (e.g. no_received on a message that never traversed
-    # public SMTP) stay visible in the forensics report but add no points —
+    # Informational ones (e.g. no_received: the transport path cannot be
+    # reconstructed) stay visible in the forensics report but add no points —
     # absence of evidence is not evidence of fraud.
     consequential = [i.rule_id for i in forensics.inconsistencies if i.severity in ("medium", "high")]
 

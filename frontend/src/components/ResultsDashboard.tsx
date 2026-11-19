@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { AnalysisDetail } from '../api/client'
 import {
   createInvestigation,
   downloadReport,
+  ApiError,
   generateAssessment,
   getAssessment,
+  getAssessmentVersion,
+  listAssessments,
   getLlmStatus,
   getMlStatus,
   verifyIntegrity,
   type Assessment,
+  type AssessmentSummary,
   type InvestigationCase,
   type IntegrityResult,
   type LlmStatus,
@@ -65,6 +69,25 @@ export default function ResultsDashboard({
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [mlStatus, setMlStatus] = useState<MlStatus | null>(null)
   const [llmStatus, setLlmStatus] = useState<LlmStatus | null>(null)
+  const [history, setHistory] = useState<AssessmentSummary[]>([])
+  const [elapsed, setElapsed] = useState(0)
+
+  // Real elapsed time while a generation request is open (no invented progress).
+  useEffect(() => {
+    if (!generating) return
+    setElapsed(0)
+    const t0 = Date.now()
+    const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000)
+    return () => window.clearInterval(timer)
+  }, [generating])
+
+  const refreshHistory = useCallback(
+    (signal?: AbortSignal) =>
+      listAssessments(analysis.id, signal)
+        .then(setHistory)
+        .catch(() => setHistory([])),
+    [analysis.id],
+  )
 
   // One stored assessment feeds the AI tab, the overview card and the PDF.
   useEffect(() => {
@@ -79,23 +102,47 @@ export default function ResultsDashboard({
           setAssessmentError(err instanceof Error ? err.message : 'request failed')
       })
       .finally(() => setAssessmentLoading(false))
+    void refreshHistory(ctl.signal)
     getMlStatus(ctl.signal).then(setMlStatus).catch(() => setMlStatus(null))
     getLlmStatus(ctl.signal).then(setLlmStatus).catch(() => setLlmStatus(null))
     return () => ctl.abort()
-  }, [analysis.id])
+  }, [analysis.id, refreshHistory])
 
+  // Synchronous guard: React state is not updated between clicks fired in the same
+  // task, so a ref (not `generating`) decides whether a request is already open.
+  const inFlight = useRef(false)
   const handleGenerate = useCallback(async () => {
+    if (inFlight.current) return // one request at a time; the backend also refuses duplicates (409)
+    inFlight.current = true
     setGenerating(true)
     setGenerateError(null)
     try {
       setAssessment(await generateAssessment(analysis.id))
       setAssessmentError(null)
     } catch (err) {
-      setGenerateError(err instanceof Error ? err.message : 'Generation failed.')
+      if (err instanceof ApiError && err.code === 'ASSESSMENT_IN_PROGRESS')
+        setGenerateError('An assessment for this analysis is already being generated. Wait for it to finish, then reload this tab.')
+      else if (err instanceof ApiError && err.status === 0)
+        setGenerateError('The backend could not be reached. The rule-based analysis is unaffected; try again when it is running.')
+      else setGenerateError(err instanceof Error ? err.message : 'Generation failed.')
     } finally {
+      inFlight.current = false
       setGenerating(false)
+      void refreshHistory()
     }
-  }, [analysis.id])
+  }, [analysis.id, refreshHistory])
+
+  const handleSelectVersion = useCallback(
+    async (assessmentId: string) => {
+      setAssessmentError(null)
+      try {
+        setAssessment(await getAssessmentVersion(analysis.id, assessmentId))
+      } catch (err) {
+        setAssessmentError(err instanceof Error ? err.message : 'Could not load that version.')
+      }
+    },
+    [analysis.id],
+  )
 
   async function ensureCase(): Promise<InvestigationCase> {
     if (caseInfo) return caseInfo
@@ -126,7 +173,8 @@ export default function ResultsDashboard({
     setPdfBusy(true)
     try {
       const c = await ensureCase()
-      await downloadReport(c.id, analysis.id)
+      // the PDF prints exactly the assessment version shown in the AI tab
+      await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null)
     } catch (err) {
       setPdfError(err instanceof Error ? err.message : 'Report download failed.')
     } finally {
@@ -238,6 +286,9 @@ export default function ResultsDashboard({
           onGenerate={handleGenerate}
           mlStatus={mlStatus}
           llmStatus={llmStatus}
+          history={history}
+          onSelectVersion={handleSelectVersion}
+          elapsedSeconds={elapsed}
         />
       )}
     </div>

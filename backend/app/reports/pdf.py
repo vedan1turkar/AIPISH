@@ -27,10 +27,42 @@ from reportlab.platypus import (
 
 styles = getSampleStyleSheet()
 H1 = ParagraphStyle("H1x", parent=styles["Title"], fontSize=16, spaceAfter=6)
-H2 = ParagraphStyle("H2x", parent=styles["Heading2"], fontSize=12, spaceBefore=10, spaceAfter=4)
+H2 = ParagraphStyle("H2x", parent=styles["Heading2"], fontSize=12, spaceBefore=10, spaceAfter=4,
+                    keepWithNext=1)   # never strand a section heading at the bottom of a page
 BODY = ParagraphStyle("BODYx", parent=styles["BodyText"], fontSize=9, leading=12)
 MONO = ParagraphStyle("MONOx", parent=styles["BodyText"], fontName="Courier", fontSize=7.5, leading=9.5)
 CAVEAT = ParagraphStyle("CAVx", parent=styles["BodyText"], fontSize=8, textColor=colors.HexColor("#7a5b00"))
+# compact styles for dense tables (P4.1 layout fix: headers and short values stay on one line)
+CELL = ParagraphStyle("CELLx", parent=BODY, fontSize=8, leading=10)
+SUBHEAD = ParagraphStyle("SUBx", parent=BODY, keepWithNext=1)
+CELL_B = ParagraphStyle("CELLBx", parent=CELL, fontName="Helvetica-Bold")
+CELL_MONO = ParagraphStyle("CELLMx", parent=MONO, fontSize=7.5, leading=9.5)
+NOWRAP_PAD = [("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+              ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
+
+
+_BREAK = '<font size="1"> </font>'   # invisible break opportunity (standard fonts have no zero-width space)
+
+
+def soft_wrap(identifier: Any) -> str:
+    """Escape an identifier and allow line breaks only after '_' / '.' / '-' / ':'."""
+    text = esc(identifier)
+    for ch in ("_", ".", "-", ":"):
+        text = text.replace(ch, ch + _BREAK)
+    return text
+
+
+def short_time(iso: Any) -> str:
+    """'2026-11-19T16:35:32.724935+00:00' -> '2026-11-19 16:35:32 UTC' (full value kept in section 1)."""
+    text = str(iso or "")
+    try:
+        d = datetime.fromisoformat(text)
+        if d.tzinfo is not None:
+            d = d.astimezone(timezone.utc)
+            return d.strftime("%Y-%m-%d %H:%M:%S UTC")
+        return d.strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return text
 
 VERDICT_COLORS = {
     "minimal": colors.HexColor("#1b7f3b"),
@@ -61,14 +93,14 @@ def _kv_table(rows: list[tuple[str, str]]) -> Table:
 
 def _finding_row(f: dict) -> list:
     knowledge = f.get("knowledge", "unknown")
-    tag = {"fact": "OBSERVED FACT", "heuristic": "HEURISTIC"}.get(knowledge, knowledge.upper())
+    tag = {"fact": "OBSERVED FACT", "heuristic": "HEURISTIC"}.get(knowledge, str(knowledge).upper())
     return [
-        Paragraph("<b>%s</b>" % esc(f.get("rule_id", "?")), MONO),
-        Paragraph(esc(f.get("severity", "?")), BODY),
-        Paragraph(esc("+" + str(f.get("contribution", 0))), BODY),
-        Paragraph("<b>%s</b>" % esc(tag) if knowledge != "fact" else esc(tag), BODY),
-        Paragraph(esc(f.get("evidence", "")), MONO),
-        Paragraph(esc(f.get("rationale", "")), BODY),
+        Paragraph("<b>%s</b>" % soft_wrap(f.get("rule_id", "?")), CELL_MONO),
+        Paragraph(esc(f.get("severity", "?")), CELL),
+        Paragraph(esc("+" + str(f.get("contribution", 0))), CELL),
+        Paragraph(esc(tag), CELL_B if knowledge != "fact" else CELL),
+        Paragraph(esc(f.get("evidence", "")), CELL_MONO),
+        Paragraph(esc(f.get("rationale", "")), CELL),
     ]
 
 
@@ -106,18 +138,20 @@ def build_report_pdf(
 
     banner_tbl = Table(
         [
-            [Paragraph("<b>Report ID</b>", BODY), Paragraph("<b>Generated</b>", BODY),
-             Paragraph("<b>Threat Verdict</b>", BODY), Paragraph("<b>Score</b>", BODY)],
-            [Paragraph(esc(report_id), MONO), Paragraph(esc(generated_at), BODY),
-             Paragraph(f'<font color="#{verdict_color.hexval()[2:]}"><b>{esc(verdict).upper()}</b></font>', BODY),
-             Paragraph(f"<b>{score}/100</b>", BODY)],
+            [Paragraph("<b>Report ID</b>", CELL), Paragraph("<b>Generated</b>", CELL),
+             Paragraph("<b>Threat Verdict</b>", CELL), Paragraph("<b>Score</b>", CELL)],
+            [Paragraph(soft_wrap(report_id), CELL_MONO), Paragraph(esc(short_time(generated_at)), CELL),
+             Paragraph(f'<font color="#{verdict_color.hexval()[2:]}"><b>{soft_wrap(str(verdict).upper())}</b></font>',
+                       CELL),
+             Paragraph(f"<b>{esc(score)}/100</b>", CELL)],
         ],
-        colWidths=[45 * mm, 50 * mm, 45 * mm, 22 * mm],
+        colWidths=[50 * mm, 42 * mm, 60 * mm, 24 * mm],
     )
     banner_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#efefef")),
         ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        *NOWRAP_PAD,
     ]))
     story.append(banner_tbl)
     story.append(Spacer(1, 6))
@@ -150,11 +184,11 @@ def build_report_pdf(
     meta_rows = [
         ("From", esc(f"{sender.get('display_name') or 'unavailable'} <{sender.get('email') or 'unavailable'}> "
                      f"(domain: {sender.get('domain') or 'unavailable'})")),
-        ("Subject", esc(analysis_row.get("subject", "unavailable"))),
-        ("Date header", esc(analysis_row.get("date", "unavailable"))),
-        ("Message-ID", esc(analysis_row.get("message_id", "unavailable"))),
+        ("Subject", esc(analysis_row.get("subject") or "not present")),
+        ("Date header", esc(analysis_row.get("date") or "not present")),
+        ("Message-ID", esc(analysis_row.get("message_id") or "not present")),
         ("Reply-To", esc(", ".join(a["email"] for a in analysis_row.get("reply_to", [])) or "none")),
-        ("Return-Path", esc(analysis_row.get("return_path", "unavailable"))),
+        ("Return-Path", esc(analysis_row.get("return_path") or "not present")),
         ("To", esc(", ".join(a["email"] for a in analysis_row.get("to", [])) or "unavailable")),
         ("Cc", esc(", ".join(a["email"] for a in analysis_row.get("cc", [])) or "none")),
     ]
@@ -165,16 +199,17 @@ def build_report_pdf(
     findings = detection.get("findings") or []
     if findings:
         table_data = [[
-            Paragraph("<b>Rule</b>", BODY), Paragraph("<b>Severity</b>", BODY),
-            Paragraph("<b>Pts</b>", BODY), Paragraph("<b>Type</b>", BODY),
-            Paragraph("<b>Evidence</b>", BODY), Paragraph("<b>Rationale</b>", BODY),
+            Paragraph("<b>Rule</b>", CELL), Paragraph("<b>Severity</b>", CELL),
+            Paragraph("<b>Points</b>", CELL), Paragraph("<b>Type</b>", CELL),
+            Paragraph("<b>Evidence</b>", CELL), Paragraph("<b>Rationale</b>", CELL),
         ]] + [_finding_row(f) for f in findings]
-        t = Table(table_data, colWidths=[26 * mm, 16 * mm, 9 * mm, 20 * mm, 55 * mm, 38 * mm])
+        # 176 mm usable frame width; short columns sized so headers and values never split mid-word
+        t = Table(table_data, colWidths=[32 * mm, 16 * mm, 13 * mm, 26 * mm, 46 * mm, 43 * mm], repeatRows=1)
         t.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8e8e8")),
-            ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+            *NOWRAP_PAD,
         ]))
         story.append(t)
     else:
@@ -261,14 +296,15 @@ def build_report_pdf(
                 f"Trusted boundary at observed hop {esc(idx)}: hops at/after it are "
                 "receiver-side traces; earlier hops may be forged (RFC 5321).", BODY))
     else:
-        story.append(Paragraph("No Received headers — no path reconstructable.", BODY))
+        story.append(Paragraph("No Received headers are present. The message's transport path cannot be "
+                               "reconstructed from the available evidence.", BODY))
     story.append(Paragraph(esc(forensics.get("forgery_note", "")), CAVEAT))
 
     # ── 8. Candidate IP/domain intelligence ────────────────────────────────
     story.append(Paragraph("7. Infrastructure Intelligence", H2))
     story.append(_kv_table([
-        ("Earliest candidate IP", esc(forensics.get("earliest_candidate_ip", "unavailable"))),
-        ("Verified originating IP", esc(forensics.get("verified_originating_ip", "unavailable"))),
+        ("Earliest candidate IP", esc(forensics.get("earliest_candidate_ip") or "none identified")),
+        ("Verified originating IP", esc(forensics.get("verified_originating_ip") or "not verified")),
         ("All candidates", esc(", ".join(forensics.get("candidate_ips") or []) or "none")),
         ("Confidence rules", esc(" | ".join(forensics.get("confidence_rules") or []))),
     ]))
@@ -378,12 +414,18 @@ def _assessment_section(story: list, a: dict | None) -> None:
         story.append(Paragraph("No ML / SHAP / AI assessment has been generated for this analysis; "
                                "none of these components are reported.", BODY))
         return
-    story.append(Paragraph(f"Assessment generated {esc(a.get('generated_at') or 'at an unknown time')} "
-                           f"(source: {esc(a.get('source') or 'unknown')}).", BODY))
+    story.append(_kv_table([
+        ("Assessment version", esc(f"v{a.get('version')}" if a.get("version") is not None else "not versioned")),
+        ("Assessment ID", soft_wrap(a.get("assessment_id") or "not recorded")),
+        ("Generated", esc(a.get("generated_at") or "unknown")),
+        ("Source", esc(a.get("source") or "unknown")),
+    ]))
+    story.append(Paragraph("This report prints exactly the assessment version identified above; regenerating "
+                           "the assessment later creates a new version and does not change it.", CAVEAT))
 
     # 8.1 ML
     ml = a.get("ml") or {}
-    story.append(Paragraph("<b>8.1 ML classification</b>", BODY))
+    story.append(Paragraph("<b>8.1 ML classification</b>", SUBHEAD))
     story.append(_status_line("Classifier", ml))
     if ml.get("status") == "ok":
         story.append(_kv_table([
@@ -402,26 +444,44 @@ def _assessment_section(story: list, a: dict | None) -> None:
     # 8.2 SHAP
     ex = a.get("explanation") or {}
     story.append(Spacer(1, 4))
-    story.append(Paragraph("<b>8.2 SHAP feature contributions</b>", BODY))
+    story.append(Paragraph("<b>8.2 SHAP feature contributions</b>", SUBHEAD))
     story.append(_status_line("Explanation", ex))
     comps = ex.get("components") or {}
     if ex.get("status") == "ok" and comps:
+        from app.ml.shap_view import component_view
         for name, c in comps.items():
+            v = component_view(name, c, ex.get("explained_label"), ml.get("label"), ml)
             story.append(Paragraph(
-                f"Component <b>{esc(name)}</b> ({esc(c.get('explainer'))}, ensemble weight "
-                f"{esc(_num(c.get('ensemble_weight'), '{:.2f}'))}) toward class "
-                f"<b>{esc(ex.get('explained_label'))}</b>; output space: {esc(c.get('output_space'))}; "
-                f"base {esc(_num(c.get('base_value')))} → output {esc(_num(c.get('output_value')))}; "
-                f"additivity check {'passed' if c.get('additivity_ok') else 'FAILED'}.", BODY))
-            rows = [[Paragraph(h, BODY) for h in ("<b>Feature</b>", "<b>Group</b>", "<b>Value</b>",
-                                                   "<b>SHAP</b>", "<b>Direction</b>")]]
-            for r in (c.get("top_contributions") or []) + (c.get("aggregated") or []):
-                rows.append([Paragraph(esc(r.get("feature")), MONO), Paragraph(esc(r.get("group")), BODY),
-                             Paragraph(esc(r.get("value") if r.get("value") is not None
-                                           else (r.get("detail") or "")), BODY),
-                             Paragraph(esc(_num(r.get("shap_value"), "{:+.4f}")), BODY),
-                             Paragraph(esc(r.get("direction") or "aggregate"), BODY)])
-            story.append(_grid(rows, [45 * mm, 24 * mm, 50 * mm, 20 * mm, 21 * mm]))
+                f"Component <b>{esc(v['component_name'])}</b> ({esc(c.get('explainer'))}, ensemble weight "
+                f"{esc(_num(c.get('ensemble_weight'), '{:.2f}'))}) for class "
+                f"<b>{esc(ex.get('explained_label'))}</b>. Values are in the <b>raw-margin</b> space "
+                f"({esc(c.get('output_space'))}); they are not probabilities.", BODY))
+            story.append(Paragraph(esc(v["net_sentence"]), BODY))
+            if v["divergence_note"]:
+                story.append(Paragraph("<b>Why the ensemble still predicts this class:</b> "
+                                       + esc(v["divergence_note"]), CAVEAT))
+            rows = [[Paragraph(h, CELL) for h in ("<b>Feature</b>", "<b>Group</b>", "<b>Value</b>",
+                                                   "<b>SHAP (raw margin)</b>", "<b>Direction</b>")]]
+            for r in v["rows"]:
+                agg = r.get("aggregated")
+                value = (f"aggregate of {r.get('detail') or 'components'}; not an individually interpretable "
+                         "word or phrase") if agg else (r.get("value") if r.get("value") is not None else "")
+                rows.append([Paragraph(soft_wrap(r.get("feature")), CELL_MONO), Paragraph(esc(r.get("group")), CELL),
+                             Paragraph(esc(value), CELL),
+                             Paragraph(esc(_num(r.get("shap_value"), "{:+.4f}")), CELL),
+                             Paragraph(esc("aggregate " + ("toward" if r["shap_value"] > 0 else "away"))
+                                       if agg else esc(r.get("direction") or ""), CELL)])
+            if v["has_remainder"]:
+                rows.append([Paragraph("other features (not listed)", CELL), Paragraph("—", CELL),
+                             Paragraph("sum of contributions below the top-10 cut-off", CELL),
+                             Paragraph(esc(_num(v["remainder"], "{:+.4f}")), CELL), Paragraph("—", CELL)])
+            story.append(_grid(rows, [40 * mm, 20 * mm, 58 * mm, 30 * mm, 28 * mm]))
+            check = ("passed" if v["displayed_additivity_ok"] or v["has_remainder"] else "FAILED")
+            story.append(Paragraph(
+                f"Additivity: base {esc(_num(v['base']))} + sum of contributions "
+                f"{esc(_num((v['shown_sum'] or 0) + (v['remainder'] if v['has_remainder'] else 0)))} = output "
+                f"{esc(_num(v['output']))} (check {check}; backend check "
+                f"{'passed' if c.get('additivity_ok') else 'FAILED'}).", BODY))
     for ne in ex.get("not_explained") or []:
         story.append(Paragraph(f"Not explained: <b>{esc(ne.get('component'))}</b> — {esc(ne.get('reason'))}",
                                CAVEAT))
@@ -434,7 +494,7 @@ def _assessment_section(story: list, a: dict | None) -> None:
     # 8.3 LLM
     fs = a.get("forensic_summary") or {}
     story.append(Spacer(1, 4))
-    story.append(Paragraph("<b>8.3 AI-generated forensic interpretation (local LLM)</b>", BODY))
+    story.append(Paragraph("<b>8.3 AI-generated forensic interpretation (local LLM)</b>", SUBHEAD))
     model = fs.get("model") or {}
     story.append(Paragraph(
         "<b>AI-GENERATED INTERPRETATION.</b> " + esc(fs.get("label") or "Produced by a language model; "
@@ -468,12 +528,17 @@ def _assessment_section(story: list, a: dict | None) -> None:
             story.append(Paragraph("<b>Rejected by validation (not evidence):</b>", BODY))
             for r in rejected:
                 story.append(Paragraph(f"• {esc(r.get('statement'))} — <i>{esc(r.get('reason'))}</i>", CAVEAT))
-        for title, key in (("Recommended actions", "recommended_actions"), ("Model-stated limitations", "limitations")):
-            items = fs.get(key) or []
-            if items:
-                story.append(Paragraph(f"<b>{title}:</b>", BODY))
-                for x in items:
-                    story.append(Paragraph("• " + esc(x), BODY))
+        _recommendations(story, fs)
+        items = fs.get("limitations") or []
+        if items:
+            story.append(Paragraph("<b>Model-stated limitations:</b>", BODY))
+            for x in items:
+                story.append(Paragraph("• " + esc(x), BODY))
+    story.append(Paragraph(
+        "<b>Privacy:</b> before reaching the local model, secrets, account and card numbers, phone numbers, "
+        "address local parts and URL paths are redacted, as are personal names taken from the From/To/Cc "
+        "headers and names after greetings or sign-offs. Other personal names in the body are <b>not</b> "
+        "reliably detected and may reach the local model; nothing is sent to an external service.", CAVEAT))
     unavailable = fs.get("unavailable_information") or []
     if unavailable:
         story.append(Paragraph("<b>Checks unavailable to the interpretation (not passed):</b>", BODY))
@@ -486,5 +551,33 @@ def _assessment_section(story: list, a: dict | None) -> None:
         rows = [[Paragraph(h, BODY) for h in ("<b>ID</b>", "<b>Category</b>", "<b>Source</b>", "<b>Statement</b>")]]
         for e in evidence:
             rows.append([Paragraph(esc(e.get("id")), MONO), Paragraph(esc(e.get("category")), BODY),
-                         Paragraph(esc(e.get("source")), MONO), Paragraph(esc(e.get("statement")), BODY)])
-        story.append(_grid(rows, [12 * mm, 20 * mm, 38 * mm, 110 * mm]))
+                         Paragraph(soft_wrap(e.get("source")), CELL_MONO), Paragraph(esc(e.get("statement")), BODY)])
+        story.append(_grid(rows, [12 * mm, 20 * mm, 36 * mm, 108 * mm]))
+
+
+def _recommendations(story: list, fs: dict) -> None:
+    recs = fs.get("recommendations")
+    if recs is None:   # assessment generated before P4.1 grounding: show, but unclassified
+        items = fs.get("recommended_actions") or []
+        if items:
+            story.append(Paragraph("<b>Recommended actions (model, generated before recommendation grounding; "
+                                   "not checked against the evidence):</b>", BODY))
+            for x in items:
+                story.append(Paragraph("• " + esc(x), BODY))
+        return
+    linked = [r for r in recs if r.get("kind") == "evidence_linked"]
+    general = [r for r in recs if r.get("kind") == "general"]
+    if linked:
+        story.append(Paragraph("<b>Evidence-linked recommendations</b> (model; each relies on the cited items):", BODY))
+        for r in linked:
+            story.append(Paragraph(f"• {esc(r.get('text'))} <font face='Courier' size='7.5'>"
+                                   f"[{esc(', '.join(r.get('evidence_ids') or []))}]</font>", BODY))
+    if general:
+        story.append(Paragraph("<b>General investigative recommendations</b> (not established by a specific "
+                               "evidence item):", BODY))
+        for r in general:
+            origin = "system" if r.get("origin") == "system" else "model"
+            story.append(Paragraph(f"• {esc(r.get('text'))} <i>({origin})</i>", BODY))
+    for r in fs.get("rejected_recommendations") or []:
+        story.append(Paragraph(f"• Rejected recommendation: {esc(r.get('text'))} — <i>{esc(r.get('reason'))}</i>",
+                               CAVEAT))

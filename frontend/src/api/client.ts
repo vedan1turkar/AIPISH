@@ -313,9 +313,11 @@ export async function verifyIntegrity(
 }
 
 // ── PDF report ─────────────────────────────────────────────────────────────
-export async function downloadReport(caseId: string, analysisId: string): Promise<void> {
+/** Download the PDF. `assessmentId` pins the AI-assessment version printed in it. */
+export async function downloadReport(caseId: string, analysisId: string, assessmentId?: string | null): Promise<void> {
+  const q = assessmentId ? `?assessment_id=${encodeURIComponent(assessmentId)}` : ''
   const res = await fetch(
-    `${API_BASE}/api/v1/investigations/${encodeURIComponent(caseId)}/report/${encodeURIComponent(analysisId)}`,
+    `${API_BASE}/api/v1/investigations/${encodeURIComponent(caseId)}/report/${encodeURIComponent(analysisId)}${q}`,
   )
   if (!res.ok) {
     let code = `HTTP_${res.status}`
@@ -355,6 +357,7 @@ export type ComponentStatus =
 
 export interface MlResult {
   status: ComponentStatus
+  reused_from_assessment?: string
   label?: string | null
   confidence?: number | null
   probabilities?: Record<string, number>
@@ -405,6 +408,14 @@ export interface EvidenceItem {
   statement: string
 }
 
+export interface Recommendation {
+  text: string
+  kind: 'evidence_linked' | 'general' | string
+  origin: 'model' | 'system' | string
+  evidence_ids: string[]
+  artefacts?: string[]
+}
+
 export interface SummaryFinding {
   statement: string
   evidence_ids: string[]
@@ -422,6 +433,9 @@ export interface ForensicSummary {
   findings?: SummaryFinding[]
   rejected_findings?: { statement: string; reason: string }[]
   recommended_actions?: string[]
+  /** P4.1: grounded recommendations; absent on assessments generated before P4.1 */
+  recommendations?: Recommendation[]
+  rejected_recommendations?: { text: string; reason: string }[]
   limitations?: string[]
   validation?: {
     summary_accepted: boolean
@@ -450,6 +464,9 @@ export interface ForensicSummary {
 
 export interface Assessment {
   analysis_id: string
+  /** P4.1 versioned history; absent on responses from older backends */
+  assessment_id?: string
+  version?: number
   source?: 'upload' | 'stored_analysis' | string
   generated_at?: string | null
   ml: MlResult | null
@@ -507,4 +524,25 @@ export async function uploadEmlWithAssessment(file: File, signal?: AbortSignal):
   const form = new FormData()
   form.append('file', file, file.name)
   return request<Assessment>(`/api/v1/llm/forensic-summary`, { method: 'POST', body: form, signal })
+}
+
+export interface AssessmentSummary {
+  assessment_id: string
+  version: number
+  source: string
+  generated_at: string | null
+  ml_status: string | null
+  ml_label: string | null
+  summary_status: string | null
+}
+
+export async function listAssessments(id: string, signal?: AbortSignal): Promise<AssessmentSummary[]> {
+  return request<AssessmentSummary[]>(`/api/v1/analyses/${encodeURIComponent(id)}/assessments`, { signal })
+}
+
+export async function getAssessmentVersion(id: string, assessmentId: string, signal?: AbortSignal): Promise<Assessment> {
+  return request<Assessment>(
+    `/api/v1/analyses/${encodeURIComponent(id)}/assessments/${encodeURIComponent(assessmentId)}`,
+    { signal },
+  )
 }

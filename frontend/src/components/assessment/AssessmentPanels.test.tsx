@@ -16,7 +16,16 @@ import {
   ShapPanel,
   SummaryPanel,
 } from './AssessmentPanels'
-import { componentState, evidenceIndex, findingRefs, mlView, shapCoverage, shapRows } from './model'
+import {
+  componentState,
+  evidenceIndex,
+  findingRefs,
+  mlView,
+  recommendationGroups,
+  shapComponentView,
+  shapCoverage,
+  shapRows,
+} from './model'
 
 const OK = real as unknown as Assessment
 const clone = (): Assessment => JSON.parse(JSON.stringify(OK))
@@ -232,5 +241,84 @@ describe('evidence list and separation of verdicts', () => {
     const out = html(<SummaryPanel fs={fs} />)
     expect(out).not.toContain('<img src=x')
     expect(out).toContain('&lt;img src=x onerror=alert(1)&gt;')
+  })
+})
+
+describe('P4.1 SHAP interpretation', () => {
+  it('explains that XGBoost moved away from the class while the ensemble still predicts it', () => {
+    const t = text(<ShapPanel explanation={OK.explanation} ml={OK.ml} />)
+    expect(t).toContain("moved from -0.0098 to -0.9326 (-0.9228), i.e. away from 'fraud' overall")
+    expect(t).toContain('Why the ensemble still predicts this class')
+    expect(t).toContain("XGBoost gave 'fraud' 0.4211")
+    expect(t).toContain("DistilRoBERTa gave 'fraud' 0.9997")
+    expect(t).toContain('do not explain the ensemble prediction')
+    expect(t).toContain('raw-margin space')
+    expect(t).toContain('they are not probabilities')
+    expect(t).toContain(OK.explanation!.disclaimer!)
+  })
+
+  it('labels the aggregated semantic contribution and checks additivity', () => {
+    const t = text(<ShapPanel explanation={OK.explanation} ml={OK.ml} />)
+    expect(t).toContain('text_semantic_components')
+    expect(t).toContain('aggregate of 100 TF-IDF SVD components, summed; not an individual word or phrase')
+    expect(t).toContain('+0.979')
+    expect(t).toContain('Additivity: base -0.01 + sum of contributions -0.92 = output -0.93 (check passed')
+  })
+
+  it('mirrors the backend view model exactly', () => {
+    const view = shapComponentView('xgb', OK.explanation!.components!.xgb, 'fraud', OK.ml)
+    expect(view.direction).toBe('away')
+    expect(Math.abs(view.shownSum - (view.net ?? 0))).toBeLessThan(1e-3)
+    expect(view.hasRemainder).toBe(false)
+  })
+})
+
+describe('P4.1 recommendations', () => {
+  const graded = () => {
+    const fs = clone().forensic_summary!
+    fs.recommendations = [
+      { text: 'Investigate the URL provided in the email.', kind: 'evidence_linked', origin: 'model', evidence_ids: ['E4'] },
+      { text: 'Alert the recipient.', kind: 'general', origin: 'model', evidence_ids: [] },
+      { text: 'Preserve the original .eml file.', kind: 'general', origin: 'system', evidence_ids: [] },
+    ]
+    fs.rejected_recommendations = [{ text: 'Investigate the phone number provided in the email.',
+      reason: 'asserts a detail of the email (phone number) that no deterministic evidence item establishes' }]
+    return fs
+  }
+
+  it('separates evidence-linked, general and rejected recommendations', () => {
+    const out = html(<SummaryPanel fs={graded()} />)
+    const t = text(<SummaryPanel fs={graded()} />)
+    expect(t).toContain('Evidence-linked recommendations')
+    expect(t).toContain('General investigative recommendations (not established by a specific evidence item)')
+    expect(out).toContain('href="#evidence-E4"')
+    expect(t).toContain('(system)')
+    expect(t).toContain('(model)')
+    expect(t).toContain('1 model recommendation(s) rejected')
+    expect(t).toContain('no deterministic evidence item establishes')
+  })
+
+  it('older assessments without grounding are labelled as unchecked', () => {
+    const g = recommendationGroups(OK.forensic_summary)
+    expect(g.graded).toBe(false)
+    expect(text(<SummaryPanel fs={OK.forensic_summary} />)).toContain('generated before recommendation grounding')
+  })
+
+  it('states the name-redaction limitation', () => {
+    expect(text(<SummaryPanel fs={OK.forensic_summary} />)).toContain('Other personal names in the body are not reliably detected')
+  })
+})
+
+describe('P4.1 live fixture (real local-Mistral output, versioned + grounded)', () => {
+  it('renders grounded recommendations whose evidence IDs all exist', async () => {
+    const live = (await import('./__fixtures__/assessment_p41_live.json')).default as unknown as Assessment
+    const fs = live.forensic_summary!
+    const ids = new Set((fs.evidence ?? []).map((e) => e.id))
+    for (const r of fs.recommendations ?? []) for (const id of r.evidence_ids) expect(ids.has(id)).toBe(true)
+    const t = text(<SummaryPanel fs={fs} />)
+    expect(t).toContain('General investigative recommendations')
+    expect(t).not.toContain('generated before recommendation grounding')
+    expect(live.version).toBe(1)
+    expect(text(<ShapPanel explanation={live.explanation} ml={live.ml} />)).toContain('Why the ensemble still predicts this class')
   })
 })

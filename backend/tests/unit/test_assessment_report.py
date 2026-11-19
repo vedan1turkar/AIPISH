@@ -71,7 +71,9 @@ def test_assessment_is_stored_and_served_unchanged():
         made = c.post("/api/v1/llm/forensic-summary", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()
     got = c.get(f"/api/v1/analyses/{made['analysis_id']}/assessment").json()
     assert got == made
-    assert set(got) == {"analysis_id", "source", "generated_at", "ml", "explanation", "forensic_summary"}
+    assert set(got) == {"analysis_id", "assessment_id", "version", "source", "generated_at", "ml", "explanation",
+                        "forensic_summary"}
+    assert got["version"] == 1
     assert got["source"] == "upload" and got["forensic_summary"]["status"] == "ok"
 
 
@@ -85,18 +87,19 @@ def test_assessment_404_codes():
 
 def test_stored_regeneration_reuses_upload_time_ml_instead_of_degrading():
     from app.core.db import SessionLocal
-    from app.core.models import AnalysisAssessment
+    from app.core.models import AssessmentVersion
     c = TestClient(create_app())
     up = c.post("/api/v1/analyses", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()
     with SessionLocal() as db:
-        db.add(AnalysisAssessment(analysis_id=up["id"], source="upload", ml_json=REAL["ml"],
-                                  explanation_json=REAL["explanation"], summary_json=None))
+        db.add(AssessmentVersion(analysis_id=up["id"], version=1, source="upload", ml_json=REAL["ml"],
+                                 explanation_json=REAL["explanation"], summary_json=None))
         db.commit()
     with respx.mock(assert_all_called=False) as r:
         _mock_ollama(r, ANSWER)
         out = c.post(f"/api/v1/analyses/{up['id']}/forensic-summary").json()
     assert out["source"] == "stored_analysis" and out["ml"]["status"] == "ok"
-    assert out["ml"]["label"] == REAL["ml"]["label"]
+    assert out["ml"]["label"] == REAL["ml"]["label"] and out["ml"]["reused_from_assessment"]
+    assert out["version"] == 2
 
 
 def test_stored_analysis_hash_only_explains_ml_unavailability():

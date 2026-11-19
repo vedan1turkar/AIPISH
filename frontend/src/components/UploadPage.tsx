@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { uploadEml, uploadEmlWithAssessment, getAnalysis, ApiError, type AnalysisDetail } from '../api/client'
 import { ErrorAlert, Spinner } from './ui'
 
@@ -28,6 +28,14 @@ export default function UploadPage({
   // Opt-in: ML + SHAP must read the original bytes, which the default hash_only
   // policy discards after this request, so they can only run at upload time.
   const [runAi, setRunAi] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (status !== 'analyzing') return
+    setElapsed(0)
+    const t0 = Date.now()
+    const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000)
+    return () => window.clearInterval(timer)
+  }, [status])
 
   function pickFile(file: File | null | undefined) {
     setError(null)
@@ -133,7 +141,7 @@ export default function UploadPage({
             <span>
               Run AI assessment: ML classification, SHAP explanation and a local Mistral forensic summary
               <span className="block text-xs text-gray-400">
-                This adds about one minute. It runs on this backend's local models, and no email data leaves
+                This adds about 1–2 minutes. It runs on this backend's local models, and no email data leaves
                 the server. ML and SHAP can only run now, while the original bytes are available.
               </span>
             </span>
@@ -164,7 +172,7 @@ export default function UploadPage({
                 {status === 'uploading'
                   ? 'Uploading the .eml to the backend…'
                   : runAi
-                    ? 'Running forensics, scoring, ML and SHAP, then the local language model (about 1 minute)…'
+                    ? `Running forensics, scoring, ML and SHAP, then the local language model. This usually takes about 1–2 minutes (${elapsed}s elapsed; no stage-by-stage progress is reported).`
                     : 'Running header forensics, authentication checks and scoring…'}
               </p>
             </div>

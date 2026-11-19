@@ -1,12 +1,15 @@
 """LLM forensic-summary endpoints (additive; existing routes unchanged)."""
 from __future__ import annotations
 
+import threading
+from contextlib import contextmanager
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.router import _ok_file, upload_eml
 from app.core.db import get_db
-from app.core.models import Analysis, AnalysisAssessment, utcnow
+from app.core.models import Analysis, AssessmentVersion, utcnow
 from app.llm import service
 
 router = APIRouter(tags=["llm"])
@@ -34,31 +37,91 @@ def _ml_and_shap(raw: bytes | None) -> tuple[dict, dict]:
 
 
 def _store(db: Session, analysis_id: str, source: str, ml: dict, explanation: dict, summary: dict) -> dict:
-    """Persist the latest assessment so the dashboard and PDF share one result."""
-    row = db.get(AnalysisAssessment, analysis_id) or AnalysisAssessment(analysis_id=analysis_id)
-    row.source, row.ml_json, row.explanation_json, row.summary_json = source, ml, explanation, summary
-    row.created_at = utcnow()
+    """Append a new assessment version (never overwrites an earlier one)."""
+    last = (db.query(AssessmentVersion).filter_by(analysis_id=analysis_id)
+            .order_by(AssessmentVersion.version.desc()).first())
+    row = AssessmentVersion(analysis_id=analysis_id, version=(last.version + 1) if last else 1, source=source,
+                            ml_json=ml, explanation_json=explanation, summary_json=summary, created_at=utcnow())
     db.add(row)
     db.commit()
     return assessment_dict(row)
 
 
-def assessment_dict(row: AnalysisAssessment) -> dict:
-    return {"analysis_id": row.analysis_id, "source": row.source,
-            "generated_at": row.created_at.isoformat() if row.created_at else None,
+def assessment_dict(row: AssessmentVersion) -> dict:
+    return {"analysis_id": row.analysis_id, "assessment_id": row.id, "version": row.version,
+            "source": row.source, "generated_at": row.created_at.isoformat() if row.created_at else None,
             "ml": row.ml_json, "explanation": row.explanation_json, "forensic_summary": row.summary_json}
+
+
+def latest_assessment(db: Session, analysis_id: str) -> AssessmentVersion | None:
+    return (db.query(AssessmentVersion).filter_by(analysis_id=analysis_id)
+            .order_by(AssessmentVersion.version.desc()).first())
+
+
+def get_version(db: Session, analysis_id: str, assessment_id: str) -> AssessmentVersion | None:
+    row = db.get(AssessmentVersion, assessment_id)
+    return row if row is not None and row.analysis_id == analysis_id else None
+
+
+# One generation per analysis at a time (in-process). Prevents accidental
+# duplicate versions from double submits; a retry after completion is allowed.
+_running: set[str] = set()
+_running_lock = threading.Lock()
+
+
+@contextmanager
+def _exclusive(key: str):
+    with _running_lock:
+        if key in _running:
+            raise HTTPException(status_code=409, detail={
+                "code": "ASSESSMENT_IN_PROGRESS",
+                "message": "An AI assessment for this analysis is already being generated. Wait for it to finish."})
+        _running.add(key)
+    try:
+        yield
+    finally:
+        with _running_lock:
+            _running.discard(key)
+
+
+def _not_found() -> HTTPException:
+    return HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Analysis not found."})
 
 
 @router.get("/analyses/{analysis_id}/assessment")
 def get_assessment(analysis_id: str, db: Session = Depends(get_db)) -> dict:
-    """Stored ML/SHAP/LLM assessment for an analysis (404 when never generated)."""
+    """Latest stored ML/SHAP/LLM assessment (404 when never generated)."""
     if db.get(Analysis, analysis_id) is None:
-        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Analysis not found."})
-    row = db.get(AnalysisAssessment, analysis_id)
+        raise _not_found()
+    row = latest_assessment(db, analysis_id)
     if row is None:
         raise HTTPException(status_code=404, detail={
             "code": "ASSESSMENT_NOT_GENERATED",
             "message": "No ML/SHAP/AI assessment has been generated for this analysis."})
+    return assessment_dict(row)
+
+
+@router.get("/analyses/{analysis_id}/assessments")
+def list_assessments(analysis_id: str, db: Session = Depends(get_db)) -> list[dict]:
+    """Assessment history, newest first (metadata only)."""
+    if db.get(Analysis, analysis_id) is None:
+        raise _not_found()
+    rows = (db.query(AssessmentVersion).filter_by(analysis_id=analysis_id)
+            .order_by(AssessmentVersion.version.desc()).all())
+    return [{"assessment_id": r.id, "version": r.version, "source": r.source,
+             "generated_at": r.created_at.isoformat() if r.created_at else None,
+             "ml_status": (r.ml_json or {}).get("status"), "ml_label": (r.ml_json or {}).get("label"),
+             "summary_status": (r.summary_json or {}).get("status")} for r in rows]
+
+
+@router.get("/analyses/{analysis_id}/assessments/{assessment_id}")
+def get_assessment_version(analysis_id: str, assessment_id: str, db: Session = Depends(get_db)) -> dict:
+    if db.get(Analysis, analysis_id) is None:
+        raise _not_found()
+    row = get_version(db, analysis_id, assessment_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "ASSESSMENT_NOT_FOUND",
+                                                     "message": "No such assessment for this analysis."})
     return assessment_dict(row)
 
 
@@ -74,9 +137,10 @@ def summary_from_upload(file: UploadFile = File(..., alias="file"), db: Session 
     file.file.seek(0)
     detail = upload_eml(file, db)
     rec = db.get(Analysis, detail.id)
-    ml, explanation = _ml_and_shap(raw)
-    summary = service.forensic_summary(_analysis_dict(rec), ml, explanation)
-    return _store(db, detail.id, "upload", ml, explanation, summary)
+    with _exclusive(detail.id):
+        ml, explanation = _ml_and_shap(raw)
+        summary = service.forensic_summary(_analysis_dict(rec), ml, explanation)
+        return _store(db, detail.id, "upload", ml, explanation, summary)
 
 
 @router.post("/analyses/{analysis_id}/forensic-summary")
@@ -84,11 +148,15 @@ def summary_for_analysis(analysis_id: str, db: Session = Depends(get_db)) -> dic
     rec = db.get(Analysis, analysis_id)
     if rec is None:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Analysis not found."})
-    prior = db.get(AnalysisAssessment, rec.id)
-    if rec.evidence_blob is None and prior and (prior.ml_json or {}).get("status") == "ok":
-        # bytes are gone (hash_only) but ML/SHAP were computed on them at upload: reuse, don't degrade
-        ml, explanation = prior.ml_json, prior.explanation_json
-    else:
-        ml, explanation = _ml_and_shap(rec.evidence_blob)
-    summary = service.forensic_summary(_analysis_dict(rec), ml, explanation)
-    return _store(db, rec.id, "stored_analysis", ml, explanation, summary)
+    with _exclusive(rec.id):
+        prior = (db.query(AssessmentVersion).filter_by(analysis_id=rec.id)
+                 .order_by(AssessmentVersion.version.desc()).all())
+        reuse = next((v for v in prior if (v.ml_json or {}).get("status") == "ok"), None)
+        if rec.evidence_blob is None and reuse is not None:
+            # bytes are gone (hash_only) but ML/SHAP were computed on them earlier: reuse, don't degrade
+            ml = {**reuse.ml_json, "reused_from_assessment": reuse.id}
+            explanation = reuse.explanation_json
+        else:
+            ml, explanation = _ml_and_shap(rec.evidence_blob)
+        summary = service.forensic_summary(_analysis_dict(rec), ml, explanation)
+        return _store(db, rec.id, "stored_analysis", ml, explanation, summary)

@@ -301,7 +301,8 @@ def _inconsistencies(parsed: ParsedEmail, hops: list[ParsedHop], cfg: ForensicsC
         out.append(Inconsistency(
             "no_received", cfg.severity_no_received,
             "No Received headers present",
-            "Cannot reconstruct an observed path; did not travel through public SMTP as far as we can tell.",
+            "The message's transport path cannot be reconstructed from the available evidence. "
+            "Absent Received headers do not show how, or whether, the message travelled over SMTP.",
         ))
     elif len(hops) > cfg.max_expected_hops:
         out.append(Inconsistency(
