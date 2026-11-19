@@ -32,3 +32,6 @@ db/
 # ML dataset (raw corpora and processed text stay local; only manifest/stats/data card are tracked)
 data/raw/
 data/processed/
+
+# Trained model artifacts (reproducible via python -m app.ml.train; metrics live in docs/ml/)
+models/

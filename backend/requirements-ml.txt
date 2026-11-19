@@ -1,0 +1,9 @@
+# Optional ML stack (R1/R3). The API runs without it: the ML classifier then
+# reports status "unavailable" instead of a verdict.
+-r requirements.txt
+numpy==2.5.5
+scikit-learn==1.9.1
+xgboost==3.4.1
+torch==2.15.0
+transformers==4.57.6
+safetensors>=0.4

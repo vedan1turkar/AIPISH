@@ -4,6 +4,8 @@ import os
 # enrichment when APP_ENV=test. Must be set before the app (and its cached
 # settings) is imported. Live-provider tests call providers directly.
 os.environ["APP_ENV"] = "test"
+# Never pick up locally trained models implicitly; ML tests point at temp bundles.
+os.environ["AIPISH_MODEL_DIR"] = str(__import__("pathlib").Path(__file__).parent / "_no_model")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

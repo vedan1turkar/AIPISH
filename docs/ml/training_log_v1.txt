@@ -1,0 +1,25 @@
+[00:12:22] dataset ok: {'manifest_sha256': 'd8d583a30ffc85b81010485498cc3a2f4cdf0e2beb3ca677c0eaf13bb9f60ab7', 'total': 11289, 'by_split': {'train': 7899, 'validation': 1681, 'test': 1709}}
+[00:12:22] rule engine errors: 1 {'AttributeError': 1}
+[00:12:22] train class counts: {'phishing': 2254, 'legitimate': 5249, 'fraud': 250, 'impersonated': 146}
+[00:12:31] lr trained in 7.3s
+[00:12:36] xgb trained in 4.7s (best_iteration=56)
+[00:13:29] epoch 1 step 0/494 loss 1.6963
+[00:14:41] epoch 1 step 100/494 loss 0.5091
+[00:15:55] epoch 1 step 200/494 loss 0.0025
+[00:17:18] epoch 1 step 300/494 loss 0.0016
+[00:18:46] epoch 1 step 400/494 loss 0.0008
+[00:20:37] epoch 1 done: {'epoch': 1, 'train_loss': 0.26319, 'val_macro_f1': 0.8648, 'seconds': 431.7}
+[00:20:39] epoch 2 step 0/494 loss 0.0007
+[00:22:22] epoch 2 step 100/494 loss 0.0005
+[00:24:03] epoch 2 step 200/494 loss 0.0005
+[00:25:39] epoch 2 step 300/494 loss 0.0006
+[00:27:18] epoch 2 step 400/494 loss 0.0005
+[00:29:16] epoch 2 done: {'epoch': 2, 'train_loss': 0.00374, 'val_macro_f1': 0.903, 'seconds': 518.7}
+[00:29:18] epoch 3 step 0/494 loss 0.0003
+[00:31:09] epoch 3 step 100/494 loss 0.0003
+[00:33:04] epoch 3 step 200/494 loss 0.0002
+[00:35:10] epoch 3 step 300/494 loss 0.0003
+[00:37:15] epoch 3 step 400/494 loss 0.0003
+[00:39:19] epoch 3 done: {'epoch': 3, 'train_loss': 0.00099, 'val_macro_f1': 0.9306, 'seconds': 601.8}
+[00:40:23] transformer trained in 1601.7s; best epoch 3
+[00:40:23] ensemble weights {'lr': 0.0, 'transformer': 0.5, 'xgb': 0.5} (val macro-F1 0.9517)
