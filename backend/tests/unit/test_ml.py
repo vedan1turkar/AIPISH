@@ -167,6 +167,8 @@ def test_classification_report_hand_computed():
     assert rep["evaluated_classes"] == ["legitimate", "phishing", "fraud"]
     assert rep["macro_f1"] == round((0.5 + 0.8 + 0.0) / 3, 4)
     assert rep["accuracy"] == 0.6
+    assert rep["weighted_f1"] == round((0.5 * 2 + 0.8 * 2 + 0.0 * 1) / 5, 4)   # support-weighted
+    assert rep["weighted_recall"] == rep["accuracy"]
     assert confusion(y, p)[LABELS.index("phishing")][LABELS.index("phishing")] == 2
 
 
@@ -318,3 +320,32 @@ def test_pickled_classes_live_in_importable_modules():
     from app.ml.featurizer import XgbFeaturizer
     assert T.XgbFeaturizer is XgbFeaturizer
     assert XgbFeaturizer.__module__ == "app.ml.featurizer"  # never __main__ (unloadable pickle)
+
+
+# ── post-hoc evaluation helpers (app.ml.evaluate) ─────────────────────────
+
+def test_class_inventory_flags_zero_and_synthetic_only(tiny_data):
+    from app.ml.evaluate import class_inventory
+    records, _ = tiny_data
+    inv = class_inventory(records)
+    assert inv["zero_sample_classes"] == ["suspicious"]
+    assert set(inv["synthetic_only_training_classes"]) == {"impersonated", "fraud"}
+    for s in ("train", "validation", "test"):
+        for c in inv["counts"][s].values():
+            assert c["total"] == c["real"] + c["synthetic"]
+
+
+def test_leakage_audit_passes_and_detects_overlap(tiny_data):
+    from app.ml.evaluate import leakage_audit
+    records, _ = tiny_data
+    sizes = {s: sum(r["split"] == s for r in records) for s in ("train", "validation", "test")}
+    cfg = {"dataset": {"manifest_sha256": "abc", "by_split": sizes}}
+    ok = leakage_audit(records, cfg, "abc")
+    assert ok["passed"] and ok["all_overlaps_zero"] and all(ok["code_audit"].values())
+    leaked = [dict(r) for r in records]
+    victim = next(r for r in leaked if r["split"] == "test")
+    twin = next(r for r in leaked if r["split"] == "train")
+    victim["norm_sha256"] = twin["norm_sha256"]          # same text in train and test
+    bad = leakage_audit(leaked, cfg, "abc")
+    assert not bad["passed"] and bad["overlaps"]["norm_sha256_overlap"]["train&test"] == 1
+    assert not leakage_audit(records, cfg, "other")["passed"]   # wrong dataset version

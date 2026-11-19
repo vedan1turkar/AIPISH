@@ -2,7 +2,7 @@
 
 **Status: research prototype.** These are not production-grade accuracy claims. The test set has
 1,709 messages from old public corpora (1999–2007), and the `impersonated`/`fraud` classes are
-100% synthetic and template-based. Full numbers are in `EVALUATION_v1.md` and `evaluation_v1.json`.
+100% synthetic and template-based. Full numbers are in `FINAL_EVALUATION_v1.md` (final) and `EVALUATION_v1.md` (training run).
 
 ## What it is
 
@@ -68,6 +68,92 @@ The rules were run offline (no live DNS, SPF/DKIM or enrichment), so they are we
   - On macOS, torch and xgboost each ship `libomp`, and multi-threaded CPU torch deadlocks once xgboost is loaded. The default is therefore `AIPISH_TORCH_THREADS=1`.
 - **Failure handling:** missing ML dependencies, missing or corrupt files or a label-order mismatch give `status: "unavailable"` with a reason and `label: null`. An inference exception gives `status: "error"`. A message the corpus rules would exclude, such as an empty body, gives `not_applicable`. **There is never a silent fallback to `legitimate`.**
 - **Parity check (19 Nov 2026):** the served path on CPU reproduces the training-time test evaluation exactly, with an identical confusion matrix.
+
+## Final P2b evaluation (post-hoc on the saved artifacts, 19 Nov 2026)
+
+Produced by `python -m app.ml.evaluate` with no retraining. Full tables, including every
+confusion matrix and the train split, are in `FINAL_EVALUATION_v1.md` and `final_evaluation_v1.json`. Validation and test
+numbers reproduce the training-time evaluation exactly.
+
+### Samples per class (total, of which synthetic)
+
+| Split | legitimate | suspicious | impersonated | phishing | fraud |
+|---|---|---|---|---|---|
+| train | 5,249 (0) | **0** | 146 (146) | 2,254 (0) | 250 (250) |
+| validation | 1,125 (0) | **0** | 25 (25) | 482 (0) | 49 (49) |
+| test | 1,125 (0) | **0** | 36 (36) | 482 (0) | 66 (66) |
+
+- **Zero-sample class:** `suspicious`. It is not trained, not evaluated, and never predicted (probability 0).
+- **Synthetic-only classes:** `impersonated` and `fraud` were trained and evaluated on synthetic templates only. Their scores measure generalisation to *unseen templates by the same generator*, not to real business email compromise.
+- **Real-world classes:** only `legitimate` and `phishing` have real data. The **real-only rows below are the closest thing to real-world performance**, and even those come from 1999–2007 corpora.
+
+### Test macro-F1 / weighted-F1
+
+| Model | all (n=1,709) | real only (n=1,607) | synthetic only (n=102) |
+|---|---|---|---|
+| DistilRoBERTa | 0.969 / 0.961 | 0.951 / 0.960 | 1.000 / 1.000 |
+| XGBoost (+ sklearn features) | 0.735 / 0.928 | 0.954 / 0.961 | 0.519 / 0.475 |
+| sklearn TF-IDF + LR | 0.647 / 0.907 | 0.943 / 0.953 | 0.365 / 0.473 |
+| **Ensemble (served)** | **0.965 / 0.963** | **0.954 / 0.962** | 0.979 / 0.981 |
+
+Test threat-vs-legitimate F1 for the 18-rule baseline (offline):
+
+| Threshold | F1 |
+|---|---|
+| "suspicious" or higher | 0.507 |
+| "phishing_fraud_likely" only | 0.189 |
+
+For comparison, the ensemble scores 0.948.
+
+### Overfitting check (macro-F1: train → validation → test)
+
+| Model | train | validation | test |
+|---|---|---|---|
+| DistilRoBERTa | 0.999 | 0.931 | 0.969 |
+| XGBoost | 1.000 | 0.606 | 0.735 |
+| LR | 1.000 | 0.456 | 0.647 |
+| Ensemble | 1.000 | 0.952 | 0.965 |
+
+DistilRoBERTa training loss fell from 0.263 to 0.0037 to 0.0010 over epochs 1–3, while validation macro-F1 rose from 0.865 to 0.903 to 0.931.
+
+**How to read this:**
+
+- **All models fit the training set almost perfectly.** They have the capacity to memorise it.
+- **On real mail the gap is small.** Real-only macro-F1 for the ensemble is 1.000 on train, 0.977 on validation and 0.954 on test. This is mild overfitting, not a collapse.
+- **The large gaps come entirely from the synthetic classes.** XGBoost and LR memorise the surface wording of the 17 training templates and fail on unseen ones: synthetic-only validation macro-F1 is 0.25 for XGBoost and 0.00 for LR. DistilRoBERTa generalises across templates (0.957 on validation, 1.000 on test), but validation and test hold only 4 templates each, so these numbers are fragile.
+- **Test beats validation for some models.** This is template luck: the validation templates (`advfee_03`, `payroll_03`, `execimp_02`) happen to be harder. With so few templates, the order is not meaningful.
+- **Validation numbers are optimistic.** Validation was used for three selections: the best epoch, XGBoost early stopping and the ensemble weight grid. Test is the unbiased estimate.
+
+### Leakage verification (passed)
+
+- **No overlap between splits:** 0 shared ids, exact-text hashes, near-duplicate clusters, groups or thread message-ids between train, validation and test.
+- **Dataset version:** the model's manifest SHA-256 and split sizes match the current dataset.
+- **Code audit (`app/ml/evaluate.py`, plus the unit test `test_never_trains_on_validation_or_test`):**
+  - Every `.fit` uses the train split.
+  - Validation is used only for XGBoost early stopping, DistilRoBERTa epoch selection and the ensemble weights.
+  - Test predictions are produced only after the weights are fixed.
+
+### Parser failure (verified)
+
+There is one corpus message, `nazario-21735b6414179deb` (train split, phishing), on which the existing `.eml` parser raises `AttributeError`.
+
+- **Rule features:** all 19 are NaN, i.e. missing, not "no rule fired".
+- **Rule verdict:** `null`. The rule baseline counts it as a miss.
+- **ML result:** the ML still classifies it, as `phishing` with confidence 0.994.
+- **Live API check:** `POST /api/v1/ml/classify` returns `rules.verdict = null` and `rules.error = "AttributeError: …"`, with `ml.status = "ok"`.
+
+### Saved configuration (tracked in git)
+
+- `docs/ml/model_config_v1.json` — full model configuration, including:
+  - seed 20261119;
+  - hyperparameters;
+  - ensemble weights;
+  - dataset manifest hash;
+  - DistilRoBERTa epoch history;
+  - base-model revision;
+  - library versions.
+- `docs/ml/tokenizer_config_v1.json` — tokenizer, special-tokens and model configs.
+- `final_evaluation_v1.json` — the SHA-256 of every artifact file in `models/aipish-email-v1/`. The artifacts themselves are git-ignored.
 
 ## Explanations (R4, SHAP) — `POST /api/v1/ml/explain`, `app/ml/explain.py`
 

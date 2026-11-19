@@ -43,12 +43,19 @@ def classification_report(y_true: list[str], y_pred: list[str],
     def macro(key: str) -> float | None:
         return round(sum(per[lbl][key] for lbl in evaluated) / len(evaluated), 4) if evaluated else None
 
+    def weighted(key: str) -> float | None:
+        tot = sum(per[lbl]["support"] for lbl in evaluated)
+        return round(sum(per[lbl][key] * per[lbl]["support"] for lbl in evaluated) / tot, 4) if tot else None
+
     return {
         "n": n,
         "accuracy": round(sum(cm[i][i] for i in range(len(labels))) / n, 4) if n else None,
         "macro_precision": macro("precision"),
         "macro_recall": macro("recall"),
         "macro_f1": macro("f1"),
+        "weighted_precision": weighted("precision"),
+        "weighted_recall": weighted("recall"),
+        "weighted_f1": weighted("f1"),
         "evaluated_classes": evaluated,
         "per_class": per,
         "labels": list(labels),
