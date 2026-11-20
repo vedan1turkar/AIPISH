@@ -10,8 +10,13 @@ import {
   listAssessments,
   getLlmStatus,
   getMlStatus,
+  getIntelStatus,
+  getThreatIntel,
+  runThreatIntel,
   verifyIntegrity,
   type Assessment,
+  type IntelServiceStatus,
+  type ThreatIntelRun,
   type AssessmentSummary,
   type InvestigationCase,
   type IntegrityResult,
@@ -33,8 +38,9 @@ import {
 import { HeaderForensicsPanel, AnomaliesPanel, IntelligenceDetailsPanel } from './ForensicsPanels'
 import TraceView from './trace/TraceView'
 import { AssessmentOverviewCard, AssessmentView } from './assessment/AssessmentPanels'
+import ThreatIntelPanel from './intel/ThreatIntelPanel'
 
-type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'trace' | 'ai'
+type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'trace' | 'ai'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'overview', label: 'Overview', icon: '📋' },
@@ -42,6 +48,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'auth', label: 'Authentication', icon: '🔐' },
   { id: 'headers', label: 'Headers & relay', icon: '🔀' },
   { id: 'intel', label: 'IP & domain intel', icon: '🌐' },
+  { id: 'threat', label: 'Threat intel', icon: '🛡️' },
   { id: 'trace', label: 'Trace view', icon: '🕸️' },
   { id: 'ai', label: 'AI assessment', icon: '🤖' },
 ]
@@ -71,6 +78,12 @@ export default function ResultsDashboard({
   const [llmStatus, setLlmStatus] = useState<LlmStatus | null>(null)
   const [history, setHistory] = useState<AssessmentSummary[]>([])
   const [elapsed, setElapsed] = useState(0)
+  const [intelRun, setIntelRun] = useState<ThreatIntelRun | null>(null)
+  const [intelStatus, setIntelStatus] = useState<IntelServiceStatus | null>(null)
+  const [intelLoading, setIntelLoading] = useState(true)
+  const [intelError, setIntelError] = useState<string | null>(null)
+  const [intelRunning, setIntelRunning] = useState(false)
+  const [intelRunError, setIntelRunError] = useState<string | null>(null)
 
   // Real elapsed time while a generation request is open (no invented progress).
   useEffect(() => {
@@ -107,6 +120,47 @@ export default function ResultsDashboard({
     getLlmStatus(ctl.signal).then(setLlmStatus).catch(() => setLlmStatus(null))
     return () => ctl.abort()
   }, [analysis.id, refreshHistory])
+
+  // Stored threat-intel run (P5a): loading it never triggers a lookup.
+  useEffect(() => {
+    const ctl = new AbortController()
+    setIntelRun(null)
+    setIntelError(null)
+    setIntelLoading(true)
+    getThreatIntel(analysis.id, ctl.signal)
+      .then(setIntelRun)
+      .catch((err) => {
+        if (!(err instanceof DOMException && err.name === 'AbortError'))
+          setIntelError(err instanceof Error ? err.message : 'request failed')
+      })
+      .finally(() => setIntelLoading(false))
+    getIntelStatus(ctl.signal).then(setIntelStatus).catch(() => setIntelStatus(null))
+    return () => ctl.abort()
+  }, [analysis.id])
+
+  const intelInFlight = useRef(false)
+  const handleRunIntel = useCallback(
+    async (consent: boolean) => {
+      if (intelInFlight.current) return // one run at a time; the backend also refuses duplicates (409)
+      intelInFlight.current = true
+      setIntelRunning(true)
+      setIntelRunError(null)
+      try {
+        setIntelRun(await runThreatIntel(analysis.id, { consent, source: 'on_demand' }))
+        setIntelError(null)
+      } catch (err) {
+        if (err instanceof ApiError && err.code === 'INTEL_IN_PROGRESS')
+          setIntelRunError('A threat-intel lookup for this analysis is already running. Wait for it to finish.')
+        else if (err instanceof ApiError && err.status === 0)
+          setIntelRunError('The backend could not be reached. The analysis is unaffected; try again when it is running.')
+        else setIntelRunError(err instanceof Error ? err.message : 'Threat-intel lookup failed.')
+      } finally {
+        intelInFlight.current = false
+        setIntelRunning(false)
+      }
+    },
+    [analysis.id],
+  )
 
   // Synchronous guard: React state is not updated between clicks fired in the same
   // task, so a ref (not `generating`) decides whether a request is already open.
@@ -174,7 +228,9 @@ export default function ResultsDashboard({
     try {
       const c = await ensureCase()
       // the PDF prints exactly the assessment version shown in the AI tab
-      await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null)
+      // ...and the threat-intel run shown in the Threat intel tab, when one exists
+      if (intelRun) await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null, intelRun.run_id)
+      else await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null)
     } catch (err) {
       setPdfError(err instanceof Error ? err.message : 'Report download failed.')
     } finally {
@@ -275,6 +331,18 @@ export default function ResultsDashboard({
       {tab === 'auth' && <AuthTab analysis={analysis} />}
       {tab === 'headers' && <HeadersTab analysis={analysis} />}
       {tab === 'intel' && <IntelTab analysis={analysis} />}
+      {tab === 'threat' && (
+        <ThreatIntelPanel
+          run={intelRun}
+          status={intelStatus}
+          loading={intelLoading}
+          error={intelError}
+          running={intelRunning}
+          runError={intelRunError}
+          onRun={handleRunIntel}
+          onDismissError={() => setIntelRunError(null)}
+        />
+      )}
       {tab === 'trace' && <TraceView analysis={analysis} />}
       {tab === 'ai' && (
         <AssessmentView

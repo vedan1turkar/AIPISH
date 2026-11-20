@@ -116,12 +116,26 @@ def _assessment_for(db: Session, analysis_id: str, assessment_id: str | None) ->
     return assessment_dict(row) if row else None
 
 
+def _intel_for(db: Session, analysis_id: str, run_id: str | None) -> dict | None:
+    """A stored threat-intel run (never re-run here): the requested one, else the latest."""
+    from app.intel.service import get_run, latest_run, run_dict
+    if run_id:
+        row = get_run(db, analysis_id, run_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail={"code": "INTEL_RUN_NOT_FOUND",
+                                                         "message": "No such threat-intel run for this analysis."})
+        return run_dict(row)
+    row = latest_run(db, analysis_id)
+    return run_dict(row) if row else None
+
+
 @router.get("/{case_id}/report/{analysis_id}")
 def report_pdf(
     case_id: str,
     analysis_id: str,
     x_evidence_key: str | None = Header(default=None, convert_underscores=True),
     assessment_id: str | None = None,
+    intel_run_id: str | None = None,
     db: Session = Depends(get_db),
 ):
     """Download the forensic PDF for one analysis inside an investigation.
@@ -170,11 +184,14 @@ def report_pdf(
         integrity=integrity,
         report_id=report_id,
         assessment=(assessment := _assessment_for(db, rec.id, assessment_id)),
+        intel=(intel := _intel_for(db, rec.id, intel_run_id)),
     )
     record_audit(db, "report_generated", analysis_id=rec.id, case_id=case.id,
                  detail={"report_id": report_id, "size_bytes": len(pdf),
                          "assessment_id": (assessment or {}).get("assessment_id"),
-                         "assessment_version": (assessment or {}).get("version")})
+                         "assessment_version": (assessment or {}).get("version"),
+                         "intel_run_id": (intel or {}).get("run_id"),
+                         "intel_run_version": (intel or {}).get("version")})
     db.commit()
     filename = f"forensic-report-{report_id}.pdf"
     return Response(

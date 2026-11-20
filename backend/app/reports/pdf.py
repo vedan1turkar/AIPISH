@@ -115,6 +115,7 @@ def build_report_pdf(
     report_id: str,
     generated_at: str | None = None,
     assessment: dict | None = None,
+    intel: dict | None = None,
 ) -> bytes:
     """Builds the full PDF. Returns bytes; raises nothing — caller handles."""
     generated_at = generated_at or datetime.now(timezone.utc).isoformat()
@@ -335,6 +336,9 @@ def build_report_pdf(
                                "(providers skipped or disabled).", BODY))
     if enr.get("degraded"):
         story.append(Paragraph("<b>Degraded providers:</b> " + esc("; ".join(enr["degraded"][:5])), CAVEAT))
+
+    # ── 7A. Threat intelligence lookups (P5a, informational only) ───────
+    _intel_section(story, intel)
 
     # ── 8. ML, SHAP and AI-assisted interpretation (P4) ──────────────────
     _assessment_section(story, assessment)
@@ -631,3 +635,113 @@ def _recommendations_p42(story: list, fs: dict) -> None:
                                "do not follow):", SUBHEAD))
         for r in rejected:
             story.append(Paragraph(f"• <strike>{esc(r.get('text'))}</strike> — <i>{esc(r.get('reason'))}</i>", CAVEAT))
+
+
+# ── 7A. Threat intelligence (P5a) ─────────────────────────────────────────
+INTEL_STATUS_TEXT = {
+    "malicious_or_flagged": "FLAGGED by provider",
+    "reported_clean_no_flags": "No flags reported (not proof of safety)",
+    "record_found": "Record found, no verdict (not proof of safety)",
+    "no_record": "No record / no reports (not proof of safety)",
+    "provider_error": "PROVIDER ERROR — no result",
+    "rate_limited": "RATE LIMITED — not looked up",
+    "auth_failed": "AUTH FAILED — not looked up",
+    "timeout": "TIMED OUT — no result",
+    "malformed_response": "MALFORMED RESPONSE — no result",
+    "not_permitted": "NOT PERMITTED — not looked up",
+    "not_attempted_consent_disabled": "NOT ATTEMPTED — no consent",
+    "not_attempted_offline": "NOT ATTEMPTED — offline mode",
+    "not_attempted_cap_reached": "NOT LOOKED UP — indicator cap reached",
+    "missing_credentials": "NOT ATTEMPTED — credential not configured",
+    "not_applicable_indicator": "NOT APPLICABLE — indicator not eligible",
+    "quota_exhausted": "QUOTA EXHAUSTED — not looked up",
+}
+
+_FACT_KEYS = {
+    "virustotal": ("malicious", "suspicious", "engines_total", "reputation", "as_owner", "country",
+                   "registrar", "type_description"),
+    "abuseipdb": ("abuse_confidence_score", "total_reports", "country_code", "isp", "usage_type",
+                  "last_reported_at"),
+    "shodan": ("open_ports", "org", "asn", "hostnames", "tags", "country"),
+    "ipinfo": ("country", "region", "city", "org", "is_vpn", "is_proxy", "is_tor", "is_relay", "is_hosting"),
+    "tor_exit_list": ("listed", "list_size", "list_fetched_at"),
+}
+
+
+def _intel_facts(r: dict) -> str:
+    data = r.get("data") or {}
+    parts = []
+    for k in _FACT_KEYS.get(r.get("provider"), ()):
+        v = data.get(k)
+        if v is None or v == [] or v == "":
+            continue
+        if isinstance(v, bool):
+            v = "yes" if v else "no"
+        elif isinstance(v, list):
+            v = ", ".join(str(x) for x in v[:8])
+        parts.append(f"{k}={v}")
+    text = "; ".join(parts) or (r.get("message") or "")
+    return text[:220]
+
+
+def _intel_section(story: list, run: dict | None) -> None:
+    story.append(Paragraph("7A. Threat Intelligence Lookups (external providers, informational only)", H2))
+    if not run:
+        story.append(Paragraph("<b>Threat-intelligence lookup: NOT RUN</b> for this analysis. No indicator was "
+                               "sent to any external provider.", BODY))
+        story.append(Paragraph("Absence of a lookup is not evidence either way.", CAVEAT))
+        return
+    consent = run.get("consent") or {}
+    counts = run.get("counts") or {}
+    rows = [
+        ("Run", esc(f"{run.get('run_id', '?')} (version {run.get('version', '?')})")),
+        ("Run at", esc(short_time(run.get("created_at")))),
+        ("Consent", esc(("GRANTED" if consent.get("granted") else "NOT GIVEN — no external lookups attempted")
+                        + f" at {short_time(consent.get('decided_at'))} via {consent.get('source', '?')}")),
+        ("Providers requested", esc(", ".join(consent.get("providers") or []) or "none")),
+        ("Offline mode", esc("ON — external calls blocked; cached results only, labelled" if run.get("offline")
+                             else "off")),
+        ("Indicators", esc(f"{counts.get('total', 0)} found, {counts.get('eligible', 0)} eligible, "
+                           f"{counts.get('looked_up', 0)} looked up, {counts.get('rejected', 0)} rejected, "
+                           f"{counts.get('cap_skipped', 0)} over the cap of {run.get('ioc_cap', '?')}")),
+        ("Not configured", esc("; ".join((run.get("not_configured") or {}).values()) or "none")),
+    ]
+    if run.get("simulated"):
+        rows.insert(0, ("DATA SOURCE", "<b>SIMULATED providers (local stub) — not real provider data</b>"))
+    story.append(_kv_table(rows))
+    story.append(Spacer(1, 4))
+    head = [Paragraph(f"<b>{h}</b>", CELL) for h in ("Indicator", "Provider", "Status", "Fetched / cache",
+                                                       "Key facts (provider-supplied, sanitised)")]
+    table = [head]
+    for ind in (run.get("indicators") or [])[:40]:
+        label = f"{ind.get('indicator', '')} ({ind.get('indicator_type', '')})"
+        if ind.get("state") != "looked_up":
+            table.append([Paragraph(soft_wrap(label[:120]), CELL_MONO), Paragraph("—", CELL),
+                          Paragraph(esc(INTEL_STATUS_TEXT.get(ind.get("state"), ind.get("state"))), CELL_B),
+                          Paragraph("never sent", CELL),
+                          Paragraph(esc((ind.get("rejection_reason") or ind.get("message") or "")[:200]), CELL)])
+            continue
+        for r in ind.get("results") or []:
+            cache = r.get("cache_state") or "none"
+            fetched = short_time(r.get("fetched_at")) if r.get("fetched_at") else "—"
+            cache_txt = {"fresh": "cached (fresh)", "stale": "STALE cache", "none": "live"}.get(cache, cache)
+            if r.get("status") not in ("malicious_or_flagged", "reported_clean_no_flags", "record_found",
+                                       "no_record"):
+                cache_txt = "no data" if cache == "none" else cache_txt
+            table.append([
+                Paragraph(soft_wrap(label[:120]), CELL_MONO),
+                Paragraph(esc(r.get("provider_label") or r.get("provider")), CELL),
+                Paragraph(esc(INTEL_STATUS_TEXT.get(r.get("status"), str(r.get("status")))),
+                          CELL_B if r.get("status") == "malicious_or_flagged" else CELL),
+                Paragraph(esc(f"{fetched} · {cache_txt}"), CELL),
+                Paragraph(esc(_intel_facts(r)), CELL),
+            ])
+    if len(table) == 1:
+        story.append(Paragraph("No indicators were extracted from this analysis.", BODY))
+    else:
+        story.append(_grid(table, [40 * mm, 20 * mm, 36 * mm, 28 * mm, 52 * mm]))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph(esc(run.get("disclaimer") or ""), CAVEAT))
+    story.append(Paragraph("Stale results are earlier cached provider data shown because a live lookup was not "
+                           "possible; they carry their original fetch time. No credential is printed in this "
+                           "report.", CAVEAT))

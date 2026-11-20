@@ -105,7 +105,10 @@ All routes are under `/api/v1`.
 | GET | `/investigations` | List investigation cases |
 | GET | `/investigations/{id}` | One case incl. its analyses |
 | POST | `/investigations/{case}/evidence-integrity/{analysis}` | Recompute SHA-256 of retained bytes |
-| GET | `/investigations/{case}/report/{analysis}` | Download the forensic PDF |
+| GET | `/investigations/{case}/report/{analysis}` | Download the forensic PDF (`?assessment_id=` / `?intel_run_id=` pin versions) |
+| GET | `/intel/status` | Threat-intel providers: configured/enabled booleans only |
+| POST | `/analyses/{id}/threat-intel` | Consent-gated threat-intel lookup (body `{"consent": bool}`); appends a versioned run |
+| GET | `/analyses/{id}/threat-intel` | Latest (or `?run_id=`) stored threat-intel run |
 
 Error responses always have the shape `{"error": {"code", "message", "request_id?"}}`.
 
@@ -122,7 +125,8 @@ Credibility lookups are strictly opt-in and degrade gracefully to a visible
 | `ENRICH_ENABLE_IPGEO` | `1` | `0` disables IP infrastructure geo |
 | `ENRICH_IPGEO_BASE` | ip-api.com | Alternative geo endpoint |
 | `ENRICH_DNS_TIMEOUT` | `10` | Seconds per DNS query |
-| `ABUSEIPDB_API_KEY` | *(unset)* | *(reserved)* — without it the provider reports `skipped: ABUSEIPDB_API_KEY not configured` |
+| `VIRUSTOTAL_API_KEY`, `ABUSEIPDB_API_KEY`, `SHODAN_API_KEY`, `IPINFO_TOKEN` | *(unset)* | Threat-intel providers (P5a). Used only after explicit per-analysis consent; without a key the provider reports `missing_credentials`. See [docs/intel/README.md](docs/intel/README.md) |
+| `INTEL_OFFLINE` | `0` | `1` blocks every external threat-intel call (also implied by `APP_ENV=offline`) |
 | `MAXMIND_GEOIP2_DB` | *(unset)* | Path to a GeoLite2 `.mmdb` — without it the provider reports `skipped` |
 | `CASE_EVIDENCE_STORE` | `hash_only` | `raw` also retains exact message bytes for integrity re-verification |
 | `CASE_EVIDENCE_STORE_KEY` | *(unset)* | When set with `raw`, report downloads require header `X-Evidence-Key` |

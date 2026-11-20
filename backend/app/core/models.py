@@ -181,3 +181,45 @@ def migrate_assessments(session) -> int:
     if copied:
         session.commit()
     return copied
+
+
+class IntelCacheEntry(Base):
+    """Threat-intel provider cache (P5a). One row per provider + indicator type + indicator.
+
+    Holds only normalised, sanitised provider fields — never credentials, request
+    URLs or any email content. Expired rows are kept so a later provider failure
+    can fall back to them, always labelled stale.
+    """
+    __tablename__ = "intel_cache"
+
+    key: Mapped[str] = mapped_column(String(400), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(32), index=True)
+    indicator_type: Mapped[str] = mapped_column(String(16))
+    indicator: Mapped[str] = mapped_column(String(300))
+    status: Mapped[str] = mapped_column(String(40))
+    data_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ThreatIntelRun(Base):
+    """One threat-intel lookup run for an analysis (P5a). Append-only in the API.
+
+    Each run records the consent decision (granted or refused), its timestamp,
+    the providers requested and every per-indicator result with provenance.
+    Re-running inserts version n+1; earlier runs are never updated, so a PDF
+    pinned to a run id stays reproducible. Informational only: never feeds the
+    rule score, ML score or verdict.
+    """
+    __tablename__ = "threat_intel_run"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    analysis_id: Mapped[str] = mapped_column(String(32), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    consent_granted: Mapped[bool] = mapped_column(default=False)
+    consent_source: Mapped[str] = mapped_column(String(24))      # upload | on_demand
+    providers_requested: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    offline: Mapped[bool] = mapped_column(default=False)
+    result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

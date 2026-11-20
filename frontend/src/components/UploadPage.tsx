@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { uploadEml, uploadEmlWithAssessment, getAnalysis, ApiError, type AnalysisDetail } from '../api/client'
+import { uploadEml, uploadEmlWithAssessment, getAnalysis, runThreatIntel, ApiError, type AnalysisDetail } from '../api/client'
 import { ErrorAlert, Spinner } from './ui'
 
 const MAX_MB = 10
@@ -28,6 +28,9 @@ export default function UploadPage({
   // Opt-in: ML + SHAP must read the original bytes, which the default hash_only
   // policy discards after this request, so they can only run at upload time.
   const [runAi, setRunAi] = useState(false)
+  // P5a: external threat-intel lookups are off unless explicitly consented to here or in the Threat intel tab.
+  const [runIntel, setRunIntel] = useState(false)
+  const [intelNote, setIntelNote] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
     if (status !== 'analyzing') return
@@ -58,6 +61,16 @@ export default function UploadPage({
       const detail = runAi
         ? await getAnalysis((await uploadEmlWithAssessment(selectedFile)).analysis_id)
         : await uploadEml(selectedFile)
+      if (runIntel) {
+        setIntelNote('Running consented threat-intel lookups…')
+        try {
+          await runThreatIntel(detail.id, { consent: true, source: 'upload' })
+        } catch {
+          /* the analysis is complete; the Threat intel tab shows the stored state and allows a retry */
+        } finally {
+          setIntelNote(null)
+        }
+      }
       onAnalyzed(detail)
       pickFile(null)
       if (inputRef.current) inputRef.current.value = ''
@@ -147,13 +160,31 @@ export default function UploadPage({
             </span>
           </label>
 
+          <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={runIntel}
+              onChange={(e) => setRunIntel(e.target.checked)}
+              disabled={status === 'uploading' || status === 'analyzing'}
+            />
+            <span>
+              I consent to external threat-intel lookups for this analysis (VirusTotal, AbuseIPDB, Shodan, IPinfo, Tor exit list)
+              <span className="block text-xs text-gray-400">
+                Off by default. Only bare public indicators are sent: IPs, domains and attachment SHA-256 hashes. The
+                subject, body, addresses, headers, URL paths and attachments are never sent. Results are informational and
+                do not change the verdict.
+              </span>
+            </span>
+          </label>
+
           <button
             onClick={submit}
             disabled={!selectedFile || status === 'uploading' || status === 'analyzing'}
             className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             {status === 'uploading' || status === 'analyzing' ? (
-              <Spinner label={status === 'uploading' ? 'Uploading…' : 'Analysing…'} />
+              <Spinner label={intelNote ?? (status === 'uploading' ? 'Uploading…' : 'Analysing…')} />
             ) : (
               'Analyse email'
             )}

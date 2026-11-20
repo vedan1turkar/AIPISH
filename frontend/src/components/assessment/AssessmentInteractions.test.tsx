@@ -24,6 +24,9 @@ vi.mock('../../api/client', async (orig) => {
     createInvestigation: vi.fn(),
     downloadReport: vi.fn(),
     verifyIntegrity: vi.fn(),
+    getThreatIntel: vi.fn(),
+    getIntelStatus: vi.fn(),
+    runThreatIntel: vi.fn(),
   }
 })
 import * as api from '../../api/client'
@@ -62,6 +65,8 @@ beforeEach(() => {
   for (const f of Object.values(mocked)) if (typeof f?.mockReset === 'function') f.mockReset()
   mocked.getMlStatus.mockResolvedValue({ status: 'ok', ensemble_weights: { lr: 0, transformer: 0.5, xgb: 0.5 } })
   mocked.getLlmStatus.mockResolvedValue({ status: 'ok', model: 'mistral:latest' })
+  mocked.getThreatIntel.mockResolvedValue(null)
+  mocked.getIntelStatus.mockRejectedValue(new Error('not needed'))
 })
 afterEach(() => cleanup())
 

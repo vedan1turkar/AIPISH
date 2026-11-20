@@ -181,7 +181,7 @@ def ipgeo_lookup(ip: str, cfg: EnrichmentConfig) -> dict[str, Any]:
 def abuseipdb_lookup(ip: str, cfg: EnrichmentConfig) -> dict[str, Any]:
     if not cfg.abuseipdb_api_key:
         return {"status": "skipped", "reason": "ABUSEIPDB_API_KEY not configured"}
-    return {"status": "skipped", "reason": "adapter not enabled in MVP — key present but client not implemented"}
+    return {"status": "skipped", "reason": "not run at upload: AbuseIPDB lookups run only with explicit consent via the threat-intel lookup (POST /api/v1/analyses/{id}/threat-intel)"}
 
 
 def geoip2_lookup(ip: str, cfg: EnrichmentConfig) -> dict[str, Any]:

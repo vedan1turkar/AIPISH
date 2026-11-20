@@ -313,9 +313,17 @@ export async function verifyIntegrity(
 }
 
 // ── PDF report ─────────────────────────────────────────────────────────────
-/** Download the PDF. `assessmentId` pins the AI-assessment version printed in it. */
-export async function downloadReport(caseId: string, analysisId: string, assessmentId?: string | null): Promise<void> {
-  const q = assessmentId ? `?assessment_id=${encodeURIComponent(assessmentId)}` : ''
+/** Download the PDF. `assessmentId` / `intelRunId` pin the AI-assessment and threat-intel versions printed in it. */
+export async function downloadReport(
+  caseId: string,
+  analysisId: string,
+  assessmentId?: string | null,
+  intelRunId?: string | null,
+): Promise<void> {
+  const params = new URLSearchParams()
+  if (assessmentId) params.set('assessment_id', assessmentId)
+  if (intelRunId) params.set('intel_run_id', intelRunId)
+  const q = params.toString() ? `?${params.toString()}` : ''
   const res = await fetch(
     `${API_BASE}/api/v1/investigations/${encodeURIComponent(caseId)}/report/${encodeURIComponent(analysisId)}${q}`,
   )
@@ -560,4 +568,114 @@ export async function getAssessmentVersion(id: string, assessmentId: string, sig
     `/api/v1/analyses/${encodeURIComponent(id)}/assessments/${encodeURIComponent(assessmentId)}`,
     { signal },
   )
+}
+
+// ── Threat intelligence (P5a) ───────────────────────────────────────────────
+export type IntelStatus =
+  | 'malicious_or_flagged'
+  | 'reported_clean_no_flags'
+  | 'record_found'
+  | 'no_record'
+  | 'provider_error'
+  | 'rate_limited'
+  | 'auth_failed'
+  | 'timeout'
+  | 'malformed_response'
+  | 'not_permitted'
+  | 'not_attempted_consent_disabled'
+  | 'not_attempted_offline'
+  | 'not_attempted_cap_reached'
+  | 'missing_credentials'
+  | 'not_applicable_indicator'
+  | 'quota_exhausted'
+
+export interface IntelResult {
+  provider: string
+  provider_label: string
+  indicator: string
+  indicator_type: string
+  status: IntelStatus | string
+  fetched_at: string | null
+  expires_at: string | null
+  cache_state: 'fresh' | 'stale' | 'none' | string
+  source: string
+  data: Record<string, unknown>
+  error_code: string | null
+  message: string
+  cache_age_seconds: number | null
+  retry_after_seconds: number | null
+}
+
+export interface IntelIndicator {
+  indicator: string
+  indicator_type: string
+  origins: string[]
+  eligible: boolean
+  state: 'looked_up' | 'not_applicable_indicator' | 'not_attempted_cap_reached' | string
+  rejection_reason: string | null
+  message?: string
+  results: IntelResult[]
+}
+
+export interface ThreatIntelRun {
+  run_id: string
+  analysis_id: string
+  version: number
+  created_at: string | null
+  consent: { granted: boolean; decided_at: string; source: string; providers: string[] }
+  offline: boolean
+  simulated: boolean
+  informational_only: boolean
+  ioc_cap: number
+  counts: { total: number; eligible: number; looked_up: number; rejected: number; cap_skipped: number }
+  indicators: IntelIndicator[]
+  provider_summary: Record<string, Record<string, number>>
+  not_configured: Record<string, string>
+  disclaimer: string
+}
+
+export interface IntelProviderStatus {
+  label: string
+  configured: boolean
+  enabled: boolean
+  requires_credentials: boolean
+  note?: string
+}
+
+export interface IntelServiceStatus {
+  offline: boolean
+  simulated: boolean
+  consent_required: boolean
+  consent_default: boolean
+  max_iocs_per_analysis: number
+  informational_only: boolean
+  providers: Record<string, IntelProviderStatus>
+}
+
+export async function getIntelStatus(signal?: AbortSignal): Promise<IntelServiceStatus> {
+  return request<IntelServiceStatus>('/api/v1/intel/status', { signal })
+}
+
+/** Latest (or a pinned) stored threat-intel run; null when none has been run. */
+export async function getThreatIntel(id: string, signal?: AbortSignal): Promise<ThreatIntelRun | null> {
+  try {
+    return await request<ThreatIntelRun>(`/api/v1/analyses/${encodeURIComponent(id)}/threat-intel`, { signal })
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404 && err.code === 'INTEL_NOT_RUN') return null
+    throw err
+  }
+}
+
+/** Run lookups. `consent: false` records the refusal and sends nothing. */
+export async function runThreatIntel(
+  id: string,
+  body: { consent: boolean; source: 'upload' | 'on_demand'; providers?: string[] },
+  signal?: AbortSignal,
+): Promise<ThreatIntelRun> {
+  return request<ThreatIntelRun>(`/api/v1/analyses/${encodeURIComponent(id)}/threat-intel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
 }
