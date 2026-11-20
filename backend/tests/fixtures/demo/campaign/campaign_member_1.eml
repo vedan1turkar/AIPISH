@@ -1,0 +1,27 @@
+Received: from mail.vendor-remit-portal.test (mail.vendor-remit-portal.test [96.7.128.175])
+	by mx.receiver.test (Postfix) with ESMTPS id synthc1
+	for <accounts@receiver.test>; Mon, 02 Nov 2026 08:10:00 +0000 (UTC)
+From: "Accounts Payable Desk" <synthetic.ap.desk1@outlook.com>
+To: accounts@receiver.test
+Reply-To: remittance@vendor-remit-portal.test
+Return-Path: <bounce1@outlook.com>
+Message-ID: <synth-camp-1@outlook.com>
+Subject: [SYNTHETIC DEMO] Updated remittance details - invoice 4471
+Date: Mon, 02 Nov 2026 08:10:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Hello,
+
+Our banking details changed. Please send payment for invoice 4471
+to the new account and confirm by replying to this email.
+
+Accounts Payable Desk
+
+===============================================================
+SYNTHETIC DEMO DATA - NOT A REAL MESSAGE. Domains use the reserved
+.test TLD; names, invoice numbers and infrastructure are invented
+for software demonstration only. The IP addresses reuse the
+project's existing fixture conventions and say nothing about the
+real operators of those addresses.
+===============================================================

@@ -225,7 +225,7 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
     db.add(rec)
     db.commit()
 
-    return AnalysisDetail(
+    detail = AnalysisDetail(
         id=rec.id,
         created_at=rec.created_at.isoformat(),
         sha256=rec.raw_sha256,
@@ -252,6 +252,11 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
         enrichment=EnrichmentOut(**(rec.enrichment_json or {})),
         parse_defects=rec.parse_defects or [],
     )
+    # P5c: record observations + update candidate campaigns. Failure-isolated: the analysis is
+    # already committed and the response above is built; an error only sets corr_state=error.
+    from app.correlation.engine import correlate_safely
+    correlate_safely(db, detail.id)
+    return detail
 
 
 @router.get("/analyses", response_model=list[AnalysisSummary])

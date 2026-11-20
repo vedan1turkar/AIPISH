@@ -3,9 +3,10 @@ import type { ReactElement } from 'react'
 import { AuthContext, authStateFor } from '../auth/AuthContext'
 import type { Session } from '../auth/session'
 
-const VIEWER = ['self', 'analysis:read', 'case:read', 'report:download', 'intel:read', 'assessment:read', 'ml:status']
+const VIEWER = ['self', 'analysis:read', 'case:read', 'report:download', 'intel:read', 'assessment:read', 'ml:status',
+  'correlation:read', 'search:read']
 const ANALYST = [...VIEWER, 'analysis:create', 'case:write', 'evidence:verify', 'intel:run', 'assessment:run', 'ml:run']
-const ADMIN = [...ANALYST, 'users:manage', 'config:status', 'docs:read']
+const ADMIN = [...ANALYST, 'users:manage', 'config:status', 'docs:read', 'correlation:rebuild']
 export const PERMS: Record<string, string[]> = { viewer: VIEWER, analyst: ANALYST, admin: ADMIN }
 
 export function sessionFor(role: 'viewer' | 'analyst' | 'admin', extra: Partial<Session['user']> = {}): Session {

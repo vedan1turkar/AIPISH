@@ -791,3 +791,190 @@ export async function resetUserPassword(id: string): Promise<TempPasswordResult>
     method: 'POST',
   })
 }
+
+// ── Correlation, campaigns, search, case membership (P5c) ───────────────────
+export interface AnalysisBrief {
+  id: string
+  created_at: string | null
+  subject: string
+  from_domain: string | null
+  detection_score: number
+  detection_verdict: string | null
+  sha256: string
+}
+
+export interface EvidenceRef {
+  analysis_id?: string
+  role: string
+  source_field: string
+}
+
+export interface SharedIndicator {
+  entity_id: string
+  type: string
+  value: string
+  roles?: string[]
+  tier: 'strong' | 'medium' | 'weak' | string
+  weight: number
+  damped?: boolean
+  df?: number
+  evidence: EvidenceRef[]
+  generic_reason?: string | null
+}
+
+export interface CampaignBrief {
+  id: string
+  label: string
+  status: string
+  confidence: 'high' | 'medium' | 'low' | string
+  confidence_score: number
+  member_count: number
+  version: number
+  merged_into: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface RelatedAnalysis {
+  analysis: AnalysisBrief
+  score: number
+  qualifies: boolean
+  confidence: string | null
+  explanation: string
+  indicators: SharedIndicator[]
+  generic_overlaps: SharedIndicator[]
+  independent_types: string[]
+}
+
+export interface Correlation {
+  analysis_id: string
+  status: 'ok' | 'error' | 'not_computed' | string
+  entities: SharedIndicator[]
+  related: RelatedAnalysis[]
+  related_total: number
+  generic_only_overlaps: { count: number; indicators: { type: string; value: string; reason: string; analyses: number }[] }
+  campaigns: CampaignBrief[]
+  rule: string
+  disclaimer: string
+}
+
+export interface GraphNode {
+  id: string
+  kind: string
+  label: string
+  subject?: string
+  analysis_id?: string
+  verdict?: string | null
+  score?: number
+  tier?: string
+  weight?: number
+}
+
+export interface GraphEdge {
+  id: string
+  source: string
+  target: string
+  role: string
+  source_field: string
+  tier: string
+}
+
+export interface CampaignDetail extends CampaignBrief {
+  members: AnalysisBrief[]
+  reasons: {
+    summary?: string[]
+    shared_indicators?: (SharedIndicator & { analyses: string[] })[]
+    links?: { a: string; b: string; score: number; explanation: string; indicators: { type: string; value: string; tier: string; weight: number }[] }[]
+    rule?: string
+    disclaimer?: string
+  }
+  graph: { nodes: GraphNode[]; edges: GraphEdge[] }
+  disclaimer: string
+}
+
+export async function getCorrelation(id: string, signal?: AbortSignal): Promise<Correlation> {
+  return request<Correlation>(`/api/v1/analyses/${encodeURIComponent(id)}/correlation`, { signal })
+}
+
+export async function listCampaigns(signal?: AbortSignal): Promise<{ items: CampaignBrief[]; disclaimer: string }> {
+  return request(`/api/v1/campaigns`, { signal })
+}
+
+export async function getCampaign(id: string, signal?: AbortSignal): Promise<CampaignDetail> {
+  return request<CampaignDetail>(`/api/v1/campaigns/${encodeURIComponent(id)}`, { signal })
+}
+
+export type SearchKind = 'all' | 'analysis' | 'case' | 'entity' | 'campaign'
+
+export interface SearchParams {
+  q?: string
+  type?: SearchKind
+  verdict?: string
+  entity_type?: string
+  date_from?: string
+  date_to?: string
+  limit?: number
+  offset?: number
+}
+
+export interface SearchResponse {
+  query: string
+  type: SearchKind
+  limit: number
+  offset: number
+  results: {
+    analysis?: { total: number; items: AnalysisBrief[] }
+    case?: { total: number; items: { id: string; case_number: string; title: string | null; status: string; created_at: string | null }[] }
+    entity?: { total: number; items: { id: string; type: string; value: string; analyses: number }[] }
+    campaign?: { total: number; items: CampaignBrief[] }
+  }
+}
+
+export async function search(params: SearchParams, signal?: AbortSignal): Promise<SearchResponse> {
+  const p = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '' && v !== null) p.set(k, String(v))
+  return request<SearchResponse>(`/api/v1/search?${p.toString()}`, { signal })
+}
+
+export interface CaseMember {
+  analysis: AnalysisBrief
+  campaigns: CampaignBrief[]
+}
+
+export interface CaseIndicator {
+  entity_id: string
+  type: string
+  value: string
+  case_analyses: string[]
+  case_count: number
+  df: number
+  tier: string
+  weight: number
+  generic_reason: string | null
+}
+
+export async function listCaseAnalyses(caseId: string, signal?: AbortSignal): Promise<CaseMember[]> {
+  return request<CaseMember[]>(`/api/v1/investigations/${encodeURIComponent(caseId)}/analyses`, { signal })
+}
+
+export async function addCaseAnalysis(caseId: string, analysisId: string): Promise<InvestigationCase> {
+  return request<InvestigationCase>(`/api/v1/investigations/${encodeURIComponent(caseId)}/analyses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ analysis_id: analysisId }),
+  })
+}
+
+export async function removeCaseAnalysis(caseId: string, analysisId: string): Promise<InvestigationCase> {
+  return request<InvestigationCase>(
+    `/api/v1/investigations/${encodeURIComponent(caseId)}/analyses/${encodeURIComponent(analysisId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function getCaseIndicators(
+  caseId: string,
+  signal?: AbortSignal,
+): Promise<{ case_id: string; indicators: CaseIndicator[]; disclaimer: string }> {
+  return request(`/api/v1/investigations/${encodeURIComponent(caseId)}/indicators`, { signal })
+}

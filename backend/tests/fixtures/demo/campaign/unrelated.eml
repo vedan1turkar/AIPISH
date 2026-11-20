@@ -1,0 +1,25 @@
+Received: from smtp.harbourline-logistics.test (smtp.harbourline-logistics.test [2001:4860:4860::8888])
+	by mx.receiver.test (Postfix) with ESMTPS id synthu1
+	for <accounts@receiver.test>; Sat, 07 Nov 2026 14:30:00 +0000 (UTC)
+From: "Harbourline Dispatch" <dispatch@harbourline-logistics.test>
+To: accounts@receiver.test
+Return-Path: <dispatch@harbourline-logistics.test>
+Message-ID: <synth-unrel-1@harbourline-logistics.test>
+Subject: [SYNTHETIC DEMO] Delivery window confirmation
+Date: Sat, 07 Nov 2026 14:30:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Hello,
+
+Your pallet delivery is scheduled for Monday between 09:00 and 12:00.
+
+Harbourline Dispatch
+
+===============================================================
+SYNTHETIC DEMO DATA - NOT A REAL MESSAGE. Domains use the reserved
+.test TLD; names, invoice numbers and infrastructure are invented
+for software demonstration only. The IP addresses reuse the
+project's existing fixture conventions and say nothing about the
+real operators of those addresses.
+===============================================================

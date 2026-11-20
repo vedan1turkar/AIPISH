@@ -6,6 +6,7 @@ import os
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.cases.service import (
@@ -50,6 +51,67 @@ def create_from_analysis(analysis_id: str, db: Session = Depends(get_db)):
 def list_investigations(db: Session = Depends(get_db)):
     cases = db.query(Case).order_by(Case.created_at.desc()).limit(100).all()
     return [case_to_dict(db, c) for c in cases]
+
+
+class AddAnalysisRequest(BaseModel):
+    analysis_id: str = Field(..., min_length=1, max_length=32)
+
+
+def _member_ids(db: Session, case_id: str) -> list[str]:
+    from app.core.models import CaseAnalysisLink
+    rows = (db.query(CaseAnalysisLink).filter(CaseAnalysisLink.case_id == case_id)
+            .order_by(CaseAnalysisLink.added_at, CaseAnalysisLink.analysis_id).all())
+    return [r.analysis_id for r in rows]
+
+
+@router.get("/{case_id}/analyses")
+def case_analyses(case_id: str, db: Session = Depends(get_db)):
+    """Member analyses (summary only, never bodies) with their candidate-campaign badges."""
+    from app.correlation.views import analysis_brief, campaigns_for
+    _get_case_or_404(db, case_id)
+    return [{"analysis": analysis_brief(db.get(Analysis, a)), "campaigns": campaigns_for(db, a)}
+            for a in _member_ids(db, case_id) if db.get(Analysis, a) is not None]
+
+
+@router.post("/{case_id}/analyses", status_code=201)
+def add_case_analysis(case_id: str, body: AddAnalysisRequest, db: Session = Depends(get_db)):
+    from app.core.models import CaseAnalysisLink
+    case = _get_case_or_404(db, case_id)
+    if db.get(Analysis, body.analysis_id) is None:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Analysis not found."})
+    if body.analysis_id in _member_ids(db, case.id):
+        raise HTTPException(status_code=409, detail={"code": "ALREADY_MEMBER",
+                                                     "message": "That analysis is already in this investigation."})
+    db.add(CaseAnalysisLink(case_id=case.id, analysis_id=body.analysis_id))
+    record_audit(db, "case_analysis_added", analysis_id=body.analysis_id, case_id=case.id,
+                 detail={"case_number": case.case_number})
+    db.commit()
+    return case_to_dict(db, case)
+
+
+@router.delete("/{case_id}/analyses/{analysis_id}")
+def remove_case_analysis(case_id: str, analysis_id: str, db: Session = Depends(get_db)):
+    from app.core.models import CaseAnalysisLink
+    case = _get_case_or_404(db, case_id)
+    link = (db.query(CaseAnalysisLink)
+            .filter(CaseAnalysisLink.case_id == case.id, CaseAnalysisLink.analysis_id == analysis_id).one_or_none())
+    if link is None:
+        raise HTTPException(status_code=404, detail={"code": "NOT_A_MEMBER",
+                                                     "message": "Analysis is not part of this investigation."})
+    db.delete(link)
+    record_audit(db, "case_analysis_removed", analysis_id=analysis_id, case_id=case.id,
+                 detail={"case_number": case.case_number})
+    db.commit()
+    return case_to_dict(db, case)
+
+
+@router.get("/{case_id}/indicators")
+def case_indicators(case_id: str, db: Session = Depends(get_db)):
+    """Indicators aggregated across the case's analyses, with generic/stop-list flags."""
+    from app.correlation import DISCLAIMER
+    from app.correlation.views import case_indicators as aggregate
+    _get_case_or_404(db, case_id)
+    return {"case_id": case_id, "indicators": aggregate(db, _member_ids(db, case_id)), "disclaimer": DISCLAIMER}
 
 
 @router.get("/{case_id}")
@@ -129,6 +191,15 @@ def _intel_for(db: Session, analysis_id: str, run_id: str | None) -> dict | None
     return run_dict(row) if row else None
 
 
+def _correlation_snapshot(db: Session, analysis_id: str) -> dict | None:
+    """Correlation as of report generation; failures never block the PDF."""
+    try:
+        from app.correlation.views import correlation_for
+        return {**correlation_for(db, analysis_id), "snapshot_at": datetime.now(timezone.utc).isoformat()}
+    except Exception:  # noqa: BLE001
+        return None
+
+
 @router.get("/{case_id}/report/{analysis_id}")
 def report_pdf(
     case_id: str,
@@ -185,13 +256,17 @@ def report_pdf(
         report_id=report_id,
         assessment=(assessment := _assessment_for(db, rec.id, assessment_id)),
         intel=(intel := _intel_for(db, rec.id, intel_run_id)),
+        correlation=(corr := _correlation_snapshot(db, rec.id)),
     )
     record_audit(db, "report_generated", analysis_id=rec.id, case_id=case.id,
                  detail={"report_id": report_id, "size_bytes": len(pdf),
                          "assessment_id": (assessment or {}).get("assessment_id"),
                          "assessment_version": (assessment or {}).get("version"),
                          "intel_run_id": (intel or {}).get("run_id"),
-                         "intel_run_version": (intel or {}).get("version")})
+                         "intel_run_version": (intel or {}).get("version"),
+                         # P5c: the exact campaign versions printed in section 7B
+                         "campaigns": [{"id": c["id"], "version": c["version"]}
+                                       for c in (corr or {}).get("campaigns", [])]})
     db.commit()
     filename = f"forensic-report-{report_id}.pdf"
     return Response(

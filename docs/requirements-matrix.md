@@ -1,8 +1,8 @@
 # AIPISH requirements traceability matrix (R1–R60)
 
 This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 audit set its baseline at
-`b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`) and then for
-**P5b: authentication, JWT and RBAC**.
+`b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`), **P5b:
+authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns**.
 
 **ID provenance:**
 - R1–R40 come from the original project matrix.
@@ -24,15 +24,28 @@ Recommended technologies are listed for traceability. They are not functional sc
 
 ## Counts
 
-| Status | Before P5a | After P5a | After P5b |
-|---|---:|---:|---:|
-| VER | 16 | 16 | 18 |
-| IMP-U | 3 | 7 | 7 |
-| PART | 16 | 18 | 18 |
-| STUB | 1 | 0 | 0 |
-| MISS | 21 | 16 | 14 |
-| BLK | 3 | 3 | 3 |
-| **Total** | 60 | 60 | 60 |
+| Status | Before P5a | After P5a | After P5b | After P5c |
+|---|---:|---:|---:|---:|
+| VER | 16 | 16 | 18 | 21 |
+| IMP-U | 3 | 7 | 7 | 9 |
+| PART | 16 | 18 | 18 | 14 |
+| STUB | 1 | 0 | 0 | 0 |
+| MISS | 21 | 16 | 14 | 13 |
+| BLK | 3 | 3 | 3 | 3 |
+| **Total** | 60 | 60 | 60 | 60 |
+
+## Changes made in P5c
+
+| ID | Before | After | Why |
+|---|---|---|---|
+| R18 | PART | IMP-U | Cross-case correlation is implemented and verified: persistent entities and observations, generic-indicator protection, link rules, candidate campaigns, per-analysis Related view and PDF 7B. Tests use synthetic data, and the real-app run used the synthetic demo campaign. Still IMP-U because the threat-intel half (P5a) is live-unverified and the weights are tuned on synthetic data only. |
+| R19 | PART | VER | Persistent cross-email graph (entity ↔ analysis) with a campaign graph view (Cytoscape) and an entity neighbourhood API; evidence references on every edge. Verified by tests and in the browser. |
+| R20 | PART | IMP-U | Campaign-level confidence (low / medium / high plus a numeric score) with structured, evidence-backed reasons. Deliberately not attribution to a person. Thresholds are heuristic, there are no analyst overrides, and validation is on synthetic data only. |
+| R28 | PART | VER | Search across analyses, cases, indicators and campaigns (filters, pagination, injection-tested); add and remove analyses on a case with audit; case-level indicators; campaigns list and detail. Verified by tests, browser and curl. |
+| R51 | MISS | VER | NetworkX connected components over qualifying links (`correlation/engine.py`) · `test_correlation.py`. |
+| R50 | MISS | MISS | Unchanged and intentional: SQLite plus in-process NetworkX meets the current scale (about 1 s full recompute at 1,300 analyses). Neo4j would add an external service without a current need. |
+
+Related rows (R26, R33, R35, R59) gained evidence but keep their status. Details: `docs/correlation/README.md`.
 
 ## Changes made in P5b
 
@@ -80,24 +93,24 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R15 | VPN / Tor / proxy / hosting / botnet / open-relay flags | PART | `intel/providers.py`: TorExitList, IPinfo privacy, Shodan tags, AbuseIPDB usage type · `test_intel.py` | No open-relay or botnet source; IPinfo privacy may need a paid plan; live unverified |
 | R16 | WHOIS/RDAP, DNS, MX, registrar | PART | `dns_lookup`, `rdap_lookup`; VT domain registrar/creation (P5a) · `test_enrichment.py`, `test_intel.py` | Live unverified |
 | R17 | Origin vs infrastructure vs identity separation | VER | Disclaimers in UI, PDF, LLM evidence and the threat-intel disclaimer · `test_llm.py`, `test_p41.py`, `test_intel.py` | — |
-| R18 | Correlation with threat intel, reputation, past incidents, campaigns | PART | `intel/` service and router; Threat intel tab; PDF §7A · `test_intel.py`, `ThreatIntelPanel.test.tsx` | Cross-case and campaign correlation missing (P5b); live unverified |
-| R19 | Relationship graph | PART | `frontend/.../trace/*` (Cytoscape) · `model.test.ts` | Single email only |
-| R20 | Confidence-based attribution | PART | Per-hop confidence | No campaign-level attribution |
+| R18 | Correlation with threat intel, reputation, past incidents, campaigns | IMP-U | `intel/` (P5a); `correlation/` engine, Related tab, campaigns, PDF §7B (P5c) · `test_intel.py`, `test_correlation.py`, `Correlation.test.tsx` | Intel live-unverified; correlation weights tuned on synthetic data only |
+| R19 | Relationship graph | VER | Per-email trace graph; persistent cross-email entity graph, campaign graph and entity neighbourhood (P5c) · `model.test.ts`, `test_correlation.py`, `Correlation.test.tsx` | No graph database (R50) |
+| R20 | Confidence-based attribution | IMP-U | Per-hop confidence; campaign confidence plus evidence-backed reasons (P5c) · `test_correlation.py` | Heuristic thresholds; no analyst overrides; never attribution to a person |
 | R21 | Source-type classification | MISS | — | Rule-based classifier needed |
 | R22 | Rule tests | VER | `test_detection.py` | — |
 | R23 | MITRE ATT&CK mapping | MISS | — | — |
 | R24 | Real-time alerts | MISS | — | Needs ingestion (R36) |
 | R25 | Analyst dashboard | IMP-U | `ResultsDashboard.tsx` tabs, including Threat intel; P5b login, role-aware actions, admin users page · `ThreatIntelPanel.test.tsx`, `AssessmentInteractions.test.tsx`, `Auth.test.tsx` | Geo shown only from live enrichment or IPinfo |
-| R26 | Interactive trace map / graphs | PART | Cytoscape trace view | No Leaflet map (R57) |
+| R26 | Interactive trace map / graphs | PART | Cytoscape trace view; campaign graph (P5c) | No Leaflet map (R57) |
 | R27 | Structured forensic reports | VER | `reports/pdf.py` (incl. §7A) · `test_assessment_report.py`, `test_p41.py`, `test_intel.py` | — |
-| R28 | Searchable case management / campaigns | PART | `cases/service.py`, `/investigations` · `test_investigations.py` | No search; one analysis per case via API |
+| R28 | Searchable case management / campaigns | VER | `/investigations` plus add/remove/indicators, `/search`, `/campaigns` (P5c) · `test_investigations.py`, `test_correlation.py`, `Correlation.test.tsx` | No full-text index (R52); no case-to-campaign link |
 | R29 | PDF tests incl. injection | VER | PDF escaping tests (also for provider strings in §7A) | — |
 | R30 | Evidence preservation / chain-of-custody support | PART | SHA-256, optional raw retention, versioned assessments and intel runs | Not tamper-resistant |
 | R31 | Retention, masking, redaction | PART | `CASE_EVIDENCE_RETENTION_DAYS`, `llm/redact.py` | Retention not enforced; body stored in clear |
 | R32 | RBAC | VER | `security/permissions.py`, `security/deps.py` (app-wide `enforce_access`), `api/admin_router.py` · `test_access_control.py` (route inventory + role matrix), `Auth.test.tsx` | Roles are global: no per-case ownership/ACLs |
-| R33 | Tests | VER | Backend 472 passed / 6 skipped (5 opt-in live intel tests); frontend 86 passed | No CI; no browser E2E suite |
+| R33 | Tests | VER | Backend 499 passed / 6 skipped (5 opt-in live intel tests); frontend 96 passed | No CI; no browser E2E suite |
 | R34 | Main database (PostgreSQL) | PART | SQLAlchemy and SQLite | No PostgreSQL or migrations tool |
-| R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; lookups run synchronously |
+| R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; intel lookups and correlation recompute run synchronously |
 | R36 | Email integration (IMAP/SMTP/Graph) | MISS | — | Test mailbox or Azure tenant |
 | R37 | Deployment (Docker/Nginx) | MISS | — | — |
 | R38 | CI/CD | MISS | — | — |
@@ -112,8 +125,8 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R47* | MISP | BLK | Reported as "not configured" | No MISP instance |
 | R48* | MaxMind GeoIP2 | BLK | `geoip2_lookup` stub; reported as "not configured" | No licence key or database |
 | R49* | IPinfo | IMP-U | `intel/providers.py:IPinfo` · `test_intel.py` | **Live unverified**; privacy flags depend on plan |
-| R50* | Neo4j | MISS | — | Service not installed |
-| R51* | NetworkX | MISS | — | — |
+| R50* | Neo4j | MISS | — (P5c uses SQLite plus NetworkX deliberately) | Not needed at current scale; service not installed |
+| R51* | NetworkX | VER | `correlation/engine.py` (connected components) · `test_correlation.py` | — |
 | R52* | Search (OpenSearch) | MISS | — | — |
 | R53* | OAuth 2.0 | BLK | — (P5b is local password auth + JWT, not OAuth 2.0) | Provider not chosen |
 | R54* | JWT authentication | VER | `security/tokens.py`, `api/auth_router.py` · `test_access_control.py` | No refresh tokens; no key rotation (key id) |

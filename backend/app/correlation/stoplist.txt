@@ -1,0 +1,89 @@
+# AIPISH correlation stoplist (P5c): generic domains that must NEVER link analyses.
+# One registrable domain per line; subdomains match too (mail.google.com matches google.com).
+# Extend with AIPISH_CORR_STOPLIST_EXTRA="a.com,b.net" or replace with AIPISH_CORR_STOPLIST_FILE=/path.
+# Matching values are still stored as entities (searchable) but carry no link strength.
+
+# ── freemail / consumer mailbox providers
+gmail.com
+googlemail.com
+outlook.com
+hotmail.com
+live.com
+msn.com
+yahoo.com
+ymail.com
+aol.com
+icloud.com
+me.com
+mac.com
+proton.me
+protonmail.com
+pm.me
+gmx.com
+gmx.net
+mail.com
+zoho.com
+yandex.com
+yandex.ru
+qq.com
+163.com
+tutanota.com
+fastmail.com
+rediffmail.com
+
+# ── bulk / transactional mail senders (shared by unrelated senders)
+sendgrid.net
+mailchimp.com
+mcsv.net
+mailgun.org
+amazonses.com
+sparkpostmail.com
+mandrillapp.com
+constantcontact.com
+exacttarget.com
+mktomail.com
+sendinblue.com
+activehosted.com
+acemlna.com
+acemlnb.com
+acemlnc.com
+acemlnd.com
+
+# ── large mail-provider and cloud infrastructure
+google.com
+googleusercontent.com
+microsoft.com
+office.com
+office365.com
+outlook.office365.com
+protection.outlook.com
+sharepoint.com
+onmicrosoft.com
+amazonaws.com
+cloudfront.net
+azurewebsites.net
+windows.net
+cloudflare.com
+akamaitechnologies.com
+gstatic.com
+googleapis.com
+googletagmanager.com
+doubleclick.net
+
+# ── generic link / document hosts and URL shorteners
+bit.ly
+tinyurl.com
+t.co
+goo.gl
+dropbox.com
+github.com
+linkedin.com
+facebook.com
+twitter.com
+x.com
+youtube.com
+
+# ── markup / schema hosts that appear in HTML of any email
+w3.org
+schemas.microsoft.com
+schemas.openxmlformats.org

@@ -13,3 +13,5 @@ reportlab>=4.0
 dnspython>=2.6
 dkimpy>=1.1
 pyspf>=2.0.14
+# P5c: candidate-campaign detection (connected components)
+networkx>=3.0

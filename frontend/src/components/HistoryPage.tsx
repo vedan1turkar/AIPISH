@@ -158,7 +158,7 @@ export default function HistoryPage({ onOpenAnalysis }: { onOpenAnalysis: (id: s
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-900">
-                    <span className="font-mono text-indigo-600">{c.case_number}</span>
+                    <a href={`#case/${c.id}`} className="font-mono text-indigo-600 hover:underline">{c.case_number}</a>
                     {c.title && <span className="ml-2">{c.title}</span>}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-400">{formatDate(c.created_at)}</p>

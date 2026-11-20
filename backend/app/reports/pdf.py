@@ -116,6 +116,7 @@ def build_report_pdf(
     generated_at: str | None = None,
     assessment: dict | None = None,
     intel: dict | None = None,
+    correlation: dict | None = None,
 ) -> bytes:
     """Builds the full PDF. Returns bytes; raises nothing — caller handles."""
     generated_at = generated_at or datetime.now(timezone.utc).isoformat()
@@ -339,6 +340,9 @@ def build_report_pdf(
 
     # ── 7A. Threat intelligence lookups (P5a, informational only) ───────
     _intel_section(story, intel)
+
+    # ── 7B. Related analyses / candidate campaigns (P5c, snapshot at report time) ──
+    _correlation_section(story, correlation)
 
     # ── 8. ML, SHAP and AI-assisted interpretation (P4) ──────────────────
     _assessment_section(story, assessment)
@@ -745,3 +749,47 @@ def _intel_section(story: list, run: dict | None) -> None:
     story.append(Paragraph("Stale results are earlier cached provider data shown because a live lookup was not "
                            "possible; they carry their original fetch time. No credential is printed in this "
                            "report.", CAVEAT))
+
+
+# ── 7B. Related analyses / candidate campaigns (P5c) ──────────────────────
+def _correlation_section(story: list, corr: dict | None) -> None:
+    story.append(Paragraph("7B. Related Analyses / Candidate Campaigns (shared infrastructure)", H2))
+    if corr is None:
+        story.append(Paragraph("Correlation data was not available when this report was generated.", BODY))
+        return
+    story.append(Paragraph(esc(f"Snapshot taken at report time ({short_time(corr.get('snapshot_at'))}). "
+                               f"Correlation status: {corr.get('status', 'unknown')}."), CAVEAT))
+    camps = corr.get("campaigns") or []
+    if camps:
+        rows = [(c.get("label", "?"), esc(f"{c.get('confidence', '?')} confidence ({c.get('confidence_score')}), "
+                                          f"{c.get('member_count', 0)} members, id {c.get('id')}, "
+                                          f"version {c.get('version')}")) for c in camps]
+        story.append(_kv_table(rows))
+        story.append(Spacer(1, 3))
+    related = [r for r in (corr.get("related") or []) if r.get("indicators")]
+    if not related:
+        story.append(Paragraph("<b>No related analyses recorded at report time.</b> This is not a claim that "
+                               "the message is unique.", BODY))
+    else:
+        head = [Paragraph(f"<b>{h}</b>", CELL) for h in ("Related analysis", "Linked?", "Score",
+                                                         "Shared indicators (type, value, strength)")]
+        table = [head]
+        for r in related[:15]:
+            a = r.get("analysis") or {}
+            inds = "; ".join(f"{i.get('type')} {i.get('value')} ({i.get('tier')})" for i in r.get("indicators", [])[:6])
+            table.append([
+                Paragraph(soft_wrap(f"{str(a.get('id', ''))[:8]} · {short_time(a.get('created_at'))}"), CELL_MONO),
+                Paragraph(esc("yes" if r.get("qualifies") else "no (below threshold)"),
+                          CELL_B if r.get("qualifies") else CELL),
+                Paragraph(esc(r.get("score")), CELL),
+                Paragraph(esc(inds[:400]), CELL),
+            ])
+        story.append(_grid(table, [38 * mm, 28 * mm, 14 * mm, 96 * mm]))
+    generic = (corr.get("generic_only_overlaps") or {})
+    if generic.get("count"):
+        vals = ", ".join(f"{g.get('value')} ({g.get('type')})" for g in (generic.get("indicators") or [])[:6])
+        story.append(Paragraph(esc(f"{generic['count']} other analyses share only generic indicators "
+                                   f"({vals}); these never link analyses."), CAVEAT))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph(esc(corr.get("rule") or ""), CAVEAT))
+    story.append(Paragraph(esc(corr.get("disclaimer") or ""), CAVEAT))

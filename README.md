@@ -118,6 +118,16 @@ role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route perm
 | GET/POST | `/admin/users` | Admin: list users / create user with a one-time temporary password |
 | PATCH | `/admin/users/{id}` | Admin: change role, disable/enable (last active admin protected) |
 | POST | `/admin/users/{id}/reset-password` | Admin: one-time temporary password, revokes sessions |
+| GET | `/analyses/{id}/correlation` | Related analyses by shared non-generic infrastructure (P5c) |
+| GET | `/campaigns`, `/campaigns/{id}` | Candidate campaigns with reasons and graph data (P5c) |
+| GET | `/graph/entities/{type}/{value}` | Entity neighbourhood (P5c) |
+| GET | `/search` | Search analyses, cases, indicators, campaigns; filters + pagination (P5c) |
+| GET/POST | `/investigations/{case}/analyses` | List / add analyses in a case (P5c) |
+| DELETE | `/investigations/{case}/analyses/{id}` | Remove an analysis from a case (P5c) |
+| GET | `/investigations/{case}/indicators` | Case-level aggregated indicators (P5c) |
+| POST | `/correlation/rebuild` | Admin: backfill observations, recompute campaigns (P5c) |
+
+Correlation model, link strengths, stoplist and limits: [docs/correlation/README.md](docs/correlation/README.md).
 | POST | `/analyses` | Upload a raw `.eml` → full forensic analysis (multipart field `file`) |
 | GET | `/analyses` | Recent analyses (history list) |
 | GET | `/analyses/{id}` | One analysis: metadata, detection findings, forensics, auth, enrichment |

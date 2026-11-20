@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Integer, LargeBinary, String, Text
+from sqlalchemy import JSON, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -261,3 +261,90 @@ def migrate_audit_actor(engine) -> bool:
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_event_actor_user_id "
                           "ON audit_event (actor_user_id)"))
     return True
+
+
+# ── P5c: cross-case correlation ──────────────────────────────────────────
+class Entity(Base):
+    """A normalised indicator observed in one or more analyses (P5c).
+
+    Private/reserved IPs and trusted internal relays are never entities.
+    Stop-listed (generic) values may exist as entities for search, but never link analyses.
+    """
+    __tablename__ = "corr_entity"
+    __table_args__ = (UniqueConstraint("type", "normalized_value", name="uq_corr_entity_type_value"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    type: Mapped[str] = mapped_column(String(32), index=True)
+    normalized_value: Mapped[str] = mapped_column(String(300), index=True)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Observation(Base):
+    """Entity seen in one analysis, in one role, at one source field (the evidence reference)."""
+    __tablename__ = "corr_observation"
+    __table_args__ = (UniqueConstraint("entity_id", "analysis_id", "role", "source_field",
+                                       name="uq_corr_observation"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    entity_id: Mapped[str] = mapped_column(String(32), index=True)
+    analysis_id: Mapped[str] = mapped_column(String(32), index=True)
+    role: Mapped[str] = mapped_column(String(40))
+    source_field: Mapped[str] = mapped_column(String(120))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Campaign(Base):
+    """Candidate campaign: analyses linked by shared, non-generic infrastructure (P5c).
+
+    Never an attribution to a person. ``status``: candidate | merged | dissolved.
+    Rows are never deleted, so references (PDFs, audit) stay resolvable.
+    """
+    __tablename__ = "corr_campaign"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    number: Mapped[int] = mapped_column(Integer, unique=True)
+    label: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16), default="candidate", index=True)
+    confidence: Mapped[str] = mapped_column(String(8))
+    confidence_score: Mapped[float] = mapped_column(Float)
+    reasons: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    merged_into: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CampaignMember(Base):
+    __tablename__ = "corr_campaign_member"
+
+    campaign_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    analysis_id: Mapped[str] = mapped_column(String(32), primary_key=True, index=True)
+
+
+class CorrelationState(Base):
+    """Per-analysis correlation status: correlation failures never affect the analysis itself."""
+    __tablename__ = "corr_state"
+
+    analysis_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    status: Mapped[str] = mapped_column(String(16))          # ok | error
+    error_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+def migrate_correlation_indexes(engine) -> None:
+    """Additive, idempotent search indexes on the existing analysis table (P5c)."""
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        for name, col in (("ix_analysis_from_domain", "from_domain"),
+                          ("ix_analysis_detection_verdict", "detection_verdict"),
+                          ("ix_analysis_created_at", "created_at")):
+            conn.execute(text(f"CREATE INDEX IF NOT EXISTS {name} ON analysis ({col})"))
+
+
+def run_additive_migrations(engine) -> None:
+    """Every additive schema step, shared by app startup and the CLI (P5b lesson)."""
+    Base.metadata.create_all(bind=engine)
+    migrate_audit_actor(engine)
+    migrate_correlation_indexes(engine)

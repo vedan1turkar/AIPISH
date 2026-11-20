@@ -15,9 +15,9 @@ role.
 
 | Role | Can do |
 |---|---|
-| **viewer** | Read analyses, cases, results, threat-intel results and assessment history; download PDFs; see ML model status. |
+| **viewer** | Read analyses, cases, results, threat-intel results and assessment history; download PDFs; see ML model status; read correlation, campaigns and search (P5c). |
 | **analyst** | Everything a viewer can, plus: upload and analyse emails; run ML / SHAP / Mistral assessments; run threat-intel lookups; create cases and add analyses to them; verify evidence integrity. |
-| **admin** | Everything an analyst can, plus: user management (create, list, change role, disable / enable, reset password); view `/intel/status` and `/llm/status`; read the API docs (dev and test only). |
+| **admin** | Everything an analyst can, plus: user management (create, list, change role, disable / enable, reset password); view `/intel/status` and `/llm/status`; read the API docs (dev and test only); rebuild correlation (P5c). |
 
 The role → permission map is in `backend/app/security/permissions.py` (`ROLE_PERMISSIONS`).
 
@@ -53,6 +53,16 @@ fails if any route is missing from `ROUTE_PERMISSIONS`.
 | `GET` | `/api/v1/ml/status` | `ml:status` | viewer, analyst, admin |
 | `POST` | `/api/v1/ml/classify` | `ml:run` | analyst, admin |
 | `POST` | `/api/v1/ml/explain` | `ml:run` | analyst, admin |
+| `GET` | `/api/v1/investigations/{case_id}/analyses` | `case:read` | viewer, analyst, admin |
+| `GET` | `/api/v1/investigations/{case_id}/indicators` | `case:read` | viewer, analyst, admin |
+| `POST` | `/api/v1/investigations/{case_id}/analyses` | `case:write` | analyst, admin |
+| `DELETE` | `/api/v1/investigations/{case_id}/analyses/{analysis_id}` | `case:write` | analyst, admin |
+| `GET` | `/api/v1/analyses/{analysis_id}/correlation` | `correlation:read` | viewer, analyst, admin |
+| `GET` | `/api/v1/campaigns` | `correlation:read` | viewer, analyst, admin |
+| `GET` | `/api/v1/campaigns/{campaign_id}` | `correlation:read` | viewer, analyst, admin |
+| `GET` | `/api/v1/graph/entities/{entity_type}/{value}` | `correlation:read` | viewer, analyst, admin |
+| `GET` | `/api/v1/search` | `search:read` | viewer, analyst, admin |
+| `POST` | `/api/v1/correlation/rebuild` | `correlation:rebuild` | admin |
 | `GET` | `/api/v1/admin/users` | `users:manage` | admin |
 | `POST` | `/api/v1/admin/users` | `users:manage` | admin |
 | `PATCH` | `/api/v1/admin/users/{user_id}` | `users:manage` | admin |
@@ -212,6 +222,8 @@ New event types:
 cd backend
 # any environment: password from $AIPISH_NEW_USER_PASSWORD or getpass (twice); never from argv
 .venv/bin/python -m app.cli create-user --username alice --role admin [--must-change-password]
+# disable an account locally (revokes tokens; refuses the last active admin; audited)
+.venv/bin/python -m app.cli disable-user --username alice
 
 # LOCAL DEV ONLY (APP_ENV=dev; refuses otherwise)
 .venv/bin/python -m app.cli seed-dev-users

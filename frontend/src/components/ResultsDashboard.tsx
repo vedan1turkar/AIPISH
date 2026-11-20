@@ -40,9 +40,10 @@ import { HeaderForensicsPanel, AnomaliesPanel, IntelligenceDetailsPanel } from '
 import TraceView from './trace/TraceView'
 import { AssessmentOverviewCard, AssessmentView } from './assessment/AssessmentPanels'
 import ThreatIntelPanel from './intel/ThreatIntelPanel'
+import RelatedPanel from './correlation/RelatedPanel'
 import { useAuth } from '../auth/AuthContext'
 
-type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'trace' | 'ai'
+type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'trace' | 'ai'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'overview', label: 'Overview', icon: '📋' },
@@ -51,6 +52,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'headers', label: 'Headers & relay', icon: '🔀' },
   { id: 'intel', label: 'IP & domain intel', icon: '🌐' },
   { id: 'threat', label: 'Threat intel', icon: '🛡️' },
+  { id: 'related', label: 'Related', icon: '🔗' },
   { id: 'trace', label: 'Trace view', icon: '🕸️' },
   { id: 'ai', label: 'AI assessment', icon: '🤖' },
 ]
@@ -373,6 +375,7 @@ export default function ResultsDashboard({
           onDismissError={() => setIntelRunError(null)}
         />
       )}
+      {tab === 'related' && <RelatedPanel analysisId={analysis.id} />}
       {tab === 'trace' && <TraceView analysis={analysis} />}
       {tab === 'ai' && (
         <AssessmentView
@@ -510,7 +513,9 @@ function OverviewTab({
         <Panel title="Investigation case">
           {caseInfo ? (
             <>
-              <MetaRow label="Case number">{caseInfo.case_number}</MetaRow>
+              <MetaRow label="Case number">
+                <a href={`#case/${caseInfo.id}`} className="text-indigo-700 hover:underline">{caseInfo.case_number}</a>
+              </MetaRow>
               <MetaRow label="Status">{caseInfo.status}</MetaRow>
               <p className="mt-2 text-xs text-gray-400">
                 Evidence policy: <strong>{caseInfo.evidence_policy.store_mode}</strong> — {caseInfo.evidence_policy.retention_days}-day retention documented{caseInfo.evidence_policy.key_required ? ', raw access key-gated' : ''}.

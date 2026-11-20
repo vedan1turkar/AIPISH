@@ -596,3 +596,18 @@ def test_migrate_audit_actor_upgrades_pre_p5b_database(tmp_path):
     assert "actor_user_id" in {c["name"] for c in inspect(eng).get_columns("audit_event")}
     with eng.connect() as conn:
         assert conn.execute(text("SELECT event_type, actor_user_id FROM audit_event")).all() == [("report_generated", None)]
+
+
+def test_cli_disable_user_revokes_and_protects_last_admin(monkeypatch, iso, capsys):
+    from app import cli
+    app, session = iso
+    monkeypatch.setattr(cli, "_session", lambda: session)
+    monkeypatch.setattr(session, "close", lambda: None)
+    u, _ = make_user(session, "viewer")
+    tok = token_for(u)
+    assert cli.main(["disable-user", "--username", u.username]) == 0
+    assert TestClient(app).get("/api/v1/analyses", headers={"Authorization": f"Bearer {tok}"}).status_code == 401
+    a, _ = make_user(session, "admin")
+    assert cli.main(["disable-user", "--username", a.username]) == 2          # last active admin
+    assert cli.main(["disable-user", "--username", "nobody-here"]) == 2
+    assert session.query(AuditEvent).filter_by(event_type="user_disabled").count() == 1

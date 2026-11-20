@@ -20,9 +20,10 @@ from app.api.llm_router import router as llm_router
 from app.api.intel_router import router as intel_router
 from app.api.auth_router import router as auth_router
 from app.api.admin_router import router as admin_router
+from app.api.correlation_router import router as correlation_router
 from app.api.router import router
 from app.core.config import get_settings
-from app.core.db import Base, engine
+from app.core.db import engine
 from app.security.deps import enforce_access
 from app.security.tokens import set_auth_config, load_auth_config
 
@@ -53,7 +54,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[o for o in settings.allowed_origins if o and o != "*"],
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-Evidence-Key"],
         expose_headers=["Content-Disposition", "Retry-After"],
     )
@@ -68,12 +69,11 @@ def create_app() -> FastAPI:
             response.headers["Pragma"] = "no-cache"
         return response
 
-    # Create tables on startup (SQLite-friendly for the MVP).
-    Base.metadata.create_all(bind=engine)
-    # Additive, idempotent migration of P4 assessments into versioned history.
+    # Create tables + additive, idempotent migrations (shared with the CLI).
     from app.core.db import SessionLocal
-    from app.core.models import migrate_assessments, migrate_audit_actor
-    migrate_audit_actor(engine)
+    from app.core.models import migrate_assessments, run_additive_migrations
+    run_additive_migrations(engine)
+    # Additive, idempotent migration of P4 assessments into versioned history.
     with SessionLocal() as db:
         migrate_assessments(db)
 
@@ -89,6 +89,7 @@ def create_app() -> FastAPI:
     app.include_router(intel_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(correlation_router, prefix="/api/v1")
 
     if (settings.env or "").lower() in DOCS_ENVS:
         @app.get("/openapi.json", include_in_schema=False)

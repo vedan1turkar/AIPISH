@@ -9,14 +9,19 @@ import AdminUsersPage from './components/admin/AdminUsersPage'
 import UploadPage from './components/UploadPage'
 import ResultsDashboard from './components/ResultsDashboard'
 import HistoryPage from './components/HistoryPage'
+import { CampaignDetailView, CampaignList } from './components/correlation/CampaignsPage'
+import CasePage from './components/cases/CasePage'
+import SearchPage from './components/search/SearchPage'
 import BackendStatus from './components/BackendStatus'
 
-type View = 'upload' | 'results' | 'history' | 'users' | 'account'
+type View = 'upload' | 'results' | 'history' | 'users' | 'account' | 'campaigns' | 'campaign' | 'case' | 'search'
 
 // `perm`: shown only to roles holding it. The backend enforces the same permission on every call.
 const NAV: { id: View; label: string; icon: string; perm?: string }[] = [
   { id: 'upload', label: 'Analyse', icon: '📥', perm: 'analysis:create' },
   { id: 'history', label: 'History', icon: '🗂️', perm: 'analysis:read' },
+  { id: 'campaigns', label: 'Campaigns', icon: '🕸️', perm: 'correlation:read' },
+  { id: 'search', label: 'Search', icon: '🔎', perm: 'search:read' },
   { id: 'users', label: 'Users', icon: '👥', perm: 'users:manage' },
 ]
 
@@ -66,6 +71,8 @@ function SignedInApp() {
   const [analysis, setAnalysis] = useState<AnalysisDetail | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  // id for #campaign/{id} and #case/{id} routes (P5c)
+  const [routeId, setRouteId] = useState<string | null>(null)
 
   const openAnalysis = useCallback(async (id: string) => {
     setLoadError(null)
@@ -105,6 +112,15 @@ function SignedInApp() {
       else if (h === '#history') setView('history')
       else if (h === '#users') setView(allowed('users') ? 'users' : 'history')
       else if (h === '#account') setView('account')
+      else if (h === '#campaigns') setView(allowed('campaigns') ? 'campaigns' : 'history')
+      else if (h === '#search') setView(allowed('search') ? 'search' : 'history')
+      else if (h.startsWith('#campaign/') && allowed('campaigns')) {
+        setRouteId(h.slice('#campaign/'.length))
+        setView('campaign')
+      } else if (h.startsWith('#case/')) {
+        setRouteId(h.slice('#case/'.length))
+        setView('case')
+      }
       else if (h.startsWith('#analysis/')) {
         const id = h.slice('#analysis/'.length)
         if (id) void openAnalysis(id)
@@ -200,6 +216,10 @@ function SignedInApp() {
         {view === 'history' && <HistoryPage onOpenAnalysis={openAnalysis} />}
         {view === 'users' && can('users:manage') && <AdminUsersPage />}
         {view === 'account' && <ChangePasswordPage required={false} />}
+        {view === 'campaigns' && can('correlation:read') && <CampaignList />}
+        {view === 'campaign' && routeId && can('correlation:read') && <CampaignDetailView id={routeId} />}
+        {view === 'case' && routeId && can('case:read') && <CasePage id={routeId} />}
+        {view === 'search' && can('search:read') && <SearchPage />}
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-gray-400 sm:px-6">

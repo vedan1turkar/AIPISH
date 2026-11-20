@@ -14,11 +14,12 @@ ROLES = (VIEWER, ANALYST, ADMIN)
 
 _VIEWER_PERMS = {
     SELF, "analysis:read", "case:read", "report:download", "intel:read", "assessment:read", "ml:status",
+    "correlation:read", "search:read",
 }
 _ANALYST_PERMS = _VIEWER_PERMS | {
     "analysis:create", "case:write", "evidence:verify", "intel:run", "assessment:run", "ml:run",
 }
-_ADMIN_PERMS = _ANALYST_PERMS | {"users:manage", "config:status", "docs:read"}
+_ADMIN_PERMS = _ANALYST_PERMS | {"users:manage", "config:status", "docs:read", "correlation:rebuild"}
 
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     VIEWER: frozenset(_VIEWER_PERMS),
@@ -62,6 +63,18 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], str] = {
     ("GET", f"{V1}/intel/status"): "config:status",
     ("POST", f"{V1}/analyses/{{analysis_id}}/threat-intel"): "intel:run",
     ("GET", f"{V1}/analyses/{{analysis_id}}/threat-intel"): "intel:read",
+    # case membership (P5c)
+    ("GET", f"{V1}/investigations/{{case_id}}/analyses"): "case:read",
+    ("POST", f"{V1}/investigations/{{case_id}}/analyses"): "case:write",
+    ("DELETE", f"{V1}/investigations/{{case_id}}/analyses/{{analysis_id}}"): "case:write",
+    ("GET", f"{V1}/investigations/{{case_id}}/indicators"): "case:read",
+    # correlation, campaigns, graph, search (P5c)
+    ("GET", f"{V1}/analyses/{{analysis_id}}/correlation"): "correlation:read",
+    ("GET", f"{V1}/campaigns"): "correlation:read",
+    ("GET", f"{V1}/campaigns/{{campaign_id}}"): "correlation:read",
+    ("GET", f"{V1}/graph/entities/{{entity_type}}/{{value}}"): "correlation:read",
+    ("GET", f"{V1}/search"): "search:read",
+    ("POST", f"{V1}/correlation/rebuild"): "correlation:rebuild",
     # user administration
     ("GET", f"{V1}/admin/users"): "users:manage",
     ("POST", f"{V1}/admin/users"): "users:manage",
