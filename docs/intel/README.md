@@ -132,6 +132,10 @@ Provider strings such as hostnames, organisations and tags are treated as untrus
 
 ## API
 
+Since P5b every endpoint below needs a bearer token: `GET /intel/status` is **admin** only, running a
+lookup needs **analyst** or admin, and reading stored runs or the PDF is open to **viewer** and above
+(see `docs/auth/README.md`).
+
 | Method and path | Purpose |
 |---|---|
 | `GET /api/v1/intel/status` | Per-provider `configured` / `enabled` booleans, offline flag, consent default, IOC cap. |

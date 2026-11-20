@@ -18,6 +18,7 @@ pytest.importorskip("xgboost")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import create_app  # noqa: E402
+from tests.authutil import authed_client  # noqa: E402
 from app.ml import features as F  # noqa: E402
 from app.ml import inference  # noqa: E402
 from app.ml import train as T  # noqa: E402
@@ -243,7 +244,7 @@ def test_out_of_scope_message_is_not_applicable(tiny_model, use_model):
 
 def test_api_classify_and_status_with_model(tiny_model, use_model):
     use_model(tiny_model)
-    c = TestClient(create_app())
+    c = authed_client()
     assert c.get("/api/v1/ml/status").json()["status"] == "ok"
     raw = _eml("Bank <x@bank.test>", "verify", "Verify your account at http://login.example/x now please.")
     body = c.post("/api/v1/ml/classify", files={"file": ("m.eml", raw, "message/rfc822")}).json()
@@ -283,7 +284,7 @@ def test_label_order_mismatch_is_rejected(tiny_model, tmp_path, use_model):
 
 def test_api_without_model(tmp_path, use_model):
     use_model(tmp_path / "nope")
-    c = TestClient(create_app())
+    c = authed_client()
     assert c.get("/api/v1/ml/status").json()["status"] == "unavailable"
     raw = _eml("a@b.test", "hello", "A perfectly ordinary message body here.")
     body = c.post("/api/v1/ml/classify", files={"file": ("m.eml", raw, "message/rfc822")}).json()

@@ -11,12 +11,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logger = logging.getLogger(__name__)
 
 
-def error_envelope(status_code: int, code: str, message: str, request_id: str | None = None) -> JSONResponse:
+def error_envelope(status_code: int, code: str, message: str, request_id: str | None = None,
+                   headers: dict[str, str] | None = None) -> JSONResponse:
     """Shape: {"error": {"code", "message", "request_id"}}."""
     payload: dict[str, object] = {"code": code, "message": message}
     if request_id:
         payload["request_id"] = request_id
-    return JSONResponse(status_code=status_code, content={"error": payload})
+    return JSONResponse(status_code=status_code, content={"error": payload}, headers=headers)
 
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -33,11 +34,12 @@ async def http_error_handler(request: Request, exc: StarletteHTTPException) -> J
     preserve the specific code (e.g. PAYLOAD_TOO_LARGE) instead of the generic
     ``HTTP_ERROR`` label.
     """
+    headers = dict(exc.headers) if getattr(exc, "headers", None) else None   # WWW-Authenticate, Retry-After
     if isinstance(exc.detail, dict) and "code" in exc.detail:
         message = str(exc.detail.get("message", "Request failed."))
-        return error_envelope(exc.status_code, str(exc.detail["code"]), message)
+        return error_envelope(exc.status_code, str(exc.detail["code"]), message, headers=headers)
     detail = exc.detail if isinstance(exc.detail, str) else "Request failed."
-    return error_envelope(exc.status_code, "HTTP_ERROR", detail)
+    return error_envelope(exc.status_code, "HTTP_ERROR", detail, headers=headers)
 
 
 async def generic_error_handler(request: Request, exc: Exception) -> JSONResponse:

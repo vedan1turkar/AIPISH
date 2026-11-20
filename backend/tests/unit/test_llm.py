@@ -18,6 +18,7 @@ from app.llm.prompt import build_messages
 from app.llm.redact import redact
 from app.llm.validate import validate
 from app.main import create_app
+from tests.authutil import authed_client  # noqa: E402
 
 BASE = "http://127.0.0.1:11434"
 TAGS = {"models": [{"name": "mistral:latest", "digest": "abc123", "details": {"parameter_size": "7.2B"}}]}
@@ -316,7 +317,7 @@ def test_http_error_and_missing_content():
 # ── API: detection pipeline keeps working when the LLM fails ─────────────
 
 def test_api_upload_summary_with_llm_down_still_analyses():
-    c = TestClient(create_app())
+    c = authed_client()
     with respx.mock(assert_all_called=False) as r:
         r.get(f"{BASE}/api/tags").mock(side_effect=httpx.ConnectError("refused"))
         resp = c.post("/api/v1/llm/forensic-summary", files={"file": ("m.eml", SAMPLE, "message/rfc822")})
@@ -330,7 +331,7 @@ def test_api_upload_summary_with_llm_down_still_analyses():
 
 
 def test_api_summary_for_stored_analysis_and_not_found():
-    c = TestClient(create_app())
+    c = authed_client()
     up = c.post("/api/v1/analyses", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()
     with respx.mock as r:
         _mock(r, _answer())
@@ -344,7 +345,7 @@ def test_api_summary_for_stored_analysis_and_not_found():
 def test_api_status_unavailable_without_ollama():
     with respx.mock as r:
         r.get(f"{BASE}/api/tags").mock(side_effect=httpx.ConnectError("refused"))
-        assert TestClient(create_app()).get("/api/v1/llm/status").json()["status"] == "unavailable"
+        assert authed_client().get("/api/v1/llm/status").json()["status"] == "unavailable"
 
 
 def test_scan_injection_on_benign_text_is_empty():

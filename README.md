@@ -16,10 +16,18 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+# P5b: the backend refuses to start without a strong JWT secret (outside APP_ENV=test).
+echo "AIPISH_JWT_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" >> ../.env
+# Local dev users: demo-admin / demo-analyst / demo-viewer with random passwords
+# written to backend/.dev_credentials (0600, gitignored). Only the path is printed.
+python -m app.cli seed-dev-users
 uvicorn app.main:app --port 8000 --reload
 ```
 
-Health check: `curl http://127.0.0.1:8000/api/v1/health`
+Health check (the only public endpoint besides login): `curl http://127.0.0.1:8000/api/v1/health`
+
+Every other endpoint needs `Authorization: Bearer <token>` from `POST /api/v1/auth/login`. Roles,
+the per-route permission table and the threat model are in [docs/auth/README.md](docs/auth/README.md).
 
 ### Frontend
 
@@ -71,6 +79,10 @@ limitations). Invocations are audited (`report_generated`).
 | `APP_UPLOAD_MAX_MB` | `10` | Max .eml upload size |
 | `APP_REQUEST_TIMEOUT_SECONDS` | `60` | Pipeline timeout |
 | `APP_LOG_LEVEL` | `INFO` | Log level |
+| `AIPISH_JWT_SECRET` | — (required outside `APP_ENV=test`) | HS256 signing secret, ≥ 32 random characters |
+| `AIPISH_JWT_TTL_MINUTES` | `60` | Access-token lifetime (no refresh tokens) |
+| `AIPISH_LOGIN_MAX_FAILURES_USER` / `_IP` | `5` / `20` | Failed logins before a lockout (in-memory) |
+| `AIPISH_LOGIN_WINDOW_SECONDS` / `AIPISH_LOGIN_LOCKOUT_SECONDS` | `900` / `900` | Throttle window and lockout length |
 
 ## Test Commands
 
@@ -93,11 +105,19 @@ python3 /tmp/e2e_verify.py
 
 ## API Endpoints
 
-All routes are under `/api/v1`.
+All routes are under `/api/v1`. All except `/health` and `/auth/login` require a bearer token and a
+role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route permission table.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | Liveness + DB check |
+| GET | `/health` | Liveness + DB check (public) |
+| POST | `/auth/login` | JSON `{"username","password"}` → bearer token (public) |
+| GET | `/auth/me` | Current user and permissions |
+| POST | `/auth/logout` | Revoke all of the current user's tokens |
+| POST | `/auth/change-password` | Change own password (current password required) |
+| GET/POST | `/admin/users` | Admin: list users / create user with a one-time temporary password |
+| PATCH | `/admin/users/{id}` | Admin: change role, disable/enable (last active admin protected) |
+| POST | `/admin/users/{id}/reset-password` | Admin: one-time temporary password, revokes sessions |
 | POST | `/analyses` | Upload a raw `.eml` → full forensic analysis (multipart field `file`) |
 | GET | `/analyses` | Recent analyses (history list) |
 | GET | `/analyses/{id}` | One analysis: metadata, detection findings, forensics, auth, enrichment |
@@ -168,7 +188,8 @@ elsewhere. Sensitive data stays out of git via `.gitignore`.
 
 ## Known Limitations
 
-- Single-operator MVP: no RBAC or multi-tenant auth on case endpoints yet.
+- Local password auth + JWT with global roles (viewer/analyst/admin): no OAuth/SSO/MFA, no refresh
+  tokens, no per-case ownership; login throttling is in-memory (see docs/auth/README.md).
 - Audit log is application-level; not a tamper-resistant chain of custody.
 - Raw-evidence retention cleanup is manual (config-documented, no daemon).
 - IP geolocation resolves *network infrastructure*, never a person; skip it

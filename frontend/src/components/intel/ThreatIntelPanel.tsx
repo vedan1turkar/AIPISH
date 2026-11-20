@@ -232,6 +232,7 @@ export default function ThreatIntelPanel({
   running,
   runError,
   onRun,
+  canRun = true,
   onDismissError,
 }: {
   run: ThreatIntelRun | null
@@ -241,6 +242,7 @@ export default function ThreatIntelPanel({
   running: boolean
   runError: string | null
   onRun: (consent: boolean) => void
+  canRun?: boolean
   onDismissError?: () => void
 }) {
   const simulated = run?.simulated || status?.simulated
@@ -253,7 +255,13 @@ export default function ThreatIntelPanel({
         </div>
       )}
       <ProviderStatusChips status={status} />
-      <ConsentCard status={status} running={running} hasRun={!!run} onRun={onRun} />
+      {canRun ? (
+        <ConsentCard status={status} running={running} hasRun={!!run} onRun={onRun} />
+      ) : (
+        <p className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500" data-testid="intel-readonly">
+          Your role can view stored threat-intel results but cannot run external lookups.
+        </p>
+      )}
       {runError && <ErrorAlert message={runError} onDismiss={onDismissError} />}
       {running && <Spinner label="Running threat-intel lookups. Each provider is bounded by timeouts and rate limits…" />}
       {loading && !running && <Spinner label="Loading stored threat-intel results…" />}

@@ -12,6 +12,7 @@ import {
   getMlStatus,
   getIntelStatus,
   getThreatIntel,
+  listInvestigations,
   runThreatIntel,
   verifyIntegrity,
   type Assessment,
@@ -39,6 +40,7 @@ import { HeaderForensicsPanel, AnomaliesPanel, IntelligenceDetailsPanel } from '
 import TraceView from './trace/TraceView'
 import { AssessmentOverviewCard, AssessmentView } from './assessment/AssessmentPanels'
 import ThreatIntelPanel from './intel/ThreatIntelPanel'
+import { useAuth } from '../auth/AuthContext'
 
 type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'trace' | 'ai'
 
@@ -60,6 +62,9 @@ export default function ResultsDashboard({
   analysis: AnalysisDetail
   onNewAnalysis: () => void
 }) {
+  // Role-aware UI (P5b): hide actions the role cannot perform. The backend enforces the same rules.
+  const { can } = useAuth()
+  const canCreateCase = can('case:write')
   const [tab, setTab] = useState<Tab>('overview')
   const [caseInfo, setCaseInfo] = useState<InvestigationCase | null>(null)
   const [caseBusy, setCaseBusy] = useState(false)
@@ -116,10 +121,24 @@ export default function ResultsDashboard({
       })
       .finally(() => setAssessmentLoading(false))
     void refreshHistory(ctl.signal)
-    getMlStatus(ctl.signal).then(setMlStatus).catch(() => setMlStatus(null))
-    getLlmStatus(ctl.signal).then(setLlmStatus).catch(() => setLlmStatus(null))
+    if (can('ml:status')) getMlStatus(ctl.signal).then(setMlStatus).catch(() => setMlStatus(null))
+    if (can('config:status')) getLlmStatus(ctl.signal).then(setLlmStatus).catch(() => setLlmStatus(null))
     return () => ctl.abort()
-  }, [analysis.id, refreshHistory])
+  }, [analysis.id, refreshHistory, can])
+
+  // An existing investigation case for this analysis (so viewers can download its PDF).
+  useEffect(() => {
+    const ctl = new AbortController()
+    setCaseInfo(null)
+    if (can('case:read'))
+      listInvestigations(ctl.signal)
+        .then((cases) => {
+          const found = cases.find((c) => (c.analyses ?? []).some((a) => a.analysis_id === analysis.id))
+          if (found) setCaseInfo(found)
+        })
+        .catch(() => undefined)
+    return () => ctl.abort()
+  }, [analysis.id, can])
 
   // Stored threat-intel run (P5a): loading it never triggers a lookup.
   useEffect(() => {
@@ -134,9 +153,9 @@ export default function ResultsDashboard({
           setIntelError(err instanceof Error ? err.message : 'request failed')
       })
       .finally(() => setIntelLoading(false))
-    getIntelStatus(ctl.signal).then(setIntelStatus).catch(() => setIntelStatus(null))
+    if (can('config:status')) getIntelStatus(ctl.signal).then(setIntelStatus).catch(() => setIntelStatus(null))
     return () => ctl.abort()
-  }, [analysis.id])
+  }, [analysis.id, can])
 
   const intelInFlight = useRef(false)
   const handleRunIntel = useCallback(
@@ -200,6 +219,11 @@ export default function ResultsDashboard({
 
   async function ensureCase(): Promise<InvestigationCase> {
     if (caseInfo) return caseInfo
+    if (!canCreateCase) {
+      const msg = 'No investigation case exists for this analysis yet. An analyst must create one before the PDF can be generated.'
+      setCaseError(msg)
+      throw new Error(msg)
+    }
     setCaseBusy(true)
     setCaseError(null)
     try {
@@ -266,15 +290,18 @@ export default function ResultsDashboard({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={onNewAnalysis}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
-          >
-            + New analysis
-          </button>
+          {can('analysis:create') && (
+            <button
+              onClick={onNewAnalysis}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              + New analysis
+            </button>
+          )}
           <button
             onClick={handleDownloadPdf}
-            disabled={pdfBusy || caseBusy}
+            disabled={pdfBusy || caseBusy || (!caseInfo && !canCreateCase)}
+            title={!caseInfo && !canCreateCase ? 'No investigation case exists yet; an analyst must create one.' : undefined}
             className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             {pdfBusy ? 'Preparing report…' : '⬇ Download forensic PDF'}
@@ -314,6 +341,8 @@ export default function ResultsDashboard({
           caseInfo={caseInfo}
           caseBusy={caseBusy}
           onCreateCase={handleCreateCase}
+          canCreateCase={canCreateCase}
+          canVerify={can('evidence:verify')}
           integrity={integrity}
           integrityBusy={integrityBusy}
           integrityError={integrityError}
@@ -340,6 +369,7 @@ export default function ResultsDashboard({
           running={intelRunning}
           runError={intelRunError}
           onRun={handleRunIntel}
+          canRun={can('intel:run')}
           onDismissError={() => setIntelRunError(null)}
         />
       )}
@@ -352,6 +382,7 @@ export default function ResultsDashboard({
           generating={generating}
           generateError={generateError}
           onGenerate={handleGenerate}
+          canGenerate={can('assessment:run')}
           mlStatus={mlStatus}
           llmStatus={llmStatus}
           history={history}
@@ -369,6 +400,8 @@ function OverviewTab({
   caseInfo,
   caseBusy,
   onCreateCase,
+  canCreateCase = true,
+  canVerify = true,
   integrity,
   integrityBusy,
   integrityError,
@@ -379,6 +412,8 @@ function OverviewTab({
   caseInfo: InvestigationCase | null
   caseBusy: boolean
   onCreateCase: () => void
+  canCreateCase?: boolean
+  canVerify?: boolean
   integrity: IntegrityResult | null
   integrityBusy: boolean
   integrityError: string | null
@@ -487,13 +522,17 @@ function OverviewTab({
                 Link this analysis to an open investigation case to enable the forensic PDF and
                 integrity verification.
               </p>
-              <button
-                onClick={onCreateCase}
-                disabled={caseBusy}
-                className="mt-2 inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-              >
-                {caseBusy ? <Spinner /> : '📁 Create investigation case'}
-              </button>
+              {canCreateCase ? (
+                <button
+                  onClick={onCreateCase}
+                  disabled={caseBusy}
+                  className="mt-2 inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                >
+                  {caseBusy ? <Spinner /> : '📁 Create investigation case'}
+                </button>
+              ) : (
+                <p className="mt-2 text-xs text-gray-400">Your role can view cases but not create them.</p>
+              )}
             </>
           )}
         </Panel>
@@ -523,13 +562,15 @@ function OverviewTab({
                     : 'Create an investigation case first to enable integrity verification.'}
                 </p>
               )}
-              <button
-                onClick={onIntegrityCheck}
-                disabled={caseBusy || integrityBusy || !caseInfo}
-                className="mt-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Run integrity check
-              </button>
+              {canVerify && (
+                <button
+                  onClick={onIntegrityCheck}
+                  disabled={caseBusy || integrityBusy || !caseInfo}
+                  className="mt-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Run integrity check
+                </button>
+              )}
             </>
           )}
         </Panel>

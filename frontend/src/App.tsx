@@ -1,20 +1,66 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getHealth, getAnalysis, type AnalysisDetail } from './api/client'
+import { getHealth, getAnalysis, getMe, logout, type AnalysisDetail } from './api/client'
+import { useAuth } from './auth/AuthContext'
+import { clearSession, updateUser } from './auth/session'
 import { ErrorAlert, Spinner } from './components/ui'
+import LoginPage from './components/auth/LoginPage'
+import ChangePasswordPage from './components/auth/ChangePasswordPage'
+import AdminUsersPage from './components/admin/AdminUsersPage'
 import UploadPage from './components/UploadPage'
 import ResultsDashboard from './components/ResultsDashboard'
 import HistoryPage from './components/HistoryPage'
 import BackendStatus from './components/BackendStatus'
 
-type View = 'upload' | 'results' | 'history'
+type View = 'upload' | 'results' | 'history' | 'users' | 'account'
 
-const NAV: { id: View; label: string; icon: string }[] = [
-  { id: 'upload', label: 'Analyse', icon: '📥' },
-  { id: 'history', label: 'History', icon: '🗂️' },
+// `perm`: shown only to roles holding it. The backend enforces the same permission on every call.
+const NAV: { id: View; label: string; icon: string; perm?: string }[] = [
+  { id: 'upload', label: 'Analyse', icon: '📥', perm: 'analysis:create' },
+  { id: 'history', label: 'History', icon: '🗂️', perm: 'analysis:read' },
+  { id: 'users', label: 'Users', icon: '👥', perm: 'users:manage' },
 ]
 
 export default function App() {
-  const [view, setView] = useState<View>('upload')
+  const auth = useAuth()
+  if (!auth.session) return <LoginPage notice={auth.reason} />
+  if (auth.session.user.must_change_password) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-10">
+        <ChangePasswordPage required />
+        <div className="mt-4 text-center">
+          <SignOutButton />
+        </div>
+      </div>
+    )
+  }
+  return <SignedInApp />
+}
+
+function SignOutButton() {
+  const [busy, setBusy] = useState(false)
+  return (
+    <button
+      onClick={async () => {
+        setBusy(true)
+        try {
+          await logout() // revokes this user's tokens server-side
+        } catch {
+          /* still sign out locally */
+        }
+        clearSession('You signed out.')
+      }}
+      disabled={busy}
+      className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+    >
+      Sign out
+    </button>
+  )
+}
+
+function SignedInApp() {
+  const { session, can } = useAuth()
+  const user = session!.user
+  const [view, setView] = useState<View>(() => (can('analysis:create') ? 'upload' : 'history'))
   // Resume: analysis currently open in the dashboard (either fresh from upload
   // or re-opened from history). `null` on the upload page.
   const [analysis, setAnalysis] = useState<AnalysisDetail | null>(null)
@@ -39,14 +85,26 @@ export default function App() {
   useEffect(() => {
     // Warm the health check so BackendStatus is ready on first paint.
     void getHealth().catch(() => undefined)
+    // Re-validate a session restored from sessionStorage (a revoked token → 401 → login page).
+    void getMe().then(updateUser).catch(() => undefined)
   }, [])
+
+  const allowed = useCallback(
+    (v: View) => {
+      const item = NAV.find((n) => n.id === v)
+      return !item?.perm || can(item.perm)
+    },
+    [can],
+  )
 
   //rudimentary hash routing so refresh/back work acceptably
   useEffect(() => {
     const applyHash = () => {
       const h = window.location.hash
-      if (h === '#upload') setView('upload')
+      if (h === '#upload') setView(allowed('upload') ? 'upload' : 'history')
       else if (h === '#history') setView('history')
+      else if (h === '#users') setView(allowed('users') ? 'users' : 'history')
+      else if (h === '#account') setView('account')
       else if (h.startsWith('#analysis/')) {
         const id = h.slice('#analysis/'.length)
         if (id) void openAnalysis(id)
@@ -55,9 +113,10 @@ export default function App() {
     applyHash()
     window.addEventListener('hashchange', applyHash)
     return () => window.removeEventListener('hashchange', applyHash)
-  }, [openAnalysis])
+  }, [openAnalysis, allowed])
 
   function navigate(v: View) {
+    if (!allowed(v)) v = 'history'
     setView(v)
     window.location.hash = v === 'upload' ? '#upload' : `#${v}`
     if (v === 'results' && !analysis) setView('upload')
@@ -76,7 +135,7 @@ export default function App() {
             <BackendStatus />
           </div>
           <nav className="flex gap-1 rounded-lg bg-gray-100 p-1 sm:ml-auto" aria-label="Main navigation">
-            {NAV.map((n) => (
+            {NAV.filter((n) => !n.perm || can(n.perm)).map((n) => (
               <button
                 key={n.id}
                 onClick={() => navigate(n.id)}
@@ -92,6 +151,21 @@ export default function App() {
               </button>
             ))}
           </nav>
+          <div className="flex items-center gap-2 text-xs" data-testid="current-user">
+            <span className="text-gray-700">
+              <span aria-hidden>👤</span> <strong>{user.username}</strong>
+            </span>
+            <span className="rounded-full bg-indigo-50 px-2 py-0.5 font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200">
+              {user.role}
+            </span>
+            <button
+              onClick={() => navigate('account')}
+              className="rounded-md px-2 py-1 font-medium text-gray-500 hover:text-gray-800"
+            >
+              Password
+            </button>
+            <SignOutButton />
+          </div>
         </div>
       </header>
 
@@ -101,7 +175,7 @@ export default function App() {
             <ErrorAlert message={loadError} onDismiss={() => setLoadError(null)} />
           </div>
         )}
-        {view === 'upload' && (
+        {view === 'upload' && can('analysis:create') && (
           <UploadPage
             onAnalyzed={(detail) => {
               setAnalysis(detail)
@@ -124,6 +198,8 @@ export default function App() {
           <ErrorAlert message="No analysis is open — pick one from history or upload a new file." />
         )}
         {view === 'history' && <HistoryPage onOpenAnalysis={openAnalysis} />}
+        {view === 'users' && can('users:manage') && <AdminUsersPage />}
+        {view === 'account' && <ChangePasswordPage required={false} />}
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-gray-400 sm:px-6">

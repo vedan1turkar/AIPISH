@@ -70,13 +70,20 @@ def add_analysis_to_case(db: Session, case_id: str, analysis_id: str) -> Case | 
 
 
 def record_audit(db: Session, event_type: str, analysis_id: str | None = None,
-                 case_id: str | None = None, detail: dict | None = None) -> None:
+                 case_id: str | None = None, detail: dict | None = None,
+                 actor_user_id: str | None = None) -> None:
+    """Append an audit row. The actor defaults to the authenticated user of the
+    current request (P5b); never pass passwords or tokens in ``detail``."""
+    if actor_user_id is None:
+        from app.security.context import current_actor_id
+        actor_user_id = current_actor_id()
     db.add(AuditEvent(
         id=new_id(),
         event_type=event_type,
         analysis_id=analysis_id,
         case_id=case_id,
         detail=detail or {},
+        actor_user_id=actor_user_id,
     ))
 
 

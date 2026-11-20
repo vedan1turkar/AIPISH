@@ -12,6 +12,7 @@ import respx
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from tests.authutil import authed_client  # noqa: E402
 from app.reports import pdf as P
 
 DOCS = Path(__file__).resolve().parents[3] / "docs" / "llm"
@@ -65,7 +66,7 @@ ANSWER = json.dumps({"summary": "Reply-To diverges from the sender domain.", "as
 
 
 def test_assessment_is_stored_and_served_unchanged():
-    c = TestClient(create_app())
+    c = authed_client()
     with respx.mock(assert_all_called=False) as r:
         _mock_ollama(r, ANSWER)
         made = c.post("/api/v1/llm/forensic-summary", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()
@@ -78,7 +79,7 @@ def test_assessment_is_stored_and_served_unchanged():
 
 
 def test_assessment_404_codes():
-    c = TestClient(create_app())
+    c = authed_client()
     assert c.get("/api/v1/analyses/nope/assessment").json()["error"]["code"] == "NOT_FOUND"
     up = c.post("/api/v1/analyses", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()
     r = c.get(f"/api/v1/analyses/{up['id']}/assessment")
@@ -88,7 +89,7 @@ def test_assessment_404_codes():
 def test_stored_regeneration_reuses_upload_time_ml_instead_of_degrading():
     from app.core.db import SessionLocal
     from app.core.models import AssessmentVersion
-    c = TestClient(create_app())
+    c = authed_client()
     up = c.post("/api/v1/analyses", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()
     with SessionLocal() as db:
         db.add(AssessmentVersion(analysis_id=up["id"], version=1, source="upload", ml_json=REAL["ml"],
@@ -103,7 +104,7 @@ def test_stored_regeneration_reuses_upload_time_ml_instead_of_degrading():
 
 
 def test_stored_analysis_hash_only_explains_ml_unavailability():
-    c = TestClient(create_app())
+    c = authed_client()
     up = c.post("/api/v1/analyses", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()
     with respx.mock(assert_all_called=False) as r:
         r.get(f"{BASE}/api/tags").mock(side_effect=httpx.ConnectError("down"))
@@ -170,7 +171,7 @@ def test_pdf_missing_fields_are_not_fabricated(monkeypatch):
 def test_report_endpoint_includes_stored_assessment(monkeypatch):
     from reportlab import rl_config
     monkeypatch.setattr(rl_config, "pageCompression", 0)
-    c = TestClient(create_app())
+    c = authed_client()
     with respx.mock(assert_all_called=False) as r:
         _mock_ollama(r, ANSWER)
         made = c.post("/api/v1/llm/forensic-summary", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()

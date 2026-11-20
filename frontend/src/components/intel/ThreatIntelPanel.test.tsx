@@ -28,6 +28,7 @@ vi.mock('../../api/client', async (orig) => {
 })
 import * as api from '../../api/client'
 import ResultsDashboard from '../ResultsDashboard'
+import { withRole } from '../../test/auth'
 
 const mocked = api as unknown as Record<string, ReturnType<typeof vi.fn>>
 
@@ -247,7 +248,7 @@ describe('dashboard integration', () => {
     mocked.runThreatIntel.mockReturnValue(new Promise<ThreatIntelRun>((r) => { resolve = r }))
     mocked.createInvestigation.mockResolvedValue({ id: 'case1' })
     mocked.downloadReport.mockResolvedValue(undefined)
-    render(<ResultsDashboard analysis={analysis()} onNewAnalysis={() => {}} />)
+    render(withRole(<ResultsDashboard analysis={analysis()} onNewAnalysis={() => {}} />))
     fireEvent.click(screen.getByRole('tab', { name: /Threat intel/ }))
     await waitFor(() => expect(screen.getByText('No threat-intel lookup has been run')).toBeTruthy())
     fireEvent.click(screen.getByRole('checkbox'))
@@ -266,7 +267,7 @@ describe('dashboard integration', () => {
   it('shows a 409 in-progress message without inventing results', async () => {
     mocked.getThreatIntel.mockResolvedValue(null)
     mocked.runThreatIntel.mockRejectedValue(new api.ApiError(409, 'INTEL_IN_PROGRESS', 'busy'))
-    render(<ResultsDashboard analysis={analysis()} onNewAnalysis={() => {}} />)
+    render(withRole(<ResultsDashboard analysis={analysis()} onNewAnalysis={() => {}} />))
     fireEvent.click(screen.getByRole('tab', { name: /Threat intel/ }))
     await waitFor(() => expect(screen.getByText('No threat-intel lookup has been run')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: /Decline external lookups/ }))

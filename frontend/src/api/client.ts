@@ -3,6 +3,8 @@
 // Base URL: configured backend URL. In dev, leave VITE_API_BASE empty and the
 // Vite proxy forwards /api → FastAPI :8000. For other deployments set
 // VITE_API_BASE to the absolute backend origin (e.g. http://127.0.0.1:8000).
+import { clearSession, getToken, type SessionUser } from '../auth/session'
+
 const RAW_BASE: string = import.meta.env.VITE_API_BASE ?? ''
 export const API_BASE: string = RAW_BASE.replace(/\/+$/, '')
 
@@ -21,14 +23,38 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+const LOGIN_PATH = '/api/v1/auth/login'
+
+/** Every request goes through here: attaches the bearer token, and on 401 clears the session (→ login page). */
+async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers)
+  const token = getToken()
+  if (token && path !== LOGIN_PATH) headers.set('Authorization', `Bearer ${token}`)
   let res: Response
   try {
-    res = await fetch(`${API_BASE}${path}`, init)
+    res = await fetch(`${API_BASE}${path}`, { ...init, headers })
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err
     throw new ApiError(0, 'NETWORK_ERROR', 'Cannot reach the analysis backend. Is it running?')
   }
+  if (res.status === 401 && path !== LOGIN_PATH) {
+    let code = ''
+    try {
+      code = ((await res.clone().json()) as ApiErrorBody).error?.code ?? ''
+    } catch {
+      /* ignore */
+    }
+    clearSession(
+      code === 'TOKEN_EXPIRED' ? 'Your session expired. Sign in again.'
+        : code === 'NOT_AUTHENTICATED' ? 'Sign in to continue.'
+          : 'Your session is no longer valid. Sign in again.',
+    )
+  }
+  return res
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await authedFetch(path, init)
   if (!res.ok) {
     let code = `HTTP_${res.status}`
     let message = `Request failed (HTTP ${res.status})`
@@ -324,15 +350,19 @@ export async function downloadReport(
   if (assessmentId) params.set('assessment_id', assessmentId)
   if (intelRunId) params.set('intel_run_id', intelRunId)
   const q = params.toString() ? `?${params.toString()}` : ''
-  const res = await fetch(
-    `${API_BASE}/api/v1/investigations/${encodeURIComponent(caseId)}/report/${encodeURIComponent(analysisId)}${q}`,
+  // Authenticated fetch → blob → download (a bare link could not carry the bearer token).
+  const res = await authedFetch(
+    `/api/v1/investigations/${encodeURIComponent(caseId)}/report/${encodeURIComponent(analysisId)}${q}`,
   )
   if (!res.ok) {
     let code = `HTTP_${res.status}`
     let message = `Report download failed (HTTP ${res.status})`
     try {
-      const body = (await res.json()) as { detail: { code: string; message: string } }
-      if ('detail' in body && typeof body.detail === 'object' && body.detail?.message) {
+      const body = (await res.json()) as ApiErrorBody | { detail: { code: string; message: string } }
+      if ('error' in body && body.error?.message) {
+        code = body.error.code
+        message = body.error.message
+      } else if ('detail' in body && typeof body.detail === 'object' && body.detail?.message) {
         code = body.detail.code
         message = body.detail.message
       }
@@ -677,5 +707,87 @@ export async function runThreatIntel(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     signal,
+  })
+}
+
+// ── Authentication & user administration (P5b) ─────────────────────────────
+export type { SessionUser }
+
+export interface LoginResponse {
+  access_token: string
+  token_type: 'bearer'
+  expires_at: string
+  user: SessionUser
+}
+
+export interface Me extends SessionUser {
+  permissions: string[]
+}
+
+const json = (body: unknown): RequestInit => ({
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+})
+
+export async function login(username: string, password: string): Promise<LoginResponse> {
+  return request<LoginResponse>(LOGIN_PATH, json({ username, password }))
+}
+
+/** Current user + permissions. `token` is used right after login, before it becomes the stored session. */
+export async function getMe(token?: string): Promise<Me> {
+  return request<Me>('/api/v1/auth/me', token ? { headers: { Authorization: `Bearer ${token}` } } : {})
+}
+
+export async function logout(): Promise<void> {
+  await request<unknown>('/api/v1/auth/logout', { method: 'POST' })
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<LoginResponse> {
+  return request<LoginResponse>(
+    '/api/v1/auth/change-password',
+    json({ current_password: currentPassword, new_password: newPassword }),
+  )
+}
+
+export interface AdminUser {
+  id: string
+  username: string
+  role: 'viewer' | 'analyst' | 'admin'
+  is_active: boolean
+  must_change_password: boolean
+  created_at: string | null
+  last_login_at: string | null
+  locked: boolean
+}
+
+export interface TempPasswordResult {
+  user: AdminUser
+  temporary_password: string
+  note: string
+}
+
+export async function listUsers(signal?: AbortSignal): Promise<AdminUser[]> {
+  return request<AdminUser[]>('/api/v1/admin/users', { signal })
+}
+
+export async function createUser(username: string, role: AdminUser['role']): Promise<TempPasswordResult> {
+  return request<TempPasswordResult>('/api/v1/admin/users', json({ username, role }))
+}
+
+export async function updateUser(
+  id: string,
+  changes: { role?: AdminUser['role']; is_active?: boolean },
+): Promise<AdminUser> {
+  return request<AdminUser>(`/api/v1/admin/users/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes),
+  })
+}
+
+export async function resetUserPassword(id: string): Promise<TempPasswordResult> {
+  return request<TempPasswordResult>(`/api/v1/admin/users/${encodeURIComponent(id)}/reset-password`, {
+    method: 'POST',
   })
 }

@@ -10,13 +10,14 @@ from fastapi.testclient import TestClient
 import app.cases.service as svc
 from app.core.db import SessionLocal
 from app.main import create_app
+from tests.authutil import authed_client  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "eml"
 
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(create_app())
+    return authed_client()
 
 
 def _upload(client: TestClient, name: str = "phishing_multipart.eml") -> dict:
@@ -114,7 +115,7 @@ def test_persistence_across_server_restart(client: TestClient) -> None:
     up = _upload(client)
     case = client.post(f"/api/v1/investigations/from-analysis/{up['id']}").json()
 
-    fresh = TestClient(create_app())     # simulates a restarted server (same DB file)
+    fresh = authed_client()     # simulates a restarted server (same DB file)
     got = fresh.get(f"/api/v1/investigations/{case['id']}")
     assert got.status_code == 200
     assert got.json()["analyses"][0]["analysis_id"] == up["id"]

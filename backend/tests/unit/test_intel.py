@@ -28,6 +28,7 @@ from app.intel.providers import AbuseIPDB, IPinfo, Shodan, TorExitList, VirusTot
 from app.intel.service import extract_indicators, run_threat_intel
 from app.intel.validate import validate, validate_domain, validate_hash, validate_ip
 from app.main import create_app
+from tests.authutil import authed_client
 
 FAKE = {"virustotal": "test-key-not-real-vt", "abuseipdb": "test-key-not-real-abuse",
         "shodan": "test-key-not-real-shodan", "ipinfo": "test-key-not-real-ipinfo"}
@@ -775,7 +776,7 @@ def api(db, monkeypatch):
     app = create_app()
     app.dependency_overrides[get_db] = lambda: db
     intel_config._CONFIG = make_cfg()
-    return TestClient(app)
+    return authed_client(app, "admin")
 
 
 def test_status_endpoint_booleans_only(api):

@@ -19,6 +19,7 @@ from app.enrichment.config import EnrichmentConfig
 from app.enrichment.iocs import Ioc
 from app.ingestion.parser import parse_eml
 from app.main import create_app
+from tests.authutil import authed_client  # noqa: E402
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures" / "eml"
 
@@ -92,7 +93,7 @@ INJECT = (b"From: \"<b>Evil</b> <font size=99>X</font> & Co\" <ceo@example.com>\
 
 
 def test_pdf_escapes_from_display_name():
-    c = TestClient(create_app())
+    c = authed_client()
     up = c.post("/api/v1/analyses", files={"file": ("x.eml", INJECT, "message/rfc822")}).json()
     case = c.post(f"/api/v1/investigations/from-analysis/{up['id']}").json()
     r = c.get(f"/api/v1/investigations/{case['id']}/report/{up['id']}")
@@ -104,7 +105,7 @@ def test_raw_policy_retains_evidence_and_integrity_matches(monkeypatch):
     monkeypatch.setattr(svc, "CASE_EVIDENCE_STORE", "raw")
     monkeypatch.setattr(svc, "CASE_EVIDENCE_STORE_KEY", "")
     raw = (FIX / "benign.eml").read_bytes()
-    c = TestClient(create_app())
+    c = authed_client()
     up = c.post("/api/v1/analyses", files={"file": ("b.eml", raw, "message/rfc822")}).json()
     with SessionLocal() as db:
         rec = db.get(Analysis, up["id"])
@@ -117,7 +118,7 @@ def test_raw_policy_retains_evidence_and_integrity_matches(monkeypatch):
 
 def test_hash_only_policy_stores_no_bytes(monkeypatch):
     monkeypatch.setattr(svc, "CASE_EVIDENCE_STORE", "hash_only")
-    c = TestClient(create_app())
+    c = authed_client()
     up = c.post("/api/v1/analyses", files={"file": ("b.eml", (FIX / "benign.eml").read_bytes(),
                                                      "message/rfc822")}).json()
     with SessionLocal() as db:

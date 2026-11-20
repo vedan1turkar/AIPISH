@@ -31,6 +31,7 @@ vi.mock('../../api/client', async (orig) => {
 })
 import * as api from '../../api/client'
 import ResultsDashboard from '../ResultsDashboard'
+import { withRole } from '../../test/auth'
 
 const OK = real as unknown as Assessment
 const v = (n: number, id: string): Assessment => ({ ...JSON.parse(JSON.stringify(OK)), version: n, assessment_id: id })
@@ -122,7 +123,7 @@ describe('evidence navigation', () => {
 
 describe('generation, history and PDF version through the dashboard', () => {
   async function openAiTab() {
-    render(<ResultsDashboard analysis={analysis()} onNewAnalysis={() => undefined} />)
+    render(withRole(<ResultsDashboard analysis={analysis()} onNewAnalysis={() => undefined} />))
     fireEvent.click(screen.getByRole('tab', { name: /AI assessment/ }))
   }
 

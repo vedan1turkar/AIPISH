@@ -120,6 +120,8 @@ class AuditEvent(Base):
     case_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    # P5b: authenticated user who caused the event (None for anonymous/failed logins and pre-P5b rows)
+    actor_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
 
 
 class AnalysisAssessment(Base):
@@ -223,3 +225,39 @@ class ThreatIntelRun(Base):
     offline: Mapped[bool] = mapped_column(default=False)
     result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class User(Base):
+    """Local application user (P5b). Passwords are stored only as scrypt hashes.
+
+    ``username`` is stored lower-cased, so uniqueness is case-insensitive.
+    ``token_version`` is embedded in every JWT; bumping it (password change,
+    role change, disable, logout) invalidates all of that user's tokens.
+    """
+    __tablename__ = "app_user"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(16))                 # viewer | analyst | admin
+    is_active: Mapped[bool] = mapped_column(default=True)
+    token_version: Mapped[int] = mapped_column(Integer, default=0)
+    must_change_password: Mapped[bool] = mapped_column(default=False)
+    failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+def migrate_audit_actor(engine) -> bool:
+    """Additive, idempotent: add ``audit_event.actor_user_id`` to pre-P5b SQLite databases."""
+    from sqlalchemy import inspect, text
+    cols = {c["name"] for c in inspect(engine).get_columns("audit_event")}
+    if "actor_user_id" in cols:
+        return False
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE audit_event ADD COLUMN actor_user_id VARCHAR(32)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_event_actor_user_id "
+                          "ON audit_event (actor_user_id)"))
+    return True

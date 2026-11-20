@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from test_ml import _corpus, _train_bundle  # noqa: E402  (same test dir)
 
 from app.main import create_app  # noqa: E402
+from tests.authutil import authed_client  # noqa: E402
 from app.ml import explain as X  # noqa: E402
 from app.ml import features as F  # noqa: E402
 from app.ml import inference  # noqa: E402
@@ -123,7 +124,7 @@ def test_explanations_never_contain_raw_content(model, use):
 
 def test_rule_engine_features_are_explained_not_replaced(model, use):
     use(model)
-    c = TestClient(create_app())
+    c = authed_client()
     body = c.post("/api/v1/ml/explain", files={"file": ("m.eml", RAW, "message/rfc822")}).json()
     assert body["explanation"]["status"] == "ok"
     assert body["ml"]["status"] == "ok" and body["ml"]["label"] == body["explanation"]["explained_label"]
@@ -136,7 +137,7 @@ def test_missing_model_gives_unavailable_without_contributions(tmp_path, use):
     use(tmp_path / "none")
     out = X.explain_raw(RAW)
     assert out["status"] == "unavailable" and out["components"] == {} and "missing" in out["reason"]
-    body = TestClient(create_app()).post(
+    body = authed_client().post(
         "/api/v1/ml/explain", files={"file": ("m.eml", RAW, "message/rfc822")}).json()
     assert body["explanation"]["status"] == "unavailable" and body["ml"]["label"] is None
 

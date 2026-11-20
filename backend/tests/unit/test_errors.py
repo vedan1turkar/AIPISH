@@ -15,14 +15,18 @@ def test_unknown_route_returns_envelope() -> None:
     assert set(body["error"].keys()) >= {"code", "message"}
 
 
-def test_validation_error_maps_to_envelope() -> None:
+def test_validation_error_maps_to_envelope(monkeypatch) -> None:
+    from app.security.permissions import ROUTE_PERMISSIONS
+    from tests.authutil import authed_client
+    # P5b: routes are denied unless mapped, so map this test-only route before the first request.
+    monkeypatch.setitem(ROUTE_PERMISSIONS, ("GET", "/api/v1/bad-endpoint"), "analysis:read")
     app = create_app()
 
     @app.get("/api/v1/bad-endpoint")
     def bad(q: int) -> dict[str, int]:
         return {"q": q}
 
-    client = TestClient(app, raise_server_exceptions=False)
+    client = authed_client(app, "viewer", raise_server_exceptions=False)
     res = client.get("/api/v1/bad-endpoint?q=not-a-number")
     assert res.status_code == 400
     body = res.json()

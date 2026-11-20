@@ -562,6 +562,7 @@ export function AssessmentView({
   generating,
   generateError,
   onGenerate,
+  canGenerate = true,
   mlStatus,
   llmStatus,
   history = [],
@@ -574,6 +575,7 @@ export function AssessmentView({
   generating: boolean
   generateError: string | null
   onGenerate: () => void
+  canGenerate?: boolean
   mlStatus?: MlStatus | null
   llmStatus?: LlmStatus | null
   history?: AssessmentSummary[]
@@ -584,7 +586,9 @@ export function AssessmentView({
   if (loading) return <Spinner label="Loading AI assessment…" />
   const latestId = history[0]?.assessment_id
   const viewingOld = Boolean(assessment?.assessment_id && latestId && assessment.assessment_id !== latestId)
-  const generateButton = (label: string, primary: boolean) => (
+  const generateButton = (label: string, primary: boolean) => !canGenerate ? (
+    <span className="text-xs text-gray-400" data-testid="generate-not-permitted">Your role cannot generate AI assessments.</span>
+  ) : (
     <button
       onClick={onGenerate}
       disabled={generating}

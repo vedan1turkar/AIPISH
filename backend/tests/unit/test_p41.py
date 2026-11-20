@@ -23,6 +23,7 @@ from app.llm.recommend import SYSTEM_GENERAL, classify
 from app.llm.redact import name_tokens, redact_names
 from app.llm.validate import validate
 from app.main import create_app
+from tests.authutil import authed_client  # noqa: E402
 from app.ml.shap_view import component_view
 from app.reports import pdf as P
 
@@ -210,7 +211,7 @@ def _mock(r):
 
 
 def test_regeneration_appends_versions_and_keeps_history():
-    c = TestClient(create_app())
+    c = authed_client()
     up = c.post("/api/v1/analyses", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()
     aid = up["id"]
     with respx.mock(assert_all_called=False) as r:
@@ -231,7 +232,7 @@ def test_regeneration_appends_versions_and_keeps_history():
 def test_pdf_is_pinned_to_the_requested_assessment_version(monkeypatch):
     from reportlab import rl_config
     monkeypatch.setattr(rl_config, "pageCompression", 0)
-    c = TestClient(create_app())
+    c = authed_client()
     aid = c.post("/api/v1/analyses", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()["id"]
     with respx.mock(assert_all_called=False) as r:
         _mock(r)
@@ -268,7 +269,7 @@ def test_migration_copies_legacy_rows_once_without_destroying_them():
 
 
 def test_duplicate_generation_is_refused_while_running():
-    c = TestClient(create_app())
+    c = authed_client()
     aid = c.post("/api/v1/analyses", files={"file": ("m.eml", SAMPLE, "message/rfc822")}).json()["id"]
     llm_router._running.add(aid)
     try:

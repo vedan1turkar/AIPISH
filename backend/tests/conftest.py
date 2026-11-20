@@ -25,6 +25,22 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(pytest.mark.skip(reason=f"{marker} test: set {var}=1 to run"))
 
 
+@pytest.fixture(autouse=True)
+def _reset_login_throttle():
+    # Failed-login counters are in-memory and process-wide; keep tests independent.
+    from app.security import throttle
+    throttle.reset_all()
+    yield
+    throttle.reset_all()
+
+
 @pytest.fixture
 def client() -> TestClient:
+    """Authenticated (admin) client: real user + real signed JWT (P5b)."""
+    from tests.authutil import authed_client
+    return authed_client(create_app(), "admin")
+
+
+@pytest.fixture
+def anon_client() -> TestClient:
     return TestClient(create_app())

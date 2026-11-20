@@ -6,6 +6,8 @@ python-dotenv>=1.0
 sqlalchemy>=2.0,<3.0
 python-multipart>=0.0.9
 httpx>=0.27
+# P5b: HS256 access tokens (passwords use stdlib hashlib.scrypt)
+PyJWT>=2.8,<3
 reportlab>=4.0
 # live SPF / DKIM / DMARC verification and DNS enrichment
 dnspython>=2.6

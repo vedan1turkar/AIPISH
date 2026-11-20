@@ -1,7 +1,8 @@
 # AIPISH requirements traceability matrix (R1–R60)
 
 This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 audit set its baseline at
-`b6e4c67`. This version of the file was updated for **P5a: threat-intelligence provider integrations**.
+`b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`) and then for
+**P5b: authentication, JWT and RBAC**.
 
 **ID provenance:**
 - R1–R40 come from the original project matrix.
@@ -21,17 +22,29 @@ Recommended technologies are listed for traceability. They are not functional sc
 | **MISS** | Missing. |
 | **BLK** | Blocked by an external dependency. |
 
-## Counts (after P5a)
+## Counts
 
-| Status | Before P5a | After P5a |
-|---|---:|---:|
-| VER | 16 | 16 |
-| IMP-U | 3 | 7 |
-| PART | 16 | 18 |
-| STUB | 1 | 0 |
-| MISS | 21 | 16 |
-| BLK | 3 | 3 |
-| **Total** | 60 | 60 |
+| Status | Before P5a | After P5a | After P5b |
+|---|---:|---:|---:|
+| VER | 16 | 16 | 18 |
+| IMP-U | 3 | 7 | 7 |
+| PART | 16 | 18 | 18 |
+| STUB | 1 | 0 | 0 |
+| MISS | 21 | 16 | 14 |
+| BLK | 3 | 3 | 3 |
+| **Total** | 60 | 60 | 60 |
+
+## Changes made in P5b
+
+| ID | Before | After | Why |
+|---|---|---|---|
+| R32 | MISS | VER | RBAC (viewer / analyst / admin) enforced server-side by an app-wide dependency and a deny-by-default route → permission map. Verified by a route-inventory test (401 anonymous on every non-public route, 200-or-handled / 403 per role on every route), explicit role-matrix tests, a real-app curl run and a browser walk-through per role. No per-case ownership (see Gaps). |
+| R54 | MISS | VER | HS256 JWT (PyJWT): sub/role/tv/jti/iat/exp/iss/aud, 60-min lifetime, `alg` pinned, `token_version` revocation, fail-closed secret check at startup. Tests cover expired, wrong signature, `alg=none`, HS512, wrong iss/aud, tampered claims, missing claims and revocation. The running backend rejected an expired token. |
+| R53 | BLK | BLK | Unchanged. P5b is local password authentication with JWT, **not** an OAuth 2.0 / OIDC provider. |
+| R59 | PART | PART | Login success/failure/lockout/throttle, logout, password change, user create/role/disable/enable/reset events; `actor_user_id` on every audit write, including analysis, intel, integrity and report events. No read API/UI yet (P5e); AI-assessment runs not audited. |
+| R60 | PART | PART | All stored forensic data now requires authentication and a role. Still no per-case ACLs, and bodies are stored in clear. |
+
+Related rows (R25, R33) gained evidence but keep their status. Details: `docs/auth/README.md`.
 
 ## Changes made in P5a
 
@@ -74,15 +87,15 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R22 | Rule tests | VER | `test_detection.py` | — |
 | R23 | MITRE ATT&CK mapping | MISS | — | — |
 | R24 | Real-time alerts | MISS | — | Needs ingestion (R36) |
-| R25 | Analyst dashboard | IMP-U | `ResultsDashboard.tsx` tabs, including Threat intel · `ThreatIntelPanel.test.tsx`, `AssessmentInteractions.test.tsx` | Geo shown only from live enrichment or IPinfo |
+| R25 | Analyst dashboard | IMP-U | `ResultsDashboard.tsx` tabs, including Threat intel; P5b login, role-aware actions, admin users page · `ThreatIntelPanel.test.tsx`, `AssessmentInteractions.test.tsx`, `Auth.test.tsx` | Geo shown only from live enrichment or IPinfo |
 | R26 | Interactive trace map / graphs | PART | Cytoscape trace view | No Leaflet map (R57) |
 | R27 | Structured forensic reports | VER | `reports/pdf.py` (incl. §7A) · `test_assessment_report.py`, `test_p41.py`, `test_intel.py` | — |
 | R28 | Searchable case management / campaigns | PART | `cases/service.py`, `/investigations` · `test_investigations.py` | No search; one analysis per case via API |
 | R29 | PDF tests incl. injection | VER | PDF escaping tests (also for provider strings in §7A) | — |
 | R30 | Evidence preservation / chain-of-custody support | PART | SHA-256, optional raw retention, versioned assessments and intel runs | Not tamper-resistant |
 | R31 | Retention, masking, redaction | PART | `CASE_EVIDENCE_RETENTION_DAYS`, `llm/redact.py` | Retention not enforced; body stored in clear |
-| R32 | RBAC | MISS | — | API is anonymous |
-| R33 | Tests | VER | Backend 421 passed / 6 skipped (5 opt-in live intel tests); frontend 71 passed | No CI; no browser E2E suite |
+| R32 | RBAC | VER | `security/permissions.py`, `security/deps.py` (app-wide `enforce_access`), `api/admin_router.py` · `test_access_control.py` (route inventory + role matrix), `Auth.test.tsx` | Roles are global: no per-case ownership/ACLs |
+| R33 | Tests | VER | Backend 472 passed / 6 skipped (5 opt-in live intel tests); frontend 86 passed | No CI; no browser E2E suite |
 | R34 | Main database (PostgreSQL) | PART | SQLAlchemy and SQLite | No PostgreSQL or migrations tool |
 | R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; lookups run synchronously |
 | R36 | Email integration (IMAP/SMTP/Graph) | MISS | — | Test mailbox or Azure tenant |
@@ -102,11 +115,11 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R50* | Neo4j | MISS | — | Service not installed |
 | R51* | NetworkX | MISS | — | — |
 | R52* | Search (OpenSearch) | MISS | — | — |
-| R53* | OAuth 2.0 | BLK | — | Provider not chosen |
-| R54* | JWT authentication | MISS | — | — |
+| R53* | OAuth 2.0 | BLK | — (P5b is local password auth + JWT, not OAuth 2.0) | Provider not chosen |
+| R54* | JWT authentication | VER | `security/tokens.py`, `api/auth_router.py` · `test_access_control.py` | No refresh tokens; no key rotation (key id) |
 | R55* | Jinja2 report templates | MISS | ReportLab only | Low value |
 | R56* | Plotly analytics | MISS | — | — |
 | R57* | Leaflet geolocation map | MISS | — | Needs geolocation data |
 | R58* | Local LLM forensic summaries | VER | `llm/*` · `test_llm.py`, `test_p41.py`, `test_p42.py` | — |
-| R59* | Audit trails | PART | `audit_event`; P5a adds `threat_intel_lookup` (consent decision, providers, counts) and the intel run id on `report_generated` | No read API; no evidence-access or admin events |
-| R60* | Controlled personal-data handling | PART | LLM redaction, local-only Ollama; P5a per-analysis consent, bare-indicator-only outbound requests, offline mode | No access control; body stored in clear |
+| R59* | Audit trails | PART | `audit_event`; P5a `threat_intel_lookup`; P5b login/lockout/logout/password/user-admin events and `actor_user_id` on every write · `test_access_control.py` | No read API/UI (P5e); assessment runs not audited; not tamper-resistant |
+| R60* | Controlled personal-data handling | PART | LLM redaction, local-only Ollama; P5a consent, bare-indicator-only outbound requests, offline mode; P5b authentication + RBAC on all stored data, `no-store` caching | No per-case ACLs; body stored in clear |

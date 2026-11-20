@@ -6,13 +6,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from tests.authutil import authed_client  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "eml"
 
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(create_app())
+    return authed_client()
 
 
 def _upload(client: TestClient, path: Path, filename: str | None = None):
