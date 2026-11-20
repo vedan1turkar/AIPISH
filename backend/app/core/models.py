@@ -348,3 +348,24 @@ def run_additive_migrations(engine) -> None:
     Base.metadata.create_all(bind=engine)
     migrate_audit_actor(engine)
     migrate_correlation_indexes(engine)
+
+
+class AttackMapping(Base):
+    """MITRE ATT&CK mapping + source-type hypotheses for one analysis (P5d). Append-only versions.
+
+    Informational only: never feeds the rule score, ML, verdict or the LLM. A new version is
+    appended only when the inputs or results change (fingerprint), so backfill is idempotent.
+    """
+    __tablename__ = "attack_mapping"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    analysis_id: Mapped[str] = mapped_column(String(32), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(24))              # auto | recompute | backfill | intel_run
+    mapping_engine_version: Mapped[str] = mapped_column(String(32))
+    catalog_version: Mapped[str] = mapped_column(String(64))
+    intel_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    ml_assessment_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    results_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

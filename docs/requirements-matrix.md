@@ -2,7 +2,8 @@
 
 This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 audit set its baseline at
 `b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`), **P5b:
-authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns**.
+authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns** (`9213bbf`) and **P5d: MITRE ATT&CK mapping and source-type
+classification**.
 
 **ID provenance:**
 - R1–R40 come from the original project matrix.
@@ -24,15 +25,26 @@ Recommended technologies are listed for traceability. They are not functional sc
 
 ## Counts
 
-| Status | Before P5a | After P5a | After P5b | After P5c |
-|---|---:|---:|---:|---:|
-| VER | 16 | 16 | 18 | 21 |
-| IMP-U | 3 | 7 | 7 | 9 |
-| PART | 16 | 18 | 18 | 14 |
-| STUB | 1 | 0 | 0 | 0 |
-| MISS | 21 | 16 | 14 | 13 |
-| BLK | 3 | 3 | 3 | 3 |
-| **Total** | 60 | 60 | 60 | 60 |
+| Status | Before P5a | After P5a | After P5b | After P5c | After P5d |
+|---|---:|---:|---:|---:|---:|
+| VER | 16 | 16 | 18 | 21 | 22 |
+| IMP-U | 3 | 7 | 7 | 9 | 10 |
+| PART | 16 | 18 | 18 | 14 | 14 |
+| STUB | 1 | 0 | 0 | 0 | 0 |
+| MISS | 21 | 16 | 14 | 13 | 11 |
+| BLK | 3 | 3 | 3 | 3 | 3 |
+| **Total** | 60 | 60 | 60 | 60 | 60 |
+
+## Changes made in P5d
+
+| ID | Before | After | Why |
+|---|---|---|---|
+| R23 | MISS | VER | Deterministic ATT&CK mapper: 13 techniques pinned to Enterprise 20.1, with IDs, names and tactics verified against the official STIX data (committed snapshot plus test). 14 mapping rules (M06 has a verified and a claimed variant), each with observed/inferred basis, confidence, resolvable evidence ids, rationale and limitations. Append-only versions, recompute, backfill and PDF 7C. Verified by tests, browser, PDF and curl. |
+| R21 | MISS | IMP-U | Four independent source-type hypotheses with likelihood bands, evidence, missing-data notes and `not_assessed: <reason>` when intel is absent. The infrastructure hypotheses were exercised only with SIMULATED intel (live providers unverified), and the bands are heuristic. |
+| R15 | PART | PART | Tor, VPN and proxy flags and hosting signals now drive the "anonymised infrastructure" hypothesis and T1090.003. Still no open-relay or botnet source, and live provider data is unverified. |
+| R40 | VER | VER | Attribution disclaimer on the ATT&CK tab, the source-type panel, PDF 7C and the API results. |
+
+Pre-existing bug found (not fixed, to avoid changing rule scores): the header-forensics Return-Path comparison can keep a trailing `>` and flag identical domains. The ATT&CK engine guards against it; see `docs/attack/README.md`.
 
 ## Changes made in P5c
 
@@ -90,15 +102,15 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R12 | Relay-chain reconstruction | VER | `run_header_forensics` · `test_forensics.py` | Heuristic trust boundary |
 | R13 | Candidate IPs / earliest reliable node | VER | `forensics/headers.py` · `test_forensics.py` | — |
 | R14 | Geolocation: country, region, city, ISP, ASN, hosting | PART | `enrichment/engine.py:ipgeo_lookup`; P5a IPinfo geo/ASN/hosting flag · `test_intel.py` | MaxMind blocked (R48); live unverified |
-| R15 | VPN / Tor / proxy / hosting / botnet / open-relay flags | PART | `intel/providers.py`: TorExitList, IPinfo privacy, Shodan tags, AbuseIPDB usage type · `test_intel.py` | No open-relay or botnet source; IPinfo privacy may need a paid plan; live unverified |
+| R15 | VPN / Tor / proxy / hosting / botnet / open-relay flags | PART | `intel/providers.py`: TorExitList, IPinfo privacy, Shodan tags, AbuseIPDB usage type; P5d "anonymised infrastructure" hypothesis and T1090.003 · `test_intel.py`, `test_attack.py` | No open-relay or botnet source; IPinfo privacy may need a paid plan; live unverified |
 | R16 | WHOIS/RDAP, DNS, MX, registrar | PART | `dns_lookup`, `rdap_lookup`; VT domain registrar/creation (P5a) · `test_enrichment.py`, `test_intel.py` | Live unverified |
 | R17 | Origin vs infrastructure vs identity separation | VER | Disclaimers in UI, PDF, LLM evidence and the threat-intel disclaimer · `test_llm.py`, `test_p41.py`, `test_intel.py` | — |
 | R18 | Correlation with threat intel, reputation, past incidents, campaigns | IMP-U | `intel/` (P5a); `correlation/` engine, Related tab, campaigns, PDF §7B (P5c) · `test_intel.py`, `test_correlation.py`, `Correlation.test.tsx` | Intel live-unverified; correlation weights tuned on synthetic data only |
 | R19 | Relationship graph | VER | Per-email trace graph; persistent cross-email entity graph, campaign graph and entity neighbourhood (P5c) · `model.test.ts`, `test_correlation.py`, `Correlation.test.tsx` | No graph database (R50) |
 | R20 | Confidence-based attribution | IMP-U | Per-hop confidence; campaign confidence plus evidence-backed reasons (P5c) · `test_correlation.py` | Heuristic thresholds; no analyst overrides; never attribution to a person |
-| R21 | Source-type classification | MISS | — | Rule-based classifier needed |
+| R21 | Source-type classification | IMP-U | `attack/engine.py` hypotheses (spoofed domain, compromised account, anonymised infra, direct malicious infra) · `test_attack.py`, `Attack.test.tsx` | Infra hypotheses tested with SIMULATED intel only; heuristic bands; no sender-history baseline |
 | R22 | Rule tests | VER | `test_detection.py` | — |
-| R23 | MITRE ATT&CK mapping | MISS | — | — |
+| R23 | MITRE ATT&CK mapping | VER | `attack/` (catalog pinned to Enterprise 20.1, verified), ATT&CK tab, PDF §7C · `test_attack.py`, `Attack.test.tsx` | Single-message view; heuristic confidence; no analyst overrides |
 | R24 | Real-time alerts | MISS | — | Needs ingestion (R36) |
 | R25 | Analyst dashboard | IMP-U | `ResultsDashboard.tsx` tabs, including Threat intel; P5b login, role-aware actions, admin users page · `ThreatIntelPanel.test.tsx`, `AssessmentInteractions.test.tsx`, `Auth.test.tsx` | Geo shown only from live enrichment or IPinfo |
 | R26 | Interactive trace map / graphs | PART | Cytoscape trace view; campaign graph (P5c) | No Leaflet map (R57) |
@@ -108,14 +120,14 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R30 | Evidence preservation / chain-of-custody support | PART | SHA-256, optional raw retention, versioned assessments and intel runs | Not tamper-resistant |
 | R31 | Retention, masking, redaction | PART | `CASE_EVIDENCE_RETENTION_DAYS`, `llm/redact.py` | Retention not enforced; body stored in clear |
 | R32 | RBAC | VER | `security/permissions.py`, `security/deps.py` (app-wide `enforce_access`), `api/admin_router.py` · `test_access_control.py` (route inventory + role matrix), `Auth.test.tsx` | Roles are global: no per-case ownership/ACLs |
-| R33 | Tests | VER | Backend 499 passed / 6 skipped (5 opt-in live intel tests); frontend 96 passed | No CI; no browser E2E suite |
+| R33 | Tests | VER | Backend 533 passed / 6 skipped (5 opt-in live intel tests); frontend 104 passed | No CI; no browser E2E suite |
 | R34 | Main database (PostgreSQL) | PART | SQLAlchemy and SQLite | No PostgreSQL or migrations tool |
 | R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; intel lookups and correlation recompute run synchronously |
 | R36 | Email integration (IMAP/SMTP/Graph) | MISS | — | Test mailbox or Azure tenant |
 | R37 | Deployment (Docker/Nginx) | MISS | — | — |
 | R38 | CI/CD | MISS | — | — |
 | R39 | Frontend (React + Tailwind) | VER | Vite + React + Tailwind; tsc, ESLint and build pass | — |
-| R40 | Attribution as investigative support | VER | Disclaimers in UI, PDF and evidence | — |
+| R40 | Attribution as investigative support | VER | Disclaimers in UI, PDF and evidence; correlation (P5c) and ATT&CK / source-type (P5d) disclaimers | — |
 | R41* | Preprocessing / normalisation | VER | `ingestion/parser.py`, `enrichment/iocs.py`, `intel/validate.py` · `test_parser.py`, `test_intel.py` | — |
 | R42* | Attachment metadata | VER | Parser SHA-256 and metadata · `test_parser.py` | — |
 | R43* | mail-parser cross-check | MISS | — | — |

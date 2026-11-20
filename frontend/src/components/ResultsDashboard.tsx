@@ -41,9 +41,11 @@ import TraceView from './trace/TraceView'
 import { AssessmentOverviewCard, AssessmentView } from './assessment/AssessmentPanels'
 import ThreatIntelPanel from './intel/ThreatIntelPanel'
 import RelatedPanel from './correlation/RelatedPanel'
+import AttackPanel from './attack/AttackPanel'
+import { getAttack, getAttackHistory, recomputeAttack, type AttackHistoryItem, type AttackMappingResult } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
-type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'trace' | 'ai'
+type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'attack' | 'trace' | 'ai'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'overview', label: 'Overview', icon: '📋' },
@@ -53,6 +55,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'intel', label: 'IP & domain intel', icon: '🌐' },
   { id: 'threat', label: 'Threat intel', icon: '🛡️' },
   { id: 'related', label: 'Related', icon: '🔗' },
+  { id: 'attack', label: 'ATT&CK', icon: '🧭' },
   { id: 'trace', label: 'Trace view', icon: '🕸️' },
   { id: 'ai', label: 'AI assessment', icon: '🤖' },
 ]
@@ -159,6 +162,45 @@ export default function ResultsDashboard({
     return () => ctl.abort()
   }, [analysis.id, can])
 
+  // ATT&CK mapping (P5d): stored versions only; recompute appends a version when anything changed.
+  const [attack, setAttack] = useState<AttackMappingResult | null>(null)
+  const [attackHistory, setAttackHistory] = useState<AttackHistoryItem[]>([])
+  const [attackLoading, setAttackLoading] = useState(true)
+  const [attackError, setAttackError] = useState<string | null>(null)
+  const [attackBusy, setAttackBusy] = useState(false)
+  const [attackRecomputeError, setAttackRecomputeError] = useState<string | null>(null)
+  const loadAttack = useCallback(async (version?: number, signal?: AbortSignal) => {
+    setAttackError(null)
+    try {
+      setAttack(await getAttack(analysis.id, version ?? null, signal))
+      setAttackHistory(await getAttackHistory(analysis.id, signal).catch(() => []))
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === 'AbortError'))
+        setAttackError(err instanceof Error ? err.message : 'request failed')
+    } finally {
+      setAttackLoading(false)
+    }
+  }, [analysis.id])
+  useEffect(() => {
+    const ctl = new AbortController()
+    setAttack(null)
+    setAttackLoading(true)
+    void loadAttack(undefined, ctl.signal)
+    return () => ctl.abort()
+  }, [loadAttack])
+  async function handleRecomputeAttack() {
+    setAttackBusy(true)
+    setAttackRecomputeError(null)
+    try {
+      setAttack(await recomputeAttack(analysis.id))
+      setAttackHistory(await getAttackHistory(analysis.id).catch(() => []))
+    } catch (err) {
+      setAttackRecomputeError(err instanceof Error ? err.message : 'Recompute failed.')
+    } finally {
+      setAttackBusy(false)
+    }
+  }
+
   const intelInFlight = useRef(false)
   const handleRunIntel = useCallback(
     async (consent: boolean) => {
@@ -255,7 +297,9 @@ export default function ResultsDashboard({
       const c = await ensureCase()
       // the PDF prints exactly the assessment version shown in the AI tab
       // ...and the threat-intel run shown in the Threat intel tab, when one exists
-      if (intelRun) await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null, intelRun.run_id)
+      // ...and the ATT&CK mapping version shown in the ATT&CK tab (P5d), when one exists
+      if (attack) await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null, intelRun?.run_id ?? null, attack.mapping_id)
+      else if (intelRun) await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null, intelRun.run_id)
       else await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null)
     } catch (err) {
       setPdfError(err instanceof Error ? err.message : 'Report download failed.')
@@ -376,6 +420,20 @@ export default function ResultsDashboard({
         />
       )}
       {tab === 'related' && <RelatedPanel analysisId={analysis.id} />}
+      {tab === 'attack' && (
+        <AttackPanel
+          data={attack}
+          loading={attackLoading}
+          error={attackError}
+          history={attackHistory}
+          canRecompute={can('attack:recompute')}
+          recomputing={attackBusy}
+          recomputeError={attackRecomputeError}
+          onRecompute={handleRecomputeAttack}
+          onSelectVersion={(v) => void loadAttack(v)}
+          onNavigate={(t) => setTab(t as Tab)}
+        />
+      )}
       {tab === 'trace' && <TraceView analysis={analysis} />}
       {tab === 'ai' && (
         <AssessmentView

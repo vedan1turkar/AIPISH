@@ -45,7 +45,12 @@ def run_intel(analysis_id: str, body: ThreatIntelRequest, db: Session = Depends(
                 "message": f"Unknown or empty provider list. Allowed: {', '.join(PROVIDERS)}."})
     try:
         with exclusive(analysis_id):
-            return run_threat_intel(db, rec, consent=body.consent, source=body.source, providers=body.providers)
+            result = run_threat_intel(db, rec, consent=body.consent, source=body.source, providers=body.providers)
+        # P5d: refresh the ATT&CK/source-type hypotheses with this run. Failure-isolated; the intel
+        # result returned below is unchanged.
+        from app.attack.service import compute_safely
+        compute_safely(db, analysis_id, "intel_run")
+        return result
     except RunInProgress:
         raise HTTPException(status_code=409, detail={
             "code": "INTEL_IN_PROGRESS",

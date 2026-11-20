@@ -126,8 +126,12 @@ role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route perm
 | DELETE | `/investigations/{case}/analyses/{id}` | Remove an analysis from a case (P5c) |
 | GET | `/investigations/{case}/indicators` | Case-level aggregated indicators (P5c) |
 | POST | `/correlation/rebuild` | Admin: backfill observations, recompute campaigns (P5c) |
+| GET | `/analyses/{id}/attack[?version=]` | MITRE ATT&CK mapping + source-type hypotheses (P5d) |
+| GET | `/analyses/{id}/attack/history` | ATT&CK mapping versions (P5d) |
+| POST | `/analyses/{id}/attack/recompute` | Analyst: recompute with latest intel run / ML (P5d) |
 
 Correlation model, link strengths, stoplist and limits: [docs/correlation/README.md](docs/correlation/README.md).
+ATT&CK catalog, mapping rules and source-type hypotheses: [docs/attack/README.md](docs/attack/README.md).
 | POST | `/analyses` | Upload a raw `.eml` → full forensic analysis (multipart field `file`) |
 | GET | `/analyses` | Recent analyses (history list) |
 | GET | `/analyses/{id}` | One analysis: metadata, detection findings, forensics, auth, enrichment |

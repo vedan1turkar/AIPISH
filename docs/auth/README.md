@@ -63,6 +63,9 @@ fails if any route is missing from `ROUTE_PERMISSIONS`.
 | `GET` | `/api/v1/graph/entities/{entity_type}/{value}` | `correlation:read` | viewer, analyst, admin |
 | `GET` | `/api/v1/search` | `search:read` | viewer, analyst, admin |
 | `POST` | `/api/v1/correlation/rebuild` | `correlation:rebuild` | admin |
+| `GET` | `/api/v1/analyses/{analysis_id}/attack` | `attack:read` | viewer, analyst, admin |
+| `GET` | `/api/v1/analyses/{analysis_id}/attack/history` | `attack:read` | viewer, analyst, admin |
+| `POST` | `/api/v1/analyses/{analysis_id}/attack/recompute` | `attack:recompute` | analyst, admin |
 | `GET` | `/api/v1/admin/users` | `users:manage` | admin |
 | `POST` | `/api/v1/admin/users` | `users:manage` | admin |
 | `PATCH` | `/api/v1/admin/users/{user_id}` | `users:manage` | admin |

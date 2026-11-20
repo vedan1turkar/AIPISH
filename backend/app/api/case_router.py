@@ -191,6 +191,20 @@ def _intel_for(db: Session, analysis_id: str, run_id: str | None) -> dict | None
     return run_dict(row) if row else None
 
 
+def _attack_for(db: Session, analysis_id: str, attack_id: str | None) -> dict | None:
+    """A stored ATT&CK mapping version (never recomputed here): the pinned one, else the latest."""
+    from app.attack.service import latest, mapping_dict
+    from app.core.models import AttackMapping
+    if attack_id:
+        row = db.get(AttackMapping, attack_id)
+        if row is None or row.analysis_id != analysis_id:
+            raise HTTPException(status_code=404, detail={"code": "ATTACK_VERSION_NOT_FOUND",
+                                                         "message": "No such ATT&CK mapping for this analysis."})
+        return mapping_dict(row)
+    row = latest(db, analysis_id)
+    return mapping_dict(row) if row else None
+
+
 def _correlation_snapshot(db: Session, analysis_id: str) -> dict | None:
     """Correlation as of report generation; failures never block the PDF."""
     try:
@@ -207,6 +221,7 @@ def report_pdf(
     x_evidence_key: str | None = Header(default=None, convert_underscores=True),
     assessment_id: str | None = None,
     intel_run_id: str | None = None,
+    attack_id: str | None = None,
     db: Session = Depends(get_db),
 ):
     """Download the forensic PDF for one analysis inside an investigation.
@@ -257,6 +272,7 @@ def report_pdf(
         assessment=(assessment := _assessment_for(db, rec.id, assessment_id)),
         intel=(intel := _intel_for(db, rec.id, intel_run_id)),
         correlation=(corr := _correlation_snapshot(db, rec.id)),
+        attack=(attack := _attack_for(db, rec.id, attack_id)),
     )
     record_audit(db, "report_generated", analysis_id=rec.id, case_id=case.id,
                  detail={"report_id": report_id, "size_bytes": len(pdf),
@@ -266,7 +282,10 @@ def report_pdf(
                          "intel_run_version": (intel or {}).get("version"),
                          # P5c: the exact campaign versions printed in section 7B
                          "campaigns": [{"id": c["id"], "version": c["version"]}
-                                       for c in (corr or {}).get("campaigns", [])]})
+                                       for c in (corr or {}).get("campaigns", [])],
+                         # P5d: the exact ATT&CK mapping version printed in section 7C
+                         "attack_mapping_id": (attack or {}).get("mapping_id"),
+                         "attack_mapping_version": (attack or {}).get("version")})
     db.commit()
     filename = f"forensic-report-{report_id}.pdf"
     return Response(

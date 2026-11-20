@@ -14,10 +14,11 @@ ROLES = (VIEWER, ANALYST, ADMIN)
 
 _VIEWER_PERMS = {
     SELF, "analysis:read", "case:read", "report:download", "intel:read", "assessment:read", "ml:status",
-    "correlation:read", "search:read",
+    "correlation:read", "search:read", "attack:read",
 }
 _ANALYST_PERMS = _VIEWER_PERMS | {
     "analysis:create", "case:write", "evidence:verify", "intel:run", "assessment:run", "ml:run",
+    "attack:recompute",
 }
 _ADMIN_PERMS = _ANALYST_PERMS | {"users:manage", "config:status", "docs:read", "correlation:rebuild"}
 
@@ -75,6 +76,10 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], str] = {
     ("GET", f"{V1}/graph/entities/{{entity_type}}/{{value}}"): "correlation:read",
     ("GET", f"{V1}/search"): "search:read",
     ("POST", f"{V1}/correlation/rebuild"): "correlation:rebuild",
+    # MITRE ATT&CK mapping + source-type hypotheses (P5d)
+    ("GET", f"{V1}/analyses/{{analysis_id}}/attack"): "attack:read",
+    ("GET", f"{V1}/analyses/{{analysis_id}}/attack/history"): "attack:read",
+    ("POST", f"{V1}/analyses/{{analysis_id}}/attack/recompute"): "attack:recompute",
     # user administration
     ("GET", f"{V1}/admin/users"): "users:manage",
     ("POST", f"{V1}/admin/users"): "users:manage",

@@ -117,6 +117,7 @@ def build_report_pdf(
     assessment: dict | None = None,
     intel: dict | None = None,
     correlation: dict | None = None,
+    attack: dict | None = None,
 ) -> bytes:
     """Builds the full PDF. Returns bytes; raises nothing — caller handles."""
     generated_at = generated_at or datetime.now(timezone.utc).isoformat()
@@ -343,6 +344,9 @@ def build_report_pdf(
 
     # ── 7B. Related analyses / candidate campaigns (P5c, snapshot at report time) ──
     _correlation_section(story, correlation)
+
+    # ── 7C. MITRE ATT&CK mapping + source-type hypotheses (P5d, version-pinned) ──
+    _attack_section(story, attack)
 
     # ── 8. ML, SHAP and AI-assisted interpretation (P4) ──────────────────
     _assessment_section(story, assessment)
@@ -793,3 +797,75 @@ def _correlation_section(story: list, corr: dict | None) -> None:
     story.append(Spacer(1, 3))
     story.append(Paragraph(esc(corr.get("rule") or ""), CAVEAT))
     story.append(Paragraph(esc(corr.get("disclaimer") or ""), CAVEAT))
+
+
+# ── 7C. MITRE ATT&CK mapping + source-type hypotheses (P5d) ───────────────
+BAND_TEXT = {"likely": "LIKELY", "possible": "POSSIBLE", "not_indicated": "NOT INDICATED (not proof of safety)",
+             "undetermined": "UNDETERMINED (insufficient evidence)", "not_assessed": "NOT ASSESSED"}
+
+
+def _attack_section(story: list, att: dict | None) -> None:
+    story.append(Paragraph("7C. MITRE ATT&amp;CK Mapping and Source-Type Hypotheses (informational only)", H2))
+    if not att:
+        story.append(Paragraph("<b>ATT&amp;CK mapping: NOT COMPUTED</b> for this analysis.", BODY))
+        return
+    inputs = att.get("inputs") or {}
+    rows = [
+        ("Mapping", esc(f"{att.get('mapping_id', '?')} (version {att.get('version', '?')}, "
+                        f"{short_time(att.get('created_at'))})")),
+        ("Catalog", esc(f"MITRE ATT&CK Enterprise {att.get('attack_version')} · {att.get('catalog_version')} · "
+                        + ("IDs verified against official data" if att.get("catalog_verified")
+                           else "IDs NOT verified against official data"))),
+        ("Engine", esc(att.get("engine_version"))),
+        ("Inputs", esc(f"intel run {inputs.get('intel_run_id') or 'none'}"
+                       + (" (SIMULATED provider data)" if inputs.get("intel_simulated") else "")
+                       + f"; ML assessment {inputs.get('ml_assessment_id') or 'none'}")),
+    ]
+    story.append(_kv_table(rows))
+    story.append(Spacer(1, 4))
+    maps = att.get("mappings") or []
+    if not maps:
+        story.append(Paragraph(esc(att.get("empty_state") or "No ATT&CK techniques could be mapped."), BODY))
+    else:
+        head = [Paragraph(f"<b>{h}</b>", CELL) for h in ("Technique", "Tactic", "Basis / confidence",
+                                                         "Evidence", "Rationale and limitations")]
+        table = [head]
+        for m in maps:
+            note = m.get("rationale") or ""
+            if m.get("limitations"):
+                note += f" Limitation: {m['limitations']}"
+            ev = ", ".join(m.get("evidence_ids") or [])
+            if m.get("supporting_evidence_ids"):
+                ev += " (support: " + ", ".join(m["supporting_evidence_ids"]) + ")"
+            table.append([Paragraph(soft_wrap(f"{m.get('technique_id')} {m.get('name')}"), CELL_MONO),
+                          Paragraph(esc(", ".join(m.get("tactics") or [])), CELL),
+                          Paragraph(esc(f"{str(m.get('basis', '')).upper()} · {m.get('confidence')}"), CELL_B),
+                          Paragraph(esc(ev), CELL),
+                          Paragraph(esc(note[:420]), CELL)])
+        story.append(_grid(table, [38 * mm, 24 * mm, 24 * mm, 20 * mm, 70 * mm]))
+    story.append(Spacer(1, 4))
+    head = [Paragraph(f"<b>{h}</b>", CELL) for h in ("Source-type hypothesis", "Assessment", "Evidence",
+                                                     "Rationale / missing data")]
+    table = [head]
+    for h in att.get("source_type") or []:
+        band = BAND_TEXT.get(h.get("band"), str(h.get("band")))
+        if h.get("band") == "not_assessed" and h.get("reason"):
+            band = f"NOT ASSESSED: {h['reason']}"
+        why = h.get("rationale") or ""
+        if h.get("missing_data"):
+            why += " Missing: " + "; ".join(h["missing_data"])
+        table.append([Paragraph(esc(h.get("label")), CELL), Paragraph(esc(band), CELL_B),
+                      Paragraph(esc(", ".join(h.get("evidence_ids") or []) or "—"), CELL),
+                      Paragraph(esc(why[:420]), CELL)])
+    story.append(_grid(table, [42 * mm, 38 * mm, 18 * mm, 78 * mm]))
+    ev = att.get("evidence") or []
+    if ev:
+        story.append(Spacer(1, 3))
+        head = [Paragraph(f"<b>{h}</b>", CELL) for h in ("ID", "Category", "Source field", "Statement")]
+        table = [head] + [[Paragraph(esc(e.get("id")), CELL_MONO), Paragraph(esc(e.get("category")), CELL),
+                           Paragraph(soft_wrap(e.get("source_field")), CELL_MONO),
+                           Paragraph(esc(e.get("statement")), CELL)] for e in ev[:40]]
+        story.append(_grid(table, [12 * mm, 20 * mm, 50 * mm, 94 * mm]))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph(esc(att.get("note") or ""), CAVEAT))
+    story.append(Paragraph(esc(att.get("disclaimer") or ""), CAVEAT))

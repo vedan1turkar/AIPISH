@@ -1,0 +1,178 @@
+{
+  "source": "https://github.com/mitre-attack/attack-stix-data",
+  "bundle_url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack-20.1.json",
+  "collection": "Enterprise ATT&CK",
+  "attack_version": "20.1",
+  "collection_modified": "2026-11-05T15:11:27.678Z",
+  "bundle_sha256": "539a843a7b53ed9749740b2123dddae3726b1a4831841c32aca740b011b910b5",
+  "retrieved": "2026-11-20",
+  "techniques": {
+    "T1090.003": {
+      "name": "Multi-hop Proxy",
+      "stix_id": "attack-pattern--a782ebe2-daba-42c7-bc82-e8e9d923162d",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Command and Control"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1090/003",
+      "x_mitre_version": "2.4",
+      "is_subtechnique": true,
+      "parent_name": "Proxy"
+    },
+    "T1204.001": {
+      "name": "Malicious Link",
+      "stix_id": "attack-pattern--ef67e13e-5598-4adc-bdb2-998225874fa9",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Execution"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1204/001",
+      "x_mitre_version": "1.2",
+      "is_subtechnique": true,
+      "parent_name": "User Execution"
+    },
+    "T1204.002": {
+      "name": "Malicious File",
+      "stix_id": "attack-pattern--232b7f21-adf9-4b42-b936-b9d6f7df856e",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Execution"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1204/002",
+      "x_mitre_version": "1.6",
+      "is_subtechnique": true,
+      "parent_name": "User Execution"
+    },
+    "T1566.001": {
+      "name": "Spearphishing Attachment",
+      "stix_id": "attack-pattern--2e34237d-8574-43f6-aace-ae2915de8597",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Initial Access"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1566/001",
+      "x_mitre_version": "2.2",
+      "is_subtechnique": true,
+      "parent_name": "Phishing"
+    },
+    "T1566.002": {
+      "name": "Spearphishing Link",
+      "stix_id": "attack-pattern--2b742742-28c3-4e1b-bab7-8350d6300fa7",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Initial Access"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1566/002",
+      "x_mitre_version": "2.8",
+      "is_subtechnique": true,
+      "parent_name": "Phishing"
+    },
+    "T1583.001": {
+      "name": "Domains",
+      "stix_id": "attack-pattern--40f5caa0-4cb7-4117-89fc-d421bb493df3",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Resource Development"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1583/001",
+      "x_mitre_version": "1.4",
+      "is_subtechnique": true,
+      "parent_name": "Acquire Infrastructure"
+    },
+    "T1585.002": {
+      "name": "Email Accounts",
+      "stix_id": "attack-pattern--65013dd2-bc61-43e3-afb5-a14c4fa7437a",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Resource Development"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1585/002",
+      "x_mitre_version": "1.1",
+      "is_subtechnique": true,
+      "parent_name": "Establish Accounts"
+    },
+    "T1586.002": {
+      "name": "Email Accounts",
+      "stix_id": "attack-pattern--3dc8c101-d4db-4f4d-8150-1b5a76ca5f1b",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Resource Development"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1586/002",
+      "x_mitre_version": "1.1",
+      "is_subtechnique": true,
+      "parent_name": "Compromise Accounts"
+    },
+    "T1598": {
+      "name": "Phishing for Information",
+      "stix_id": "attack-pattern--cca0ccb6-a068-4574-a722-b1556f86833a",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Reconnaissance"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1598",
+      "x_mitre_version": "1.4",
+      "is_subtechnique": false
+    },
+    "T1598.003": {
+      "name": "Spearphishing Link",
+      "stix_id": "attack-pattern--2d3f5b3c-54ca-4f4d-bb1f-849346d31230",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Reconnaissance"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1598/003",
+      "x_mitre_version": "1.7",
+      "is_subtechnique": true,
+      "parent_name": "Phishing for Information"
+    },
+    "T1657": {
+      "name": "Financial Theft",
+      "stix_id": "attack-pattern--851e071f-208d-4c79-adc6-5974c85c78f3",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Impact"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1657",
+      "x_mitre_version": "1.2",
+      "is_subtechnique": false
+    },
+    "T1684.001": {
+      "name": "Impersonation",
+      "stix_id": "attack-pattern--cd92d2b8-ce43-4666-9472-f1b4b9f4f8be",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Stealth"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1684/001",
+      "x_mitre_version": "1.0",
+      "is_subtechnique": true,
+      "parent_name": "Social Engineering"
+    },
+    "T1684.002": {
+      "name": "Email Spoofing",
+      "stix_id": "attack-pattern--fcf5bccf-be7a-48ff-b7a7-8d6019279301",
+      "revoked": false,
+      "deprecated": false,
+      "tactics": [
+        "Stealth"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1684/002",
+      "x_mitre_version": "1.0",
+      "is_subtechnique": true,
+      "parent_name": "Social Engineering"
+    }
+  }
+}

@@ -256,6 +256,9 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
     # already committed and the response above is built; an error only sets corr_state=error.
     from app.correlation.engine import correlate_safely
     correlate_safely(db, detail.id)
+    # P5d: ATT&CK mapping + source-type hypotheses, equally failure-isolated and informational only.
+    from app.attack.service import compute_safely as attack_safely
+    attack_safely(db, detail.id, "auto")
     return detail
 
 

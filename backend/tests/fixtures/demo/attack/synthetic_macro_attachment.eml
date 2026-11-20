@@ -1,0 +1,35 @@
+Received: from mail.invoice-desk-mailer.test (mail.invoice-desk-mailer.test [96.7.128.175])
+	by mx.receiver.test (Postfix) with ESMTPS id synatt1
+	for <accounts@receiver.test>; Mon, 09 Nov 2026 08:00:00 +0000 (UTC)
+From: "Invoice Desk" <billing@invoice-desk-mailer.test>
+To: accounts@receiver.test
+Return-Path: <billing@invoice-desk-mailer.test>
+Message-ID: <synth-attack-att-1@invoice-desk-mailer.test>
+Subject: [SYNTHETIC DEMO] Remittance advice attached - enable content to view
+Date: Mon, 09 Nov 2026 08:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="SYNTHB"
+
+--SYNTHB
+Content-Type: text/plain; charset="utf-8"
+
+Hello,
+
+Please find the remittance advice attached. Open the document and click
+"Enable Content" to view the payment details.
+
+Invoice Desk
+
+===============================================================
+SYNTHETIC DEMO DATA - NOT A REAL MESSAGE. Domains use the reserved .test
+TLD; names and infrastructure are invented for software demonstration.
+The attachment is inert text, not a real document or macro.
+===============================================================
+
+--SYNTHB
+Content-Type: application/vnd.ms-word.document.macroEnabled.12; name="Remittance_Advice_SYNTHETIC.docm"
+Content-Disposition: attachment; filename="Remittance_Advice_SYNTHETIC.docm"
+Content-Transfer-Encoding: base64
+
+U1lOVEhFVElDIERFTU8gQVRUQUNITUVOVCAtIGluZXJ0IHBsYWNlaG9sZGVyIGJ5dGVzLCBub3QgYSBkb2N1bWVudCwgbm8gbWFjcm8uCg==
+--SYNTHB--

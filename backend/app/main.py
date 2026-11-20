@@ -21,6 +21,7 @@ from app.api.intel_router import router as intel_router
 from app.api.auth_router import router as auth_router
 from app.api.admin_router import router as admin_router
 from app.api.correlation_router import router as correlation_router
+from app.api.attack_router import router as attack_router
 from app.api.router import router
 from app.core.config import get_settings
 from app.core.db import engine
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(correlation_router, prefix="/api/v1")
+    app.include_router(attack_router, prefix="/api/v1")
 
     if (settings.env or "").lower() in DOCS_ENVS:
         @app.get("/openapi.json", include_in_schema=False)

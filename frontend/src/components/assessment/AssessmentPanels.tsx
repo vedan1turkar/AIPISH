@@ -76,7 +76,7 @@ export function scrollToEvidence(id: string): boolean {
   return true
 }
 
-function EvidenceChip({ id, title }: { id: string; title: string }) {
+export function EvidenceChip({ id, title }: { id: string; title: string }) {
   return (
     <a
       href={`#evidence-${id}`}

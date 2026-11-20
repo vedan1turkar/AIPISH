@@ -345,10 +345,12 @@ export async function downloadReport(
   analysisId: string,
   assessmentId?: string | null,
   intelRunId?: string | null,
+  attackId?: string | null,
 ): Promise<void> {
   const params = new URLSearchParams()
   if (assessmentId) params.set('assessment_id', assessmentId)
   if (intelRunId) params.set('intel_run_id', intelRunId)
+  if (attackId) params.set('attack_id', attackId)
   const q = params.toString() ? `?${params.toString()}` : ''
   // Authenticated fetch → blob → download (a bare link could not carry the bearer token).
   const res = await authedFetch(
@@ -977,4 +979,85 @@ export async function getCaseIndicators(
   signal?: AbortSignal,
 ): Promise<{ case_id: string; indicators: CaseIndicator[]; disclaimer: string }> {
   return request(`/api/v1/investigations/${encodeURIComponent(caseId)}/indicators`, { signal })
+}
+
+// ── MITRE ATT&CK mapping + source-type hypotheses (P5d) ─────────────────────
+export interface AttackTechniqueMapping {
+  technique_id: string
+  name: string
+  tactics: string[]
+  url: string
+  basis: 'observed' | 'inferred'
+  confidence: 'low' | 'medium' | 'high'
+  evidence_ids: string[]
+  supporting_evidence_ids: string[]
+  rationale: string
+  mapping_rule_id: string
+  limitations: string | null
+}
+
+export interface AttackEvidence {
+  id: string
+  kind: string
+  category: string
+  source_field: string
+  statement: string
+  tab: string
+}
+
+export interface SourceTypeHypothesis {
+  hypothesis: string
+  label: string
+  band: 'not_indicated' | 'possible' | 'likely' | 'undetermined' | 'not_assessed'
+  evidence_ids: string[]
+  rationale: string
+  missing_data: string[]
+  reason?: string
+}
+
+export interface AttackMappingResult {
+  mapping_id: string
+  analysis_id: string
+  version: number
+  source: string
+  created_at: string | null
+  engine_version: string
+  catalog_version: string
+  attack_version: string
+  catalog_verified: boolean
+  inputs: { intel_run_id: string | null; intel_run_version: number | null; intel_simulated: boolean; ml_assessment_id: string | null }
+  mappings: AttackTechniqueMapping[]
+  empty_state: string | null
+  source_type: SourceTypeHypothesis[]
+  evidence: AttackEvidence[]
+  disclaimer: string
+  note: string
+  new_version?: boolean
+}
+
+export interface AttackHistoryItem {
+  mapping_id: string
+  version: number
+  source: string
+  created_at: string | null
+  technique_count: number
+  intel_run_id: string | null
+}
+
+export async function getAttack(id: string, version?: number | null, signal?: AbortSignal): Promise<AttackMappingResult | null> {
+  const q = version ? `?version=${encodeURIComponent(String(version))}` : ''
+  try {
+    return await request<AttackMappingResult>(`/api/v1/analyses/${encodeURIComponent(id)}/attack${q}`, { signal })
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404 && err.code === 'ATTACK_NOT_COMPUTED') return null
+    throw err
+  }
+}
+
+export async function getAttackHistory(id: string, signal?: AbortSignal): Promise<AttackHistoryItem[]> {
+  return request<AttackHistoryItem[]>(`/api/v1/analyses/${encodeURIComponent(id)}/attack/history`, { signal })
+}
+
+export async function recomputeAttack(id: string): Promise<AttackMappingResult> {
+  return request<AttackMappingResult>(`/api/v1/analyses/${encodeURIComponent(id)}/attack/recompute`, { method: 'POST' })
 }

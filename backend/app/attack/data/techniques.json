@@ -1,0 +1,149 @@
+{
+  "catalog_version": "aipish-attack-catalog-1",
+  "attack": {
+    "domain": "enterprise-attack",
+    "version": "20.1",
+    "collection_modified": "2026-11-05T15:11:27.678Z",
+    "source": "https://github.com/mitre-attack/attack-stix-data",
+    "bundle_url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack-20.1.json",
+    "bundle_sha256": "539a843a7b53ed9749740b2123dddae3726b1a4831841c32aca740b011b910b5",
+    "retrieved": "2026-11-20",
+    "verified_against_official_data": true,
+    "notes": [
+      "T1656 Impersonation and T1672 Email Spoofing are revoked in ATT&CK 20.x and replaced by T1684.001 and T1684.002 (Social Engineering); the current IDs are used here.",
+      "ATT&CK 20.x renamed the Defense Evasion tactic; these techniques are under Stealth."
+    ]
+  },
+  "techniques": [
+    {
+      "technique_id": "T1090.003",
+      "name": "Proxy: Multi-hop Proxy",
+      "tactics": [
+        "Command and Control"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1090/003",
+      "description": "Routing traffic through several proxies such as Tor to hide its source; here: sending via an anonymising exit.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1204.001",
+      "name": "User Execution: Malicious Link",
+      "tactics": [
+        "Execution"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1204/001",
+      "description": "Relies on the recipient clicking a malicious link; execution itself is not observable in an email.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1204.002",
+      "name": "User Execution: Malicious File",
+      "tactics": [
+        "Execution"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1204/002",
+      "description": "Relies on the recipient opening a malicious file; execution itself is not observable in an email.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1566.001",
+      "name": "Phishing: Spearphishing Attachment",
+      "tactics": [
+        "Initial Access"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1566/001",
+      "description": "Malicious file attached to an email to gain initial access when the recipient opens it.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1566.002",
+      "name": "Phishing: Spearphishing Link",
+      "tactics": [
+        "Initial Access"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1566/002",
+      "description": "Email containing a link to an attacker-controlled or malicious resource to gain initial access.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1583.001",
+      "name": "Acquire Infrastructure: Domains",
+      "tactics": [
+        "Resource Development"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1583/001",
+      "description": "Registering or acquiring domains, e.g. look-alike domains used for sending or hosting links.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1585.002",
+      "name": "Establish Accounts: Email Accounts",
+      "tactics": [
+        "Resource Development"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1585/002",
+      "description": "Creating new email accounts (often free or look-alike) to send messages or receive replies.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1586.002",
+      "name": "Compromise Accounts: Email Accounts",
+      "tactics": [
+        "Resource Development"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1586/002",
+      "description": "Using an existing, legitimate email account that has been taken over to send messages.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1598",
+      "name": "Phishing for Information",
+      "tactics": [
+        "Reconnaissance"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1598",
+      "description": "Messages that try to make the recipient reveal credentials or other information, e.g. by replying.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1598.003",
+      "name": "Phishing for Information: Spearphishing Link",
+      "tactics": [
+        "Reconnaissance"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1598/003",
+      "description": "Messages with a link intended to collect credentials or other information (e.g. a fake login page).",
+      "verified": true
+    },
+    {
+      "technique_id": "T1657",
+      "name": "Financial Theft",
+      "tactics": [
+        "Impact"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1657",
+      "description": "Stealing money or other monetary resources, e.g. by redirecting a payment in business email compromise.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1684.001",
+      "name": "Social Engineering: Impersonation",
+      "tactics": [
+        "Stealth"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1684/001",
+      "description": "Posing as a trusted person or organisation (executive, colleague, supplier) to persuade the target to act.",
+      "verified": true
+    },
+    {
+      "technique_id": "T1684.002",
+      "name": "Social Engineering: Email Spoofing",
+      "tactics": [
+        "Stealth"
+      ],
+      "url": "https://attack.mitre.org/techniques/T1684/002",
+      "description": "Forging sender-identity header values (e.g. From) so a message appears to come from someone else.",
+      "verified": true
+    }
+  ]
+}

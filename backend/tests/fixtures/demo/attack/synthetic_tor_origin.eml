@@ -1,0 +1,27 @@
+Received: from relay.account-notice.test (relay.account-notice.test [185.220.101.1])
+	by mx.receiver.test (Postfix) with ESMTPS id syntor1
+	for <user@receiver.test>; Tue, 10 Nov 2026 03:12:00 +0000 (UTC)
+From: "Account Security" <security@account-notice.test>
+To: user@receiver.test
+Return-Path: <security@account-notice.test>
+Message-ID: <synth-attack-tor-1@account-notice.test>
+Subject: [SYNTHETIC DEMO] Action required: verify your account password
+Date: Tue, 10 Nov 2026 03:12:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Hello,
+
+We detected unusual activity. Verify your account and confirm your password
+within 24 hours or access will be suspended:
+
+https://login.account-notice-verify.test/session/confirm
+
+Account Security
+
+===============================================================
+SYNTHETIC DEMO DATA - NOT A REAL MESSAGE. Domains use the reserved .test
+TLD; names and infrastructure are invented for software demonstration.
+The attachment is inert text, not a real document or macro.
+===============================================================
+

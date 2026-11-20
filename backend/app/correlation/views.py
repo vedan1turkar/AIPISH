@@ -118,7 +118,27 @@ def campaign_detail(db: Session, c: Campaign) -> dict:
                           "source_field": "; ".join(sorted({e["source_field"] for e in evs})),
                           "tier": ind["tier"]})
     return {**campaign_brief(db, c), "members": briefs, "reasons": reasons,
-            "graph": {"nodes": nodes, "edges": edges}, "disclaimer": DISCLAIMER}
+            "graph": {"nodes": nodes, "edges": edges}, "disclaimer": DISCLAIMER,
+            "attack_aggregate": _attack_aggregate(db, [b["id"] for b in briefs])}
+
+
+def _attack_aggregate(db: Session, member_ids: list[str]) -> dict:
+    """P5d: technique counts aggregated from each member's latest ATT&CK mapping (labelled as such)."""
+    from app.attack.service import latest
+    counts: dict[str, dict] = {}
+    mapped = 0
+    for aid in member_ids:
+        row = latest(db, aid)
+        if row is None:
+            continue
+        mapped += 1
+        for m in (row.results_json or {}).get("mappings") or []:
+            cur = counts.setdefault(m["technique_id"], {"technique_id": m["technique_id"], "name": m["name"],
+                                                        "tactics": m["tactics"], "members": 0})
+            cur["members"] += 1
+    return {"label": "Aggregated from member analyses' latest ATT&CK mappings; not a campaign-level mapping.",
+            "members_with_mapping": mapped, "members_total": len(member_ids),
+            "techniques": sorted(counts.values(), key=lambda t: (-t["members"], t["technique_id"]))}
 
 
 NORMALIZERS = {
