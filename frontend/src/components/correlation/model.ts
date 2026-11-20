@@ -1,6 +1,8 @@
 // Correlation display model (P5c). Wording is always "shared infrastructure / candidate campaign",
 // never "same attacker" or "same person".
 import type { CampaignDetail, GraphNode } from '../../api/client'
+import { shapeFor } from '../graph/style'
+import type { Tone } from '../ui'
 
 export const TYPE_LABEL: Record<string, string> = {
   public_ip: 'Public IP',
@@ -14,37 +16,11 @@ export const TYPE_LABEL: Record<string, string> = {
   analysis: 'Analysis',
 }
 
-export const TIER_STYLE: Record<string, string> = {
-  strong: 'bg-rose-100 text-rose-800 ring-rose-300',
-  medium: 'bg-amber-100 text-amber-800 ring-amber-300',
-  weak: 'bg-slate-100 text-slate-700 ring-slate-300',
-}
+/** Indicator tier → status tone (always rendered with its text label). */
+export const TIER_TONE: Record<string, Tone> = { strong: 'danger', medium: 'warn', weak: 'neutral' }
 
-export const CONFIDENCE_STYLE: Record<string, string> = {
-  high: 'bg-rose-50 text-rose-800 ring-rose-200',
-  medium: 'bg-amber-50 text-amber-800 ring-amber-200',
-  low: 'bg-slate-50 text-slate-700 ring-slate-200',
-}
-
-export const NODE_COLOR: Record<string, string> = {
-  // design-token hex values (Cytoscape cannot read CSS variables); kinds differ by shape + label
-  analysis: '#4cc9f0',
-  public_ip: '#8593a1',
-  reply_to_domain: '#6f7f8f',
-  sender_domain: '#6f7f8f',
-  return_path_domain: '#6f7f8f',
-  message_id_domain: '#6f7f8f',
-  url_host: '#a3b0bc',
-  attachment_hash: '#f0524f',
-  display_name_alias: '#5b6b7c',
-}
-
-export const NODE_SHAPE: Record<string, string> = {
-  analysis: 'round-rectangle',
-  public_ip: 'ellipse',
-  attachment_hash: 'hexagon',
-  url_host: 'round-tag',
-}
+/** Campaign / link confidence → status tone (always rendered with its text label). */
+export const CONFIDENCE_TONE: Record<string, Tone> = { high: 'danger', medium: 'warn', low: 'neutral' }
 
 export function typeLabel(t: string): string {
   return TYPE_LABEL[t] ?? t.replace(/_/g, ' ')
@@ -69,8 +45,10 @@ export function buildCampaignElements(detail: CampaignDetail): CyElement[] {
       id: n.id,
       label: n.kind === 'analysis' ? (n.label || n.analysis_id?.slice(0, 8) || '') : n.label,
       kind: n.kind,
-      color: NODE_COLOR[n.kind] ?? '#64748b',
-      shape: NODE_SHAPE[n.kind] ?? 'diamond',
+      shape: shapeFor(n.kind).shape,
+      w: shapeFor(n.kind).width,
+      h: shapeFor(n.kind).height,
+      borderStyle: shapeFor(n.kind).borderStyle,
       tooltip: nodeTooltip(n, detail),
     },
     classes: n.kind === 'analysis' ? 'analysis' : `entity tier-${n.tier ?? 'weak'}`,

@@ -1,9 +1,12 @@
 // Candidate campaigns (P5c): list + detail with an evidence-backed Cytoscape graph.
 import { useEffect, useRef, useState } from 'react'
 import cytoscape, { type Core } from 'cytoscape'
-import { getCampaign, listCampaigns, type CampaignBrief, type CampaignDetail } from '../../api/client'
-import { EmptyState, ErrorAlert, Panel, Spinner, formatDate } from '../ui'
-import { buildCampaignElements, CONFIDENCE_STYLE, typeLabel } from './model'
+import {
+  getCampaign, listCampaigns, type AnalysisBrief, type CampaignBrief, type CampaignDetail,
+} from '../../api/client'
+import { DataTable, ErrorAlert, KV, Mono, Panel, SkeletonRows, Spinner, StatusTag, formatDate, verdictTone } from '../ui'
+import { G, GraphControls, ShapeLegend, baseStyle, fitCapped } from '../graph/style'
+import { buildCampaignElements, CONFIDENCE_TONE, typeLabel } from './model'
 import { Disclaimer, TierChip } from './RelatedPanel'
 
 export function CampaignList() {
@@ -23,37 +26,59 @@ export function CampaignList() {
       })
     return () => ctl.abort()
   }, [])
-  if (error) return <ErrorAlert message={error} />
-  if (!items) return <Spinner label="Loading candidate campaigns…" />
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">Candidate campaigns</h2>
-      <Disclaimer text={disclaimer} />
-      {items.length === 0 ? (
-        <EmptyState title="No candidate campaigns" hint="No group of analyses shares enough non-generic infrastructure yet." />
-      ) : (
-        <ul className="divide-y divide-gray-100 border border-gray-200 bg-white">
-          {items.map((c) => (
-            <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" data-testid="campaign-row">
-              <a href={`#campaign/${c.id}`} className="font-medium text-indigo-700 hover:underline">{c.label}</a>
-              <div className="flex gap-2 text-xs">
-                <span className={` px-2 py-0.5 font-semibold ring-1 ${CONFIDENCE_STYLE[c.confidence]}`}>
-                  {c.confidence} ({c.confidence_score.toFixed(2)})
-                </span>
-                <span className=" bg-gray-100 px-1.5 py-0.5 text-gray-600">{c.member_count} analyses</span>
-                <span className=" bg-gray-100 px-1.5 py-0.5 text-gray-600">v{c.version}</span>
-                <span className="text-gray-400">updated {formatDate(c.updated_at)}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
+      <div>
+        <h1 className="text-xl font-semibold text-fg">Candidate campaigns</h1>
+        <p className="text-sm text-muted">Groups of analyses that share non-generic infrastructure.</p>
+      </div>
+      {error ? <ErrorAlert message={error} /> : (
+        <>
+          {disclaimer && <Disclaimer text={disclaimer} />}
+          <Panel title="Campaigns" bodyClassName="p-0"
+                 status={items ? <span className="font-mono text-xs">{items.length} total</span> : undefined}>
+            {!items ? (
+              <div className="p-3"><SkeletonRows rows={4} label="Loading candidate campaigns…" /></div>
+            ) : (
+              <DataTable<CampaignBrief>
+                label="Candidate campaigns"
+                rows={items}
+                rowKey={(c) => c.id}
+                rowTestId={() => 'campaign-row'}
+                pageSize={25}
+                empty="No candidate campaigns. No group of analyses shares enough non-generic infrastructure yet."
+                columns={[
+                  { key: 'label', header: 'Campaign', className: 'w-full', sortValue: (c) => c.label, render: (c) => (
+                    <a href={`#campaign/${c.id}`} className="font-medium text-accent hover:underline">{c.label}</a>) },
+                  { key: 'conf', header: 'Confidence', sortValue: (c) => c.confidence_score, render: (c) => (
+                    <StatusTag tone={CONFIDENCE_TONE[c.confidence] ?? 'neutral'}>{c.confidence} ({c.confidence_score.toFixed(2)})</StatusTag>) },
+                  { key: 'status', header: 'Status', render: (c) => <span className="text-muted">{c.status}</span> },
+                  { key: 'members', header: 'Members', align: 'right', mono: true, sortValue: (c) => c.member_count,
+                    render: (c) => `${c.member_count} analyses` },
+                  { key: 'ver', header: 'Ver', align: 'right', mono: true, render: (c) => `v${c.version}` },
+                  { key: 'upd', header: 'Updated', mono: true, className: 'whitespace-nowrap text-muted',
+                    sortValue: (c) => c.updated_at ?? '', render: (c) => formatDate(c.updated_at) },
+                ]}
+              />
+            )}
+          </Panel>
+        </>
       )}
     </div>
   )
 }
 
+const CAMPAIGN_LEGEND = [
+  { kind: 'analysis', label: 'analysis' },
+  { kind: 'public_ip', label: 'public IP' },
+  { kind: 'sender_domain', label: 'domain' },
+  { kind: 'url_host', label: 'URL host' },
+  { kind: 'attachment_hash', label: 'hash / alias' },
+]
+
 function CampaignGraph({ detail }: { detail: CampaignDetail }) {
   const ref = useRef<HTMLDivElement>(null)
+  const cyRef = useRef<Core | null>(null)
   const [tip, setTip] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
@@ -63,38 +88,57 @@ function CampaignGraph({ detail }: { detail: CampaignDetail }) {
       cy = cytoscape({
         container: ref.current,
         elements: buildCampaignElements(detail),
-        layout: { name: 'cose', animate: false, padding: 20 },
+        layout: { name: 'cose', animate: false, padding: 30, idealEdgeLength: 110, nodeRepulsion: 12000, nodeOverlap: 24,
+                  componentSpacing: 80, nodeDimensionsIncludeLabels: true } as never,
         style: [
-          { selector: 'node', style: { label: 'data(label)', 'background-color': 'data(color)', shape: 'data(shape)' as never,
-                                       color: '#dbe3ea', 'font-size': 9, 'text-wrap': 'ellipsis', 'text-max-width': '110px',
-                                       'text-valign': 'bottom', 'text-margin-y': 4, width: 26, height: 26 } },
-          { selector: 'node.analysis', style: { width: 34, height: 22 } },
-          { selector: 'node.tier-strong', style: { 'border-width': 3, 'border-color': '#e11d48' } },
-          { selector: 'node.tier-medium', style: { 'border-width': 3, 'border-color': '#d97706' } },
-          { selector: 'edge', style: { label: 'data(label)', 'font-size': 7, color: '#8593a1', width: 1.5,
-                                       'line-color': '#3a4757', 'curve-style': 'bezier', 'text-rotation': 'autorotate' } },
-        ],
+          ...baseStyle(),
+          { selector: 'node', style: { shape: 'data(shape)' as never, width: 'data(w)' as never, height: 'data(h)' as never,
+                                       'border-style': 'data(borderStyle)' as never } },
+          { selector: 'node.analysis', style: { 'background-color': G.nodeFocal, 'border-color': G.fg } },
+          { selector: 'node.tier-strong', style: { 'border-width': 2, 'border-color': G.danger } },
+          { selector: 'node.tier-medium', style: { 'border-width': 2, 'border-color': G.warn } },
+          { selector: ':selected', style: { 'border-color': G.accent, 'border-width': 2, 'line-color': G.accent } },
+        ] as never,
       })
       cy.on('mouseover tap', 'node, edge', (e) => setTip(String(e.target.data('tooltip') ?? '')))
       cy.on('tap', 'node.analysis', (e) => {
         const id = String(e.target.id()).slice(2)
         window.location.hash = `#analysis/${id}`
       })
+      try { fitCapped(cy as never, 30, 1) } catch { /* a failed fit never hides the graph */ }
+      cyRef.current = cy
     } catch {
       setFailed(true)
     }
-    return () => cy?.destroy()
+    const onResize = () => cy?.resize()
+    window.addEventListener('resize', onResize)
+    return () => { window.removeEventListener('resize', onResize); cy?.destroy(); cyRef.current = null }
   }, [detail])
+  const zoomBy = (f: number) => {
+    const cy = cyRef.current
+    if (cy) cy.zoom(Math.min(cy.maxZoom(), Math.max(cy.minZoom(), cy.zoom() * f)))
+  }
   return (
-    <div>
+    <div className="flex h-full flex-col">
       {failed ? (
-        <p className="text-xs text-gray-500">The graph could not be drawn in this browser; the member and indicator lists below hold the same data.</p>
+        <p className="p-3 text-sm text-muted">The graph could not be drawn in this browser; the member and indicator lists below hold the same data.</p>
       ) : (
-        <div ref={ref} data-testid="campaign-graph" className="h-96 w-full border border-gray-200 bg-white" />
+        <div className="relative min-h-[420px] flex-1">
+          <div ref={ref} data-testid="campaign-graph" className="absolute inset-0 bg-surface" role="img"
+               aria-label="Shared-infrastructure graph" />
+          <GraphControls onZoom={zoomBy} onFit={() => cyRef.current && fitCapped(cyRef.current as never, 30, 1)} />
+        </div>
       )}
-      <p className="mt-1 min-h-[1rem] text-xs text-gray-600" data-testid="graph-tip">
-        {tip ?? 'Hover or tap a node or edge to see its evidence reference. Tap an analysis to open it.'}
-      </p>
+      <div className="space-y-1 border-t border-line px-3 py-2">
+        <ShapeLegend items={CAMPAIGN_LEGEND} />
+        <p className="text-sm text-muted">
+          <span className="mr-3 inline-flex items-center gap-1.5"><span aria-hidden className="inline-block h-2.5 w-2.5 border-2 border-danger" />strong indicator</span>
+          <span className="mr-3 inline-flex items-center gap-1.5"><span aria-hidden className="inline-block h-2.5 w-2.5 border-2 border-warn" />medium indicator</span>
+        </p>
+        <p className="min-h-[1.25rem] font-mono text-xs text-muted" data-testid="graph-tip">
+          {tip ?? 'Hover or tap a node or edge to see its evidence reference. Tap an analysis to open it.'}
+        </p>
+      </div>
     </div>
   )
 }
@@ -114,57 +158,69 @@ export function CampaignDetailView({ id }: { id: string }) {
       })
     return () => ctl.abort()
   }, [id])
-  if (error) return <ErrorAlert message={error} />
+  if (error) return <div className="space-y-3"><a href="#campaigns" className="text-sm text-accent hover:underline">← Candidate campaigns</a><ErrorAlert message={error} /></div>
   if (!d) return <Spinner label="Loading campaign…" />
   const shared = d.reasons.shared_indicators ?? []
   return (
     <div className="space-y-4" data-testid="campaign-detail">
-      <div className="flex flex-wrap items-center gap-2">
-        <a href="#campaigns" className="text-xs text-indigo-600 hover:underline">← Candidate campaigns</a>
-        <h2 className="text-lg font-semibold text-gray-900">{d.label}</h2>
-        <span className={` px-2 py-0.5 text-xs font-semibold ring-1 ${CONFIDENCE_STYLE[d.confidence]}`}>
-          {d.confidence} confidence ({d.confidence_score.toFixed(2)})
-        </span>
-        <span className="text-xs text-gray-400">status {d.status} · version {d.version} · {d.member_count} analyses</span>
+      <div>
+        <a href="#campaigns" className="text-sm text-accent hover:underline">← Candidate campaigns</a>
+        <div className="mt-1 flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold text-fg">{d.label}</h1>
+          <StatusTag tone={CONFIDENCE_TONE[d.confidence] ?? 'neutral'}>
+            {d.confidence} confidence ({d.confidence_score.toFixed(2)})
+          </StatusTag>
+          <span className="font-mono text-xs text-muted">status {d.status} · version {d.version} · {d.member_count} analyses</span>
+        </div>
       </div>
       <Disclaimer text={d.disclaimer} />
-      <Panel title="Shared-infrastructure graph">
-        <CampaignGraph detail={d} />
-      </Panel>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Why these analyses are grouped">
-          <ul className="list-disc space-y-1 pl-4 text-xs text-gray-700">
+      <div className="grid items-start gap-4 xl:grid-cols-12">
+        <Panel title="Shared-infrastructure graph" className="xl:col-span-8 xl:self-stretch" bodyClassName="p-0 flex-1">
+          <CampaignGraph detail={d} />
+        </Panel>
+        <Panel title="Why these analyses are grouped" className="xl:col-span-4">
+          <ul className="list-disc space-y-1 pl-4 text-sm text-fg">
             {(d.reasons.summary ?? []).map((s, i) => <li key={i}>{s}</li>)}
           </ul>
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 divide-y divide-line border-y border-line">
             {shared.map((i) => (
-              <li key={i.entity_id} className="text-xs">
-                <div className="flex flex-wrap items-center gap-1.5">
+              <li key={i.entity_id} className="py-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
                   <TierChip tier={i.tier} />
-                  <span className="text-gray-500">{typeLabel(i.type)}</span>
-                  <span className="font-mono break-all">{i.value}</span>
-                  <span className="text-gray-400">weight {i.weight}</span>
+                  <span className="text-muted">{typeLabel(i.type)}</span>
+                  <span className="break-all font-mono text-fg">{i.value}</span>
+                  <span className="font-mono text-xs text-muted">weight {i.weight}</span>
                 </div>
-                <p className="mt-0.5 text-xs text-gray-500">
+                <p className="mt-0.5 font-mono text-xs text-muted">
                   Evidence: {i.evidence.map((e) => `${e.analysis_id?.slice(0, 8)} ${e.source_field}`).join(' · ')}
                 </p>
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-gray-400">{d.reasons.rule}</p>
-        </Panel>
-        <Panel title="Member analyses">
-          <ul className="divide-y divide-gray-100">
-            {d.members.map((m) => (
-              <li key={m.id} className="py-2 text-xs">
-                <a href={`#analysis/${m.id}`} className="font-medium text-indigo-700 hover:underline">{m.subject || '(no subject)'}</a>
-                <span className="ml-2 font-mono text-gray-400">{m.id.slice(0, 8)}</span>
-                <span className="ml-2 text-gray-400">{formatDate(m.created_at)} · score {m.detection_score}</span>
-              </li>
-            ))}
-          </ul>
+          {d.reasons.rule && <dl className="mt-2"><KV label="Rule">{d.reasons.rule}</KV></dl>}
         </Panel>
       </div>
+      <Panel title="Member analyses" bodyClassName="p-0" status={<span className="font-mono text-xs">{d.members.length}</span>}>
+        <DataTable<AnalysisBrief>
+          label="Member analyses"
+          rows={d.members}
+          rowKey={(m) => m.id}
+          initialSort={{ key: 'score', dir: 'desc' }}
+          empty="This campaign has no member analyses."
+          columns={[
+            { key: 'verdict', header: 'Verdict', render: (m) => (
+              <StatusTag tone={verdictTone(m.detection_verdict)}>{(m.detection_verdict ?? 'unknown').replace(/_/g, ' ')}</StatusTag>) },
+            { key: 'score', header: 'Score', align: 'right', mono: true, sortValue: (m) => m.detection_score, render: (m) => m.detection_score },
+            { key: 'subj', header: 'Subject', className: 'max-w-0 w-full', sortValue: (m) => m.subject, render: (m) => (
+              <a href={`#analysis/${m.id}`} className="block truncate font-medium text-accent hover:underline">{m.subject || '(no subject)'}</a>) },
+            { key: 'dom', header: 'Sender domain', mono: true, className: 'whitespace-nowrap', render: (m) => m.from_domain ?? '—' },
+            { key: 'id', header: 'ID', render: (m) => <Mono display={m.id.slice(0, 8)}>{m.id}</Mono> },
+            { key: 'sha', header: 'SHA-256', render: (m) => m.sha256 ? <Mono display={`${m.sha256.slice(0, 12)}…`}>{m.sha256}</Mono> : <span className="text-muted">—</span> },
+            { key: 'at', header: 'Received', mono: true, className: 'whitespace-nowrap text-muted',
+              sortValue: (m) => m.created_at ?? '', render: (m) => formatDate(m.created_at) },
+          ]}
+        />
+      </Panel>
     </div>
   )
 }

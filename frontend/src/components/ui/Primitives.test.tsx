@@ -3,8 +3,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import {
-  Button, CodeBlock, DataTable, EmptyLine, KV, LED, Mono, Panel, SeverityChip, StatCell, StatusBadge, StatusTag, Tabs,
+  Button, CodeBlock, DataTable, EmptyLine, KV, LED, Mono, PageNotice, Panel, SeverityChip, StatCell, StatusBadge, StatusTag, Tabs,
 } from './index'
+import { KIND_SHAPE, ShapeLegend, baseStyle, shapeFor } from '../graph/style'
 import tailwindConfig from '../../../tailwind.config.js'
 
 afterEach(cleanup)
@@ -92,6 +93,44 @@ describe('primitives', () => {
     expect(screen.getByText('abcd…')).toBeTruthy()
   })
 
+  it('DataTable: sortable headers toggle asc/desc with aria-sort; compact pagination', () => {
+    const rows = Array.from({ length: 30 }, (_, i) => ({ id: `r${String(i).padStart(2, '0')}`, n: (i * 7) % 30 }))
+    render(<DataTable label="Rows" rows={rows} rowKey={(r) => r.id} pageSize={10} rowTestId={() => 'data-row'}
+                      columns={[{ key: 'id', header: 'Id', mono: true, render: (r) => r.id },
+                                { key: 'n', header: 'N', align: 'right', sortValue: (r) => r.n, render: (r) => String(r.n) }]} />)
+    expect(screen.getAllByTestId('data-row')).toHaveLength(10)
+    const th = screen.getByRole('columnheader', { name: 'N' })
+    expect(th.getAttribute('aria-sort')).toBe('none')
+    expect(screen.getByRole('columnheader', { name: 'Id' }).getAttribute('aria-sort')).toBeNull()   // not sortable
+    fireEvent.click(screen.getByRole('button', { name: 'N' }))
+    expect(th.getAttribute('aria-sort')).toBe('ascending')
+    expect(screen.getAllByTestId('data-row')[0].textContent).toContain('0')
+    fireEvent.click(th.querySelector('button')!)
+    expect(th.getAttribute('aria-sort')).toBe('descending')
+    expect(screen.getAllByTestId('data-row')[0].lastElementChild?.textContent).toBe('29')
+    const nav = screen.getByRole('navigation', { name: 'Rows pagination' })
+    expect(nav.textContent).toContain('1–10 of 30')
+    expect((screen.getByRole('button', { name: 'Prev' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(nav.textContent).toContain('11–20 of 30')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('DataTable without pageSize renders every row and no pager', () => {
+    render(<DataTable label="All" rows={[{ id: 'a' }, { id: 'b' }]} rowKey={(r) => r.id} columns={[{ key: 'id', header: 'Id', render: (r) => r.id }]} />)
+    expect(screen.getAllByRole('row')).toHaveLength(3)
+    expect(screen.queryByRole('navigation')).toBeNull()
+  })
+
+  it('PageNotice: labelled region, status code, one line and actions', () => {
+    render(<PageNotice title="Page not found" code="404" actions={<Button>Go</Button>}>Nothing here.</PageNotice>)
+    const r = screen.getByRole('region', { name: 'Page not found' })
+    expect(r.textContent).toContain('404')
+    expect(r.textContent).toContain('Nothing here.')
+    expect(screen.getByRole('button', { name: 'Go' })).toBeTruthy()
+  })
+
   it('LED is a square status light', () => {
     const { container } = render(<LED tone="danger" />)
     expect(container.firstElementChild?.getAttribute('aria-hidden')).toBe('true')
@@ -125,9 +164,66 @@ describe('design-rule guards', () => {
     expect(bad).toEqual([])
   })
 
+  it('no legacy Tailwind palette classes (gray-500, bg-white, red-50…) anywhere in src: semantic tokens only', () => {
+    const PALETTE = /(?<![\w-])(?:[a-z-]+:)*(?:bg|text|border|ring|divide|fill|stroke|outline|placeholder|decoration|from|via|to|shadow|accent|caret)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}(?![\w-])|(?<![\w-])(?:bg|text|border)-white(?![\w-])/g
+    const bad: string[] = []
+    for (const [f, text] of Object.entries(RAW)) for (const m of text.matchAll(PALETTE)) bad.push(`${f}: ${m[0]}`)
+    expect(bad).toEqual([])
+  })
+
+  it('hex colours live only in the token sources (index.css) and the graph theme module', () => {
+    const bad: string[] = []
+    for (const [f, text] of Object.entries(RAW)) {
+      if (f.endsWith('/index.css') || f.endsWith('/graph/style.tsx')) continue
+      for (const m of text.matchAll(/['"`(:\s]#[0-9a-fA-F]{6}\b/g)) bad.push(`${f}: ${m[0].trim()}`)
+    }
+    expect(bad).toEqual([])
+  })
+
+  it('guards cover the whole tree (every page, graph and shell module is scanned)', () => {
+    const files = Object.keys(RAW)
+    for (const must of ['/src/App.tsx', '/src/components/UploadPage.tsx', '/src/components/HistoryPage.tsx',
+      '/src/components/cases/CasePage.tsx', '/src/components/correlation/CampaignsPage.tsx', '/src/components/search/SearchPage.tsx',
+      '/src/components/admin/AdminUsersPage.tsx', '/src/components/trace/TraceView.tsx', '/src/components/graph/style.tsx',
+      '/src/components/auth/LoginPage.tsx', '/src/components/auth/ChangePasswordPage.tsx', '/src/index.css']) {
+      expect(files).toContain(must)
+    }
+  })
+
   it('radius scale resolves every rounded-* utility to 0, sm to 2px; shadows off', () => {
     const t = (tailwindConfig as { theme: { borderRadius: Record<string, string>; boxShadow: Record<string, string> } }).theme
     for (const [k, v] of Object.entries(t.borderRadius)) expect(v).toBe(k === 'sm' ? '2px' : '0')
     for (const [k, v] of Object.entries(t.boxShadow)) if (k !== 'pop') expect(v).toBe('none')
+  })
+})
+
+describe('graph theme', () => {
+  it('shapes: analyses/messages are rectangles, IPs diamonds, domains squares; no hexagon, ellipse or rounded shapes', () => {
+    expect(shapeFor('message').shape).toBe('rectangle')
+    expect(shapeFor('analysis').shape).toBe('rectangle')
+    expect(shapeFor('ip').shape).toBe('diamond')
+    expect(shapeFor('public_ip').shape).toBe('diamond')
+    const d = shapeFor('sender_domain')
+    expect([d.shape, d.width === d.height]).toEqual(['rectangle', true])
+    for (const k of [...Object.keys(KIND_SHAPE), 'unknown_kind']) {
+      expect(shapeFor(k).shape).toMatch(/^(rectangle|diamond)$/)
+    }
+  })
+
+  it('base stylesheet: 1px borders, mono labels, muted 1px edges, accent selection', () => {
+    const css = baseStyle() as { selector: string; style: Record<string, unknown> }[]
+    const by = (s: string) => css.find((c) => c.selector === s)!.style
+    expect(by('node')['border-width']).toBe(1)
+    expect(String(by('node')['font-family'])).toContain('IBM Plex Mono')
+    expect(by('edge').width).toBe(1)
+    expect(by('edge')['line-color']).toBe('#3a4757')
+    expect(by(':selected')['border-color']).toBe('#4cc9f0')
+  })
+
+  it('legend renders a shape glyph and a text label per kind', () => {
+    render(<ShapeLegend items={[{ kind: 'ip', label: 'IP address' }, { kind: 'domain', label: 'domain' }]} />)
+    const list = screen.getByRole('list', { name: 'Node types' })
+    expect(list.textContent).toBe('IP addressdomain')
+    expect(list.querySelectorAll('svg')).toHaveLength(2)
   })
 })

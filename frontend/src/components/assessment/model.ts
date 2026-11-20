@@ -172,32 +172,32 @@ export const CATEGORY_TEXT: Record<string, { label: string; hint: string; classN
   verified: {
     label: 'Observed / verified',
     hint: 'Measured from the message bytes, or re-verified locally',
-    className: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+    className: 'bg-ok-weak text-ok border-ok-line',
   },
   provider: {
     label: 'Provider result',
     hint: 'Returned by an external threat-intelligence or geolocation provider',
-    className: 'bg-teal-50 text-teal-800 ring-teal-200',
+    className: 'bg-ok-weak text-ok border-ok-line',
   },
   heuristic: {
     label: 'Heuristic',
     hint: 'A rule judgement on noisy evidence',
-    className: 'bg-indigo-50 text-indigo-800 ring-indigo-200',
+    className: 'bg-accent-weak text-accent border-accent-line',
   },
   claimed: {
     label: 'Header claim',
     hint: 'Stated by the email headers. Not verified.',
-    className: 'bg-sky-50 text-sky-800 ring-sky-200',
+    className: 'bg-accent-weak text-accent border-accent-line',
   },
   model: {
     label: 'Model output',
     hint: 'A statistical ML output or SHAP association. Not proof.',
-    className: 'bg-violet-50 text-violet-800 ring-violet-200',
+    className: 'bg-accent-weak text-accent border-accent-line',
   },
 }
 
 export function categoryMeta(cat: string) {
-  return CATEGORY_TEXT[cat] ?? { label: cat, hint: '', className: 'bg-gray-50 text-gray-700 ring-gray-200' }
+  return CATEGORY_TEXT[cat] ?? { label: cat, hint: '', className: 'bg-surface-2 text-fg border-line' }
 }
 
 export function formatScore(v: number | undefined): string {

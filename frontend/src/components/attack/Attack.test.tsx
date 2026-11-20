@@ -59,7 +59,7 @@ afterEach(() => {
 describe('ATT&CK panel', () => {
   it('groups techniques by tactic in ATT&CK order with official links, text badges and confidence', () => {
     render(panel())
-    const groups = screen.getAllByTestId('tactic-group').map((g) => g.querySelector('h4')!.textContent)
+    const groups = screen.getAllByTestId('tactic-group').map((g) => g.querySelector('h3')!.textContent)
     expect(groups).toEqual(['Resource Development', 'Initial Access', 'Impact'])
     const link = screen.getByText('T1566.001') as HTMLAnchorElement
     expect(link.href).toBe('https://attack.mitre.org/techniques/T1566/001')

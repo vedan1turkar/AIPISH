@@ -30,7 +30,7 @@ export default function VerdictStrip({ analysis, assessment, attack, intelRun, c
     .sort((a, b) => BAND_RANK[b.band] - BAND_RANK[a.band])[0]
   const intelTone: Tone = !intelRun ? 'neutral' : !intelRun.consent.granted ? 'neutral' : intelRun.simulated ? 'warn' : 'ok'
   const intelText = !intelRun ? 'not run' : !intelRun.consent.granted ? 'declined' : `run v${intelRun.version}`
-  const integrityText = integrity ? integrity.result : caseInfo ? caseInfo.evidence_policy.store_mode.replace('_', '-') : 'no case'
+  const integrityText = integrity ? integrity.result : caseInfo ? (caseInfo.evidence_policy?.store_mode?.replace('_', '-') ?? 'case open') : 'no case'
   return (
     <section aria-label="Verdict summary" className="border border-line bg-surface">
       <div className="grid grid-cols-2 divide-x divide-y divide-line md:grid-cols-3 md:divide-y-0 xl:grid-cols-5">

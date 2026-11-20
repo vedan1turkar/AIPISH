@@ -92,7 +92,7 @@ describe('evidence navigation', () => {
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1)
     expect((Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.contexts[0]).toBe(row)
     expect(row.getAttribute('data-highlighted')).toBe('true')
-    expect(row.className).toContain('ring-indigo-400')
+    expect(row.className).toContain('ring-accent')
     expect(document.activeElement).toBe(row)
     expect(window.location.href).toBe(before)
   })

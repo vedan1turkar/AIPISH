@@ -14,17 +14,13 @@ import {
 import { useAuth } from '../../auth/AuthContext'
 import { useSystemStatus } from '../shell/StatusBar'
 import {
-  Button, DataTable, EmptyLine, KV, LED, Panel, SkeletonRows, StatCell, StatusTag, formatDate, type Tone,
+  Button, DataTable, EmptyLine, KV, LED, Panel, SkeletonRows, StatCell, StatusTag, formatDate, verdictTone, type Tone,
 } from '../ui'
 
 export const VERDICT_ORDER = ['phishing_fraud_likely', 'suspicious', 'low_risk', 'minimal', 'clean']
 export const ML_SAMPLE = 20
 
-export function verdictTone(v: string | null | undefined): Tone {
-  if (v === 'phishing_fraud_likely') return 'danger'
-  if (v === 'suspicious') return 'warn'
-  return 'neutral'
-}
+export { verdictTone } from '../ui'
 
 export function countBy<T>(items: T[], key: (t: T) => string): [string, number][] {
   const m = new Map<string, number>()

@@ -3,18 +3,8 @@
 // See docs/frontend/design-system.md.
 const v = (name) => `var(--${name})`
 
-// Status families (text/fill/line/weak). Shades map so the legacy light-theme pattern
-// "bg-x-50 text-x-800 ring-x-300" renders as dark tint + light text + mid line.
-const family = (k) => ({
-  DEFAULT: v(k), 50: v(`${k}-weak`), 100: v(`${k}-weak`), 200: v(`${k}-line`), 300: v(`${k}-line`),
-  400: v(k), 500: v(k), 600: v(k), 700: v(k), 800: v(k), 900: v(k), 950: v(k),
-  weak: v(`${k}-weak`), line: v(`${k}-line`),
-})
-// Neutral ramp (legacy gray/slate/zinc names resolve onto the dark surfaces).
-const neutral = {
-  50: v('surface-2'), 100: v('surface-2'), 200: v('line'), 300: v('line-strong'), 400: v('muted'),
-  500: v('muted'), 600: v('muted'), 700: v('fg'), 800: v('fg'), 900: v('fg'), 950: v('fg'),
-}
+// Status families: base colour, dark tint (badge/alert fill) and mid tint (borders).
+const family = (k) => ({ DEFAULT: v(k), weak: v(`${k}-weak`), line: v(`${k}-line`) })
 
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -27,14 +17,7 @@ export default {
       bg: v('bg'), surface: v('surface'), 'surface-2': v('surface-2'), 'surface-3': v('surface-3'),
       line: v('line'), 'line-strong': v('line-strong'), fg: v('fg'), muted: v('muted'),
       accent: family('accent'), 'accent-hover': v('accent-hover'), ok: family('ok'), warn: family('warn'), danger: family('danger'),
-      // compatibility layer for components not yet migrated (removed in part 2)
-      white: v('surface'), black: '#000000',
-      gray: neutral, slate: neutral, zinc: neutral, neutral, stone: neutral,
-      red: family('danger'), rose: family('danger'), pink: family('danger'),
-      amber: family('warn'), yellow: family('warn'), orange: family('warn'), fuchsia: family('warn'),
-      emerald: family('ok'), green: family('ok'), teal: family('ok'), lime: family('ok'),
-      sky: family('accent'), blue: family('accent'), indigo: family('accent'), cyan: family('accent'),
-      violet: family('accent'), purple: family('accent'),
+      black: '#000000',
     },
     fontFamily: {
       sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],

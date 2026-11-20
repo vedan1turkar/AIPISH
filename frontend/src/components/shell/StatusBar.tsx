@@ -82,13 +82,13 @@ export default function StatusBar() {
           <span className="text-fg">{c.value}</span>
         </span>
       ))}
-      <span className="ml-auto flex h-full items-center whitespace-nowrap border-l border-line px-3" data-testid="status-user">
+      <span className="ml-auto hidden h-full items-center whitespace-nowrap border-l border-line px-3 xl:flex" data-testid="status-user">
         {session?.user.username}@{session?.user.role}
       </span>
-      <span className="flex h-full items-center whitespace-nowrap border-l border-line px-3" data-testid="status-version">
+      <span className="hidden h-full items-center whitespace-nowrap border-l border-line px-3 xl:flex" data-testid="status-version">
         ui {APP_VERSION}{backend ? ` · api ${backend}` : ''}
       </span>
-      <span className="flex h-full items-center whitespace-nowrap border-l border-line px-3" data-testid="status-time">{clock(now)}</span>
+      <span className="ml-auto flex h-full items-center whitespace-nowrap border-l border-line px-3 xl:ml-0" data-testid="status-time">{clock(now)}</span>
     </footer>
   )
 }

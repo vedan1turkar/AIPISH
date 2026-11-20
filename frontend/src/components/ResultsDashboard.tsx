@@ -472,11 +472,11 @@ function OverviewTab({
         <Panel title="Verdict">
           <ScoreBadge score={score} verdict={d.verdict} />
           <div className="mt-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
               Evidence supporting this score
             </h3>
             {d.findings.length === 0 ? (
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="mt-1 text-sm text-muted">
                 No risk indicators fired — the score is 0 with no supporting findings.
               </p>
             ) : (
@@ -484,8 +484,8 @@ function OverviewTab({
                 {d.findings.map((fdt) => (
                   <li key={fdt.rule_id} className="flex flex-wrap items-center gap-2 text-sm">
                     <SeverityChip severity={fdt.severity} />
-                    <span className="text-gray-800">{fdt.title}</span>
-                    <span className=" bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">
+                    <span className="text-fg">{fdt.title}</span>
+                    <span className=" bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-muted">
                       +{fdt.contribution} pts
                     </span>
                     <StatusBadge
@@ -499,9 +499,9 @@ function OverviewTab({
               </ul>
             )}
             {d.unknowns.length > 0 && (
-              <div className="mt-3 bg-gray-50 px-3 py-2">
-                <p className="text-xs font-semibold text-gray-500">Data that could not be evaluated</p>
-                <ul className="mt-1 space-y-0.5 text-xs text-gray-500">
+              <div className="mt-3 bg-surface-2 px-3 py-2">
+                <p className="text-xs font-semibold text-muted">Data that could not be evaluated</p>
+                <ul className="mt-1 space-y-0.5 text-xs text-muted">
                   {d.unknowns.map((u, i) => (
                     <li key={i}>
                       <span className="font-mono">{u.field}</span> — {u.reason}{' '}
@@ -522,24 +522,24 @@ function OverviewTab({
                 <span className="font-mono">&lt;{analysis.from.email}&gt;</span>
               </>
             ) : (
-              <span className="text-gray-400">not present</span>
+              <span className="text-muted">not present</span>
             )}
           </MetaRow>
           <MetaRow label="To">
             {analysis.to.length > 0
               ? analysis.to.map((a, i) => <span key={i} className="mr-2 font-mono text-xs">{a.email}</span>)
-              : <span className="text-gray-400">none</span>}
+              : <span className="text-muted">none</span>}
           </MetaRow>
           <MetaRow label="Reply-To">
             {analysis.reply_to.length > 0
               ? analysis.reply_to.map((a, i) => <span key={i} className="font-mono text-xs">{a.email}</span>)
-              : <span className="text-gray-400">none (falls back to From)</span>}
+              : <span className="text-muted">none (falls back to From)</span>}
           </MetaRow>
           <MetaRow label="Return-Path">
-            {analysis.return_path ?? <span className="text-gray-400">not present</span>}
+            {analysis.return_path ?? <span className="text-muted">not present</span>}
           </MetaRow>
-          <MetaRow label="Date header">{analysis.date ?? <span className="text-gray-400">not present</span>}</MetaRow>
-          <MetaRow label="Message-ID">{analysis.message_id ?? <span className="text-gray-400">not present</span>}</MetaRow>
+          <MetaRow label="Date header">{analysis.date ?? <span className="text-muted">not present</span>}</MetaRow>
+          <MetaRow label="Message-ID">{analysis.message_id ?? <span className="text-muted">not present</span>}</MetaRow>
           <MetaRow label="Received hops">{analysis.received_count}</MetaRow>
         </Panel>
 
@@ -553,29 +553,25 @@ function OverviewTab({
           {caseInfo ? (
             <>
               <MetaRow label="Case number">
-                <a href={`#case/${caseInfo.id}`} className="text-indigo-700 hover:underline">{caseInfo.case_number}</a>
+                <a href={`#case/${caseInfo.id}`} className="text-accent hover:underline">{caseInfo.case_number}</a>
               </MetaRow>
               <MetaRow label="Status">{caseInfo.status}</MetaRow>
-              <p className="mt-2 text-xs text-gray-400">
+              <p className="mt-2 text-xs text-muted">
                 Evidence policy: <strong>{caseInfo.evidence_policy.store_mode}</strong> — {caseInfo.evidence_policy.retention_days}-day retention documented{caseInfo.evidence_policy.key_required ? ', raw access key-gated' : ''}.
               </p>
             </>
           ) : (
             <>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted">
                 Link this analysis to an open investigation case to enable the forensic PDF and
                 integrity verification.
               </p>
               {canCreateCase ? (
-                <button
-                  onClick={onCreateCase}
-                  disabled={caseBusy}
-                  className="mt-2 inline-flex items-center gap-2 border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-                >
+                <Button variant="primary" className="mt-2" onClick={onCreateCase} disabled={caseBusy}>
                   {caseBusy ? <Spinner /> : 'Create investigation case'}
-                </button>
+                </Button>
               ) : (
-                <p className="mt-2 text-xs text-gray-400">Your role can view cases but not create them.</p>
+                <p className="mt-2 text-sm text-muted">Your role can view cases but not create them.</p>
               )}
             </>
           )}
@@ -594,33 +590,29 @@ function OverviewTab({
                     <StatusBadge
                       kind={integrity.result === 'match' ? 'match' : integrity.result === 'mismatch' ? 'mismatch' : 'unavailable'}
                     />
-                    <span className="text-sm text-gray-700 capitalize">{integrity.result}</span>
+                    <span className="text-sm text-fg capitalize">{integrity.result}</span>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">{integrity.detail || 'Integrity recomputed over retained raw bytes.'}</p>
-                  <p className="mt-1 font-mono text-xs break-all text-gray-400">recorded {integrity.sha256_recorded}</p>
+                  <p className="mt-1 text-xs text-muted">{integrity.detail || 'Integrity recomputed over retained raw bytes.'}</p>
+                  <p className="mt-1 font-mono text-xs break-all text-muted">recorded {integrity.sha256_recorded}</p>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted">
                   {caseInfo
                     ? 'Recompute SHA-256 over the retained bytes and compare with the recorded hash.'
                     : 'Create an investigation case first to enable integrity verification.'}
                 </p>
               )}
               {canVerify && (
-                <button
-                  onClick={onIntegrityCheck}
-                  disabled={caseBusy || integrityBusy || !caseInfo}
-                  className="mt-2 border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
+                <Button className="mt-2" onClick={onIntegrityCheck} disabled={caseBusy || integrityBusy || !caseInfo}>
                   Run integrity check
-                </button>
+                </Button>
               )}
             </>
           )}
         </Panel>
 
         <Panel title="Quick facts">
-          <MetaRow label="Score">{score} / 100 <span className="text-gray-400">(heuristic)</span></MetaRow>
+          <MetaRow label="Score">{score} / 100 <span className="text-muted">(heuristic)</span></MetaRow>
           <MetaRow label="Findings">{d.findings.length}</MetaRow>
           <MetaRow label="Relay hops">{f.relay_chain.length}</MetaRow>
           <MetaRow label="URLs">{analysis.urls.length}</MetaRow>
@@ -628,7 +620,7 @@ function OverviewTab({
           <MetaRow label="Size">{formatBytes(analysis.size_bytes)}</MetaRow>
           <MetaRow label="Parse defects">
             {analysis.parse_defects.length > 0 ? (
-              <span className="text-amber-700">{analysis.parse_defects.join(', ')}</span>
+              <span className="text-warn">{analysis.parse_defects.join(', ')}</span>
             ) : (
               'none'
             )}
@@ -648,13 +640,13 @@ function FindingsTab({ analysis }: { analysis: AnalysisDetail }) {
         title="Risk indicators"
         status={
           d.findings.length > 0 ? (
-            <span className="text-xs text-gray-400">{d.findings.length} contributing to score {d.score}</span>
+            <span className="text-xs text-muted">{d.findings.length} contributing to score {d.score}</span>
           ) : undefined
         }
       >
         {d.findings.length === 0 ? (
           <div className="space-y-3">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted">
               No risk indicators fired for this message. Absence of findings reflects the rules
               that ran, not a guarantee of safety.
             </p>
@@ -668,7 +660,7 @@ function FindingsTab({ analysis }: { analysis: AnalysisDetail }) {
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <SeverityChip severity={fdt.severity} />
-                  <span className="font-medium text-gray-900">{fdt.title}</span>
+                  <span className="font-medium text-fg">{fdt.title}</span>
                   <span className="font-mono text-sm text-muted">
                     +{fdt.contribution}/{fdt.weight} pts
                   </span>
@@ -698,7 +690,7 @@ function FindingsTab({ analysis }: { analysis: AnalysisDetail }) {
         {d.observed_facts.length === 0 ? (
           <EmptyStateInline text="No neutral observations were recorded for this message." />
         ) : (
-          <ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">
+          <ul className="list-disc space-y-1 pl-5 text-sm text-fg">
             {d.observed_facts.map((fact, i) => (
               <li key={i}>{fact}</li>
             ))}
@@ -720,9 +712,9 @@ function AuthTab({ analysis }: { analysis: AnalysisDetail }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-400">
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
                 <th className="pb-2 pr-3">Protocol</th>
-                <th className="pb-2 pr-3">Independent check <span className="normal-case text-gray-300">(verified)</span></th>
+                <th className="pb-2 pr-3">Independent check <span className="normal-case text-muted">(verified)</span></th>
                 <th className="pb-2 pr-3">Header claim</th>
                 <th className="pb-2">Reason</th>
               </tr>
@@ -737,22 +729,22 @@ function AuthTab({ analysis }: { analysis: AnalysisDetail }) {
                   ((claimPass && p.status === 'verified_fail') ||
                     (claimFail && p.status === 'verified_pass'))
                 return (
-                  <tr key={p.protocol} className="border-b border-gray-100 align-top last:border-0">
-                    <td className="py-3 pr-3 font-semibold uppercase text-gray-800">{p.protocol}</td>
+                  <tr key={p.protocol} className="border-b border-line align-top last:border-0">
+                    <td className="py-3 pr-3 font-semibold uppercase text-fg">{p.protocol}</td>
                     <td className="py-3 pr-3">
                       <StatusBadge kind={classifyStatus(p.status)} />
                     </td>
                     <td className="py-3 pr-3">
                       {p.claims.length > 0 ? (
                         <div className="flex flex-wrap items-center gap-1">
-                          <span className="font-mono text-xs text-gray-600">{p.claims.join(', ')}</span>
+                          <span className="font-mono text-xs text-muted">{p.claims.join(', ')}</span>
                           <StatusBadge kind="claimed" />
                         </div>
                       ) : (
                         <StatusBadge kind="unknown" title="No claim present in the Authentication-Results header" />
                       )}
                     </td>
-                    <td className="py-3 text-xs text-gray-500">
+                    <td className="py-3 text-xs text-muted">
                       {misMatchNote(p, mismatch)}
                       <div className="mt-1 block max-w-md break-words">{p.reason ?? ''}</div>
                     </td>
@@ -762,7 +754,7 @@ function AuthTab({ analysis }: { analysis: AnalysisDetail }) {
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-xs text-gray-400">
+        <p className="mt-3 text-xs text-muted">
           Claims come from the email&apos;s own <code>Authentication-Results</code> header (which a
           sender can forge). “Verified” results are re-derived by this backend&apos;s independent
           DNS checks.
@@ -792,7 +784,7 @@ function AuthTab({ analysis }: { analysis: AnalysisDetail }) {
         ) : (
           <ul className="space-y-1 text-xs">
             {analysis.authentication_results.map((line, i) => (
-              <li key={i} className="font-mono break-all bg-gray-50 px-2 py-1 text-gray-700">
+              <li key={i} className="font-mono break-all bg-surface-2 px-2 py-1 text-fg">
                 {line}
               </li>
             ))}
@@ -806,13 +798,13 @@ function AuthTab({ analysis }: { analysis: AnalysisDetail }) {
 function misMatchNote(p: { status: string; claims: string[] }, mismatch: boolean) {
   if (mismatch) {
     return (
-      <span className=" bg-red-50 px-1.5 py-0.5 text-xs font-medium text-red-700">
+      <span className=" bg-danger-weak px-1.5 py-0.5 text-xs font-medium text-danger">
         header claim conflicts with verification
       </span>
     )
   }
   if (p.status.startsWith('verified_') && p.claims.length === 0) {
-    return <span className="text-xs text-gray-400">no header claim to compare</span>
+    return <span className="text-xs text-muted">no header claim to compare</span>
   }
   return null
 }
@@ -829,7 +821,7 @@ function HeadersTab({ analysis }: { analysis: AnalysisDetail }) {
         ) : (
           <div className="flex flex-wrap gap-2">
             {Object.entries(analysis.header_counts).map(([k, v]) => (
-              <span key={k} className=" bg-gray-100 px-2 py-1 text-xs font-mono text-gray-700">
+              <span key={k} className=" bg-surface-2 px-2 py-1 text-xs font-mono text-fg">
                 {k}: {v}
               </span>
             ))}
@@ -849,12 +841,12 @@ function IntelTab({ analysis }: { analysis: AnalysisDetail }) {
         title="IP & domain intelligence"
         status={
           enr.results.length > 0 ? (
-            <span className="text-xs text-gray-400">{enr.results.length} lookups</span>
+            <span className="text-xs text-muted">{enr.results.length} lookups</span>
           ) : undefined
         }
       >
         {enr.degraded.length > 0 && (
-          <div className="mb-3 bg-orange-50 px-3 py-2 text-xs text-orange-800">
+          <div className="mb-3 bg-warn-weak px-3 py-2 text-xs text-warn">
             Some providers were unavailable and skipped: {enr.degraded.join(', ')}
           </div>
         )}
@@ -870,7 +862,7 @@ function IntelTab({ analysis }: { analysis: AnalysisDetail }) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
-                <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-400">
+                <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
                   <th className="pb-2 pr-3">Indicator</th>
                   <th className="pb-2 pr-3">Provider</th>
                   <th className="pb-2 pr-3">Status</th>
@@ -880,16 +872,16 @@ function IntelTab({ analysis }: { analysis: AnalysisDetail }) {
               </thead>
               <tbody>
                 {enr.results.map((r, i) => (
-                  <tr key={i} className="border-b border-gray-100 align-top last:border-0">
-                    <td className="py-2.5 pr-3 font-mono text-xs break-all text-gray-800">
+                  <tr key={i} className="border-b border-line align-top last:border-0">
+                    <td className="py-2.5 pr-3 font-mono text-xs break-all text-fg">
                       {r.ioc.ioc_value ?? JSON.stringify(r.ioc)}
                     </td>
-                    <td className="py-2.5 pr-3 text-xs text-gray-600">{r.provider}</td>
+                    <td className="py-2.5 pr-3 text-xs text-muted">{r.provider}</td>
                     <td className="py-2.5 pr-3"><StatusBadge kind={classifyStatus(r.status)} /></td>
-                    <td className="py-2.5 pr-3 text-xs text-gray-500">{r.latency_ms} ms</td>
-                    <td className="py-2.5 text-xs text-gray-500">
+                    <td className="py-2.5 pr-3 text-xs text-muted">{r.latency_ms} ms</td>
+                    <td className="py-2.5 text-xs text-muted">
                       <EvidenceSummary evidence={r.evidence} />
-                      <div className="mt-0.5 font-mono text-xs text-gray-300">{r.provenance}</div>
+                      <div className="mt-0.5 font-mono text-xs text-muted">{r.provenance}</div>
                     </td>
                   </tr>
                 ))}
@@ -897,7 +889,7 @@ function IntelTab({ analysis }: { analysis: AnalysisDetail }) {
             </table>
           </div>
         )}
-        <p className="mt-3 text-xs italic text-gray-400">
+        <p className="mt-3 text-xs italic text-muted">
           External intelligence is an investigative indicator. It is not proof of who sent the
           message or where they are located.
         </p>
@@ -910,7 +902,7 @@ function IntelTab({ analysis }: { analysis: AnalysisDetail }) {
 
 function EvidenceSummary({ evidence }: { evidence: Record<string, unknown> }) {
   if (evidence == null || Object.keys(evidence).length === 0) {
-    return <span className="text-gray-400">no evidence returned</span>
+    return <span className="text-muted">no evidence returned</span>
   }
   const records = (evidence as { records?: Record<string, unknown> }).records
   if (records && typeof records === 'object') {

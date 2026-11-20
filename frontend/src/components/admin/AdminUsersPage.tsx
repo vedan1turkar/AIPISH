@@ -10,7 +10,7 @@ import {
   type TempPasswordResult,
 } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
-import { ErrorAlert, Panel, Spinner, formatDate } from '../ui'
+import { Button, DataTable, ErrorAlert, Field, Input, LED, Panel, Select, SkeletonRows, StatusTag, formatDate } from '../ui'
 
 const ROLES: AdminUser['role'][] = ['viewer', 'analyst', 'admin']
 
@@ -59,125 +59,98 @@ export default function AdminUsersPage() {
     })
   }
 
+  const statusTone = (u: AdminUser) => (!u.is_active ? 'neutral' : u.locked ? 'danger' : u.must_change_password ? 'warn' : 'ok')
+
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">User management</h2>
+      <div>
+        <h1 className="text-xl font-semibold text-fg">User management</h1>
+        <p className="text-sm text-muted">Local accounts and roles. Temporary passwords are shown once and never stored in the browser.</p>
+      </div>
       {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
       {secret && (
-        <div role="alert" className=" border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p className="font-semibold">Temporary password for {secret.username}</p>
-          <p className="mt-1 font-mono text-base break-all" data-testid="temp-password">{secret.password}</p>
-          <p className="mt-1 text-xs">{secret.note} It will not be shown again.</p>
-          <button
-            onClick={() => setSecret(null)}
-            className="mt-2 border border-amber-400 bg-white px-2 py-1 text-xs font-medium"
-          >
-            I have handed it over: hide it
-          </button>
+        <div role="alert" className="border border-warn-line bg-warn-weak px-3 py-2.5 text-sm text-warn">
+          <p className="flex items-center gap-2 font-semibold"><LED tone="warn" />Temporary password for {secret.username}</p>
+          <p className="mt-1 break-all font-mono text-base text-fg" data-testid="temp-password">{secret.password}</p>
+          <p className="mt-1 text-sm">{secret.note} It will not be shown again.</p>
+          <div className="mt-2">
+            <Button size="sm" onClick={() => setSecret(null)}>I have handed it over: hide it</Button>
+          </div>
         </div>
       )}
 
-      <Panel title="Create user">
-        <form onSubmit={onCreate} className="flex flex-wrap items-end gap-2" aria-label="Create user">
-          <label className="text-xs font-medium text-gray-700">
-            Username
-            <input
-              name="new-username"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              required
-              minLength={3}
-              maxLength={64}
-              className="mt-1 block border border-gray-300 px-3 py-1.5 text-sm"
+      <div className="grid items-start gap-4 xl:grid-cols-12">
+        <Panel title="Users" className="xl:col-span-9" bodyClassName="p-0"
+               status={users ? <span className="font-mono text-xs">{users.length} accounts</span> : undefined}>
+          {!users ? (
+            <div className="p-3"><SkeletonRows rows={4} label="Loading users…" /></div>
+          ) : (
+            <DataTable<AdminUser>
+              label="Users"
+              rows={users}
+              rowKey={(u) => u.id}
+              rowTestId={(u) => `user-row-${u.username}`}
+              initialSort={{ key: 'name', dir: 'asc' }}
+              pageSize={50}
+              empty="No user accounts."
+              columns={[
+                { key: 'name', header: 'Username', mono: true, className: 'whitespace-nowrap', sortValue: (u) => u.username, render: (u) => (
+                  <span className="text-fg">
+                    {u.username}
+                    {u.id === session?.user.id && <span className="ml-1 text-muted">(you)</span>}
+                  </span>) },
+                { key: 'role', header: 'Role', sortValue: (u) => u.role, render: (u) => (
+                  <Select
+                    aria-label={`Role for ${u.username}`}
+                    value={u.role}
+                    disabled={busyId === u.id}
+                    onChange={(e) => act(u.id, () => updateUser(u.id, { role: e.target.value as AdminUser['role'] }))}
+                    className="!h-7 !w-28"
+                  >
+                    {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                  </Select>) },
+                { key: 'status', header: 'Status', className: 'w-full whitespace-nowrap', sortValue: (u) => (u.is_active ? 0 : 1), render: (u) => (
+                  <StatusTag tone={statusTone(u)}>
+                    {u.is_active ? 'active' : 'disabled'}
+                    {u.locked && ' · locked'}
+                    {u.must_change_password && ' · must change password'}
+                  </StatusTag>) },
+                { key: 'last', header: 'Last sign-in', mono: true, className: 'whitespace-nowrap text-muted',
+                  sortValue: (u) => u.last_login_at ?? '', render: (u) => (u.last_login_at ? formatDate(u.last_login_at) : 'never') },
+                { key: 'act', header: 'Actions', render: (u) => (
+                  <div className="flex gap-1 whitespace-nowrap">
+                    <Button size="sm" variant={u.is_active ? 'danger' : 'secondary'} disabled={busyId === u.id}
+                            onClick={() => act(u.id, () => updateUser(u.id, { is_active: !u.is_active }))}>
+                      {u.is_active ? 'Disable' : 'Enable'}
+                    </Button>
+                    <Button size="sm" disabled={busyId === u.id}
+                            onClick={() => act(u.id, async () => showOnce(await resetUserPassword(u.id)))}>
+                      Reset password
+                    </Button>
+                  </div>) },
+              ]}
             />
-          </label>
-          <label className="text-xs font-medium text-gray-700">
-            Role
-            <select
-              name="new-role"
-              value={newRole}
-              onChange={(e) => setNewRole(e.target.value as AdminUser['role'])}
-              className="mt-1 block border border-gray-300 px-2 py-1.5 text-sm"
-            >
-              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </label>
-          <button
-            type="submit"
-            disabled={busyId === 'new' || newName.trim().length < 3}
-            className=" bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-300"
-          >
-            Create with temporary password
-          </button>
-        </form>
-      </Panel>
+          )}
+        </Panel>
 
-      <Panel title="Users">
-        {!users ? (
-          <Spinner label="Loading users…" />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="text-gray-500">
-                <tr>
-                  <th className="py-1 pr-3">Username</th>
-                  <th className="py-1 pr-3">Role</th>
-                  <th className="py-1 pr-3">Status</th>
-                  <th className="py-1 pr-3">Last sign-in</th>
-                  <th className="py-1">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className="border-t border-gray-100" data-testid={`user-row-${u.username}`}>
-                    <td className="py-1.5 pr-3 font-medium text-gray-900">
-                      {u.username}
-                      {u.id === session?.user.id && <span className="ml-1 text-gray-400">(you)</span>}
-                    </td>
-                    <td className="py-1.5 pr-3">
-                      <select
-                        aria-label={`Role for ${u.username}`}
-                        value={u.role}
-                        disabled={busyId === u.id}
-                        onChange={(e) =>
-                          act(u.id, () => updateUser(u.id, { role: e.target.value as AdminUser['role'] }))
-                        }
-                        className=" border border-gray-300 px-1 py-0.5"
-                      >
-                        {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-                      </select>
-                    </td>
-                    <td className="py-1.5 pr-3">
-                      {u.is_active ? 'active' : 'disabled'}
-                      {u.locked && ' · locked'}
-                      {u.must_change_password && ' · must change password'}
-                    </td>
-                    <td className="py-1.5 pr-3 text-gray-500">{u.last_login_at ? formatDate(u.last_login_at) : 'never'}</td>
-                    <td className="py-1.5">
-                      <div className="flex gap-1">
-                        <button
-                          disabled={busyId === u.id}
-                          onClick={() => act(u.id, () => updateUser(u.id, { is_active: !u.is_active }))}
-                          className=" border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          {u.is_active ? 'Disable' : 'Enable'}
-                        </button>
-                        <button
-                          disabled={busyId === u.id}
-                          onClick={() => act(u.id, async () => showOnce(await resetUserPassword(u.id)))}
-                          className=" border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          Reset password
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Panel>
+        <Panel title="Create user" className="xl:col-span-3">
+          <form onSubmit={onCreate} className="space-y-3" aria-label="Create user">
+            <Field label="Username">
+              <Input name="new-username" value={newName} onChange={(e) => setNewName(e.target.value)}
+                     required minLength={3} maxLength={64} autoComplete="off" />
+            </Field>
+            <Field label="Role">
+              <Select name="new-role" value={newRole} onChange={(e) => setNewRole(e.target.value as AdminUser['role'])}>
+                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              </Select>
+            </Field>
+            <Button type="submit" variant="primary" disabled={busyId === 'new' || newName.trim().length < 3}>
+              Create with temporary password
+            </Button>
+            <p className="text-sm text-muted">The new user must change the temporary password at first sign-in.</p>
+          </form>
+        </Panel>
+      </div>
     </div>
   )
 }

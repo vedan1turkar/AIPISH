@@ -45,6 +45,7 @@ export default function ChangePasswordPage({ required, onDone }: { required: boo
 
   return (
     <div className="mx-auto max-w-[440px]">
+      <h1 className="sr-only">Account</h1>
       <Panel title={required ? 'Change your temporary password' : 'Change password'}>
         <form onSubmit={onSubmit} aria-label="Change password" className="space-y-3">
           {required && (

@@ -108,11 +108,11 @@ export function scoreTone(score: number): Tone {
   return 'ok'
 }
 
-export function scoreColor(score: number): { text: string; bar: string; banner: string } {
-  if (score >= 70) return { text: 'text-danger', bar: 'bg-danger', banner: 'bg-danger-weak border-danger-line' }
-  if (score >= 40) return { text: 'text-warn', bar: 'bg-warn', banner: 'bg-warn-weak border-warn-line' }
-  if (score > 0) return { text: 'text-fg', bar: 'bg-muted', banner: 'bg-surface-2 border-line' }
-  return { text: 'text-ok', bar: 'bg-ok', banner: 'bg-ok-weak border-ok-line' }
+/** Tone for a rule-engine verdict string (always shown with its text). */
+export function verdictTone(v: string | null | undefined): Tone {
+  if (v === 'phishing_fraud_likely') return 'danger'
+  if (v === 'suspicious') return 'warn'
+  return 'neutral'
 }
 
 export function ScoreBadge({ score, verdict }: { score: number; verdict?: string | null }) {
@@ -154,7 +154,8 @@ export function Panel({
         <h2 className="font-mono text-xs font-medium uppercase tracking-wider text-muted">{title}</h2>
         {status && <div className="flex flex-wrap items-center gap-2 text-sm text-muted">{status}</div>}
       </header>
-      <div className={`flex-1 p-3 ${bodyClassName}`}>{children}</div>
+      {/* default body padding unless the caller sets its own p-* (class order cannot override p-3 reliably) */}
+      <div className={`flex-1 ${/(^|\s)p-\d/.test(bodyClassName) ? '' : 'p-3'} ${bodyClassName}`}>{children}</div>
     </section>
   )
 }
@@ -205,16 +206,6 @@ export function MetaRow({ label, children }: { label: string; children: ReactNod
     <div className="grid grid-cols-[minmax(7rem,10rem)_1fr] gap-3 border-b border-line py-1.5 last:border-0">
       <span className="font-mono text-xs uppercase leading-5 tracking-wider text-muted">{label}</span>
       <span className="min-w-0 break-words text-sm text-fg">{children}</span>
-    </div>
-  )
-}
-
-export function DemoDataBanner() {
-  return (
-    <div className="mb-4 flex items-center gap-2 border border-warn-line bg-warn-weak px-3 py-1.5 text-sm text-fg">
-      <LED tone="warn" />
-      <strong className="text-warn">Demo data:</strong>&nbsp;this content is sample material for interface demonstration only —
-      it is not real analysis output.
     </div>
   )
 }

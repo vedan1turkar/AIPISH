@@ -1,32 +1,24 @@
 // "Related" tab (P5c): analyses sharing non-generic infrastructure with this one.
 import { useEffect, useState } from 'react'
 import { getCorrelation, type Correlation, type SharedIndicator } from '../../api/client'
-import { EmptyState, ErrorAlert, Panel, Spinner, formatDate } from '../ui'
-import { CONFIDENCE_STYLE, TIER_STYLE, typeLabel } from './model'
+import { EmptyState, ErrorAlert, Panel, Spinner, StatusTag, formatDate } from '../ui'
+import { CONFIDENCE_TONE, TIER_TONE, typeLabel } from './model'
 
 export function TierChip({ tier }: { tier: string }) {
-  return (
-    <span className={` px-1.5 py-0.5 text-xs font-semibold uppercase ring-1 ${TIER_STYLE[tier] ?? TIER_STYLE.weak}`}>
-      {tier}
-    </span>
-  )
+  return <StatusTag tone={TIER_TONE[tier] ?? 'neutral'}>{tier}</StatusTag>
 }
 
 export function CampaignBadge({ id, label, confidence }: { id: string; label: string; confidence: string }) {
   return (
-    <a
-      href={`#campaign/${id}`}
-      data-testid="campaign-badge"
-      className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold ring-1 ${CONFIDENCE_STYLE[confidence] ?? CONFIDENCE_STYLE.low}`}
-    >
-      {label} · {confidence} confidence
+    <a href={`#campaign/${id}`} data-testid="campaign-badge" className="inline-flex hover:underline">
+      <StatusTag tone={CONFIDENCE_TONE[confidence] ?? 'neutral'}>{label} · {confidence} confidence</StatusTag>
     </a>
   )
 }
 
 export function Disclaimer({ text }: { text: string }) {
   return (
-    <p className=" border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600" data-testid="corr-disclaimer">
+    <p className="border-l-2 border-line-strong bg-surface px-3 py-1.5 text-sm text-muted" data-testid="corr-disclaimer">
       {text}
     </p>
   )
@@ -34,14 +26,14 @@ export function Disclaimer({ text }: { text: string }) {
 
 function IndicatorList({ items }: { items: SharedIndicator[] }) {
   return (
-    <ul className="mt-1 space-y-0.5">
+    <ul className="mt-1 space-y-1">
       {items.map((i) => (
-        <li key={i.entity_id} className="flex flex-wrap items-center gap-1.5 text-xs">
+        <li key={i.entity_id} className="flex flex-wrap items-center gap-2 text-sm">
           <TierChip tier={i.tier} />
-          <span className="text-gray-500">{typeLabel(i.type)}</span>
-          <span className="font-mono text-gray-900 break-all">{i.value}</span>
-          {i.damped && <span className="text-xs text-amber-700">(damped: common value)</span>}
-          <span className="text-xs text-gray-400" title={i.evidence.map((e) => `${e.analysis_id?.slice(0, 8) ?? ''} ${e.source_field}`).join('\n')}>
+          <span className="text-muted">{typeLabel(i.type)}</span>
+          <span className="font-mono text-fg break-all">{i.value}</span>
+          {i.damped && <span className="text-xs text-warn">(damped: common value)</span>}
+          <span className="text-xs text-muted" title={i.evidence.map((e) => `${e.analysis_id?.slice(0, 8) ?? ''} ${e.source_field}`).join('\n')}>
             evidence: {Array.from(new Set(i.evidence.map((e) => e.source_field))).join(', ')}
           </span>
         </li>
@@ -95,7 +87,7 @@ export default function RelatedPanel({ analysisId }: { analysisId: string }) {
               <CampaignBadge key={c.id} id={c.id} label={c.label} confidence={c.confidence} />
             ))}
           </div>
-          <p className="mt-2 text-xs text-gray-500">Grouped by shared infrastructure only: not an identification of a sender or person.</p>
+          <p className="mt-2 text-sm text-muted">Grouped by shared infrastructure only: not an identification of a sender or person.</p>
         </Panel>
       )}
       <Panel title={`Related analyses (${linked.length} linked)`}>
@@ -105,20 +97,20 @@ export default function RelatedPanel({ analysisId }: { analysisId: string }) {
             hint="No other stored analysis shares enough non-generic infrastructure with this one. This is not a claim that the message is unique."
           />
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-line">
             {linked.map((r) => (
               <li key={r.analysis.id} className="py-2" data-testid="related-row">
                 <div className="flex flex-wrap items-center gap-2">
-                  <a href={`#analysis/${r.analysis.id}`} className="font-medium text-indigo-700 hover:underline">
+                  <a href={`#analysis/${r.analysis.id}`} className="font-medium text-accent hover:underline">
                     {r.analysis.subject || '(no subject)'}
                   </a>
-                  <span className="font-mono text-xs text-gray-400">{r.analysis.id.slice(0, 8)}</span>
-                  <span className="text-xs text-gray-400">{formatDate(r.analysis.created_at)}</span>
-                  <span className={` px-2 py-0.5 text-xs font-semibold ring-1 ${CONFIDENCE_STYLE[r.confidence ?? 'low']}`}>
+                  <span className="font-mono text-xs text-muted">{r.analysis.id.slice(0, 8)}</span>
+                  <span className="text-xs text-muted">{formatDate(r.analysis.created_at)}</span>
+                  <StatusTag tone={CONFIDENCE_TONE[r.confidence ?? 'low'] ?? 'neutral'}>
                     link {r.score.toFixed(2)} · {r.confidence}
-                  </span>
+                  </StatusTag>
                 </div>
-                <p className="mt-0.5 text-xs text-gray-500">Why: {r.explanation}.</p>
+                <p className="mt-0.5 text-sm text-muted">Why: {r.explanation}.</p>
                 <IndicatorList items={r.indicators} />
               </li>
             ))}
@@ -127,14 +119,14 @@ export default function RelatedPanel({ analysisId }: { analysisId: string }) {
       </Panel>
       {weak.length > 0 && (
         <Panel title={`Shared indicators below the link threshold (${weak.length})`}>
-          <p className="text-xs text-gray-500">These analyses share something, but not enough to be linked.</p>
-          <ul className="divide-y divide-gray-100">
+          <p className="text-sm text-muted">These analyses share something, but not enough to be linked.</p>
+          <ul className="divide-y divide-line">
             {weak.map((r) => (
               <li key={r.analysis.id} className="py-2">
-                <a href={`#analysis/${r.analysis.id}`} className="text-xs text-indigo-700 hover:underline">
+                <a href={`#analysis/${r.analysis.id}`} className="text-sm text-accent hover:underline">
                   {r.analysis.subject || r.analysis.id.slice(0, 8)}
                 </a>
-                <span className="ml-2 text-xs text-gray-500">{r.explanation}</span>
+                <span className="ml-2 text-sm text-muted">{r.explanation}</span>
                 <IndicatorList items={r.indicators} />
               </li>
             ))}
@@ -142,12 +134,12 @@ export default function RelatedPanel({ analysisId }: { analysisId: string }) {
         </Panel>
       )}
       {data.generic_only_overlaps.count > 0 && (
-        <p className="text-xs text-gray-500" data-testid="generic-only">
+        <p className="text-sm text-muted" data-testid="generic-only">
           {data.generic_only_overlaps.count} other analys{data.generic_only_overlaps.count === 1 ? 'is shares' : 'es share'} only generic
           indicators ({genericSummary(data.generic_only_overlaps.indicators)}): stop-listed or very common values never link analyses.
         </p>
       )}
-      <p className="text-xs text-gray-400">{data.rule}</p>
+      <p className="text-sm text-muted">{data.rule}</p>
     </div>
   )
 }

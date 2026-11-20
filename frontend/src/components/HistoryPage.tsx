@@ -7,7 +7,9 @@ import {
   type AnalysisSummary,
   type InvestigationCase,
 } from '../api/client'
-import { EmptyState, ErrorAlert, Spinner, SeverityChip, formatDate, formatBytes } from './ui'
+import {
+  DataTable, ErrorAlert, Mono, Panel, SkeletonRows, Spinner, StatusTag, Tabs, formatBytes, formatDate, verdictTone,
+} from './ui'
 
 type View = 'analyses' | 'cases'
 
@@ -62,135 +64,79 @@ export default function HistoryPage({ onOpenAnalysis }: { onOpenAnalysis: (id: s
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Investigation history</h2>
-          <p className="text-xs text-gray-400">Everything stored by the connected backend.</p>
+          <h1 className="text-xl font-semibold text-fg">Investigation history</h1>
+          <p className="text-sm text-muted">Everything stored by the connected backend.</p>
         </div>
-        <div className="flex gap-1 bg-gray-100 p-1">
-          {(['analyses', 'cases'] as View[]).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`whitespace-nowrap px-3 py-1.5 text-sm font-medium ${
- view === v ? 'bg-white text-gray-900 ' : 'text-gray-500 hover:text-gray-800'
- }`}
-            >
-              {v === 'analyses' ? 'Analyses' : 'Investigation cases'}
-            </button>
-          ))}
-        </div>
+        {busy && <Spinner label="Loading from backend…" />}
       </div>
 
-      {busy && (
-        <div className="mb-3">
-          <Spinner label="Loading from backend…" />
-        </div>
-      )}
+      <Tabs<View> label="History views" active={view} onChange={setView}
+                  items={[{ id: 'analyses', label: 'Analyses' }, { id: 'cases', label: 'Investigation cases' }]} />
 
-      {error && (
-        <div className="mb-3">
-          <ErrorAlert message={error.message} code={error.code} onDismiss={() => setError(null)} />
-        </div>
-      )}
+      {error && <ErrorAlert message={error.message} code={error.code} onDismiss={() => setError(null)} />}
 
-      {!busy && !error && view === 'analyses' && (analyses?.length ?? 0) === 0 && (
-        <EmptyState
-          title="No analyses yet"
-          hint="Upload an .eml file to run your first forensic analysis — it will appear here afterwards."
-        />
-      )}
-
-      {!busy && !error && view === 'cases' && (cases?.length ?? 0) === 0 && (
-        <EmptyState
-          title="No investigation cases yet"
-          hint="Cases are created from an analysis in the results dashboard, to enable PDF reporting and integrity checks."
-        />
-      )}
-
-      {view === 'analyses' && (analyses?.length ?? 0) > 0 && (
-        <ul className="grid gap-3 md:grid-cols-2">
-          {analyses!.map((a) => (
-            <li key={a.id}>
-              <button
-                onClick={() => void open(a.id)}
-                disabled={opening !== null}
-                className="w-full border border-gray-200 bg-white p-4 text-left transition-shadow "
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-900">
+      {view === 'analyses' && (
+        <Panel title="Analyses" bodyClassName="p-0"
+               status={analyses ? <span className="font-mono text-xs">{analyses.length} most recent{opening ? ' · opening…' : ''}</span> : undefined}>
+          {!analyses && !error ? <div className="p-3"><SkeletonRows rows={6} /></div> : (
+            <DataTable<AnalysisSummary>
+              label="Analyses"
+              rows={analyses ?? []}
+              rowKey={(a) => a.id}
+              pageSize={25}
+              empty="No analyses yet. Upload an .eml file to run your first forensic analysis — it will appear here afterwards."
+              columns={[
+                { key: 'verdict', header: 'Verdict', sortValue: (a) => a.detection_score,
+                  render: (a) => <StatusTag tone={verdictTone(a.detection_verdict)}>{(a.detection_verdict ?? 'unknown').replace(/_/g, ' ')}</StatusTag> },
+                { key: 'score', header: 'Score', align: 'right', mono: true, sortValue: (a) => a.detection_score, render: (a) => a.detection_score },
+                { key: 'subject', header: 'Subject', className: 'max-w-0 w-full', sortValue: (a) => (a.subject ?? '').toLowerCase(),
+                  render: (a) => (
+                    <button onClick={() => void open(a.id)} disabled={opening !== null}
+                            className="block w-full truncate text-left text-accent hover:underline disabled:text-muted">
                       {a.subject || '(no subject)'}
-                    </p>
-                    <p className="mt-0.5 truncate text-xs text-gray-400">
-                      {a.sender?.email ?? 'sender unknown'} · {formatDate(a.created_at)}
-                    </p>
-                  </div>
-                  <SeverityChip severity={a.detection_score >= 70 ? 'high' : a.detection_score >= 40 ? 'medium' : a.detection_score > 0 ? 'low' : null} />
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
-                  <span className=" bg-gray-100 px-1.5 py-0.5">score {a.detection_score}</span>
-                  {a.detection_verdict && (
-                    <span className=" bg-gray-100 px-1.5 py-0.5 capitalize">{a.detection_verdict}</span>
-                  )}
-                  <span className=" bg-gray-100 px-1.5 py-0.5">{a.received_count} hops</span>
-                  <span className=" bg-gray-100 px-1.5 py-0.5">{a.url_count} URLs</span>
-                  <span className=" bg-gray-100 px-1.5 py-0.5">{formatBytes(a.size_bytes)}</span>
-                  {a.has_defects && (
-                    <span className=" bg-amber-50 px-1.5 py-0.5 text-amber-700">parse defects</span>
-                  )}
-                </div>
-                <p className="mt-2 text-xs font-mono text-gray-300">{a.sha256.slice(0, 24)}…</p>
-                {opening === a.id && <p className="mt-1 text-xs text-gray-400">Opening…</p>}
-              </button>
-            </li>
-          ))}
-        </ul>
+                    </button>) },
+                { key: 'sender', header: 'Sender', mono: true, className: 'whitespace-nowrap', sortValue: (a) => a.sender?.email ?? '',
+                  render: (a) => a.sender?.email ?? 'sender unknown' },
+                { key: 'hops', header: 'Hops', hideBelow: 'xl', align: 'right', mono: true, render: (a) => a.received_count },
+                { key: 'urls', header: 'URLs', hideBelow: 'xl', align: 'right', mono: true, render: (a) => a.url_count },
+                { key: 'size', header: 'Size', hideBelow: 'xl', align: 'right', mono: true, className: 'whitespace-nowrap', render: (a) => formatBytes(a.size_bytes) },
+                { key: 'sha', header: 'SHA-256', render: (a) => <Mono display={`${a.sha256.slice(0, 12)}…`}>{a.sha256}</Mono> },
+                { key: 'flags', header: 'Flags', hideBelow: 'xl', render: (a) => a.has_defects ? <StatusTag tone="warn">parse defects</StatusTag> : <span className="text-muted">—</span> },
+                { key: 'time', header: 'Received', mono: true, className: 'whitespace-nowrap text-muted', sortValue: (a) => a.created_at,
+                  render: (a) => formatDate(a.created_at) },
+              ]}
+            />
+          )}
+        </Panel>
       )}
 
-      {view === 'cases' && (cases?.length ?? 0) > 0 && (
-        <ul className="space-y-3">
-          {cases!.map((c) => (
-            <li key={c.id} className=" border border-gray-200 bg-white p-4 ">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">
-                    <a href={`#case/${c.id}`} className="font-mono text-indigo-600 hover:underline">{c.case_number}</a>
-                    {c.title && <span className="ml-2">{c.title}</span>}
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-400">{formatDate(c.created_at)}</p>
-                </div>
-                <div className="flex gap-2 text-xs">
-                  <span className=" bg-gray-100 px-1.5 py-0.5 text-gray-600">{c.analyses.length} message{c.analyses.length === 1 ? '' : 's'}</span>
-                  <span className=" bg-gray-100 px-1.5 py-0.5 text-gray-600">evidence: {c.evidence_policy.store_mode}</span>
-                  <span className=" bg-gray-100 px-1.5 py-0.5 capitalize text-gray-600">{c.status}</span>
-                </div>
-              </div>
-              {c.analyses.length > 0 && (
-                <ul className="mt-3 divide-y divide-gray-100">
-                  {c.analyses.map((row) => (
-                    <li key={row.analysis_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-xs">
-                      <button
-                        onClick={() => void open(row.analysis_id)}
-                        className="font-mono text-indigo-600 hover:underline"
-                      >
-                        {row.analysis_id.slice(0, 8)}
-                      </button>
-                      <span className="min-w-0 flex-1 truncate text-gray-700">
-                        {row.subject || '(no subject)'}
-                      </span>
-                      <span className=" bg-gray-100 px-1.5 py-0.5 text-gray-600">score {row.threat_score}</span>
-                      <span className="text-gray-400">
-                        SPF {row.authentication_status.spf} · DKIM {row.authentication_status.dkim} · DMARC {row.authentication_status.dmarc}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
+      {view === 'cases' && (
+        <Panel title="Investigation cases" bodyClassName="p-0"
+               status={cases ? <span className="font-mono text-xs">{cases.length} cases</span> : undefined}>
+          {!cases && !error ? <div className="p-3"><SkeletonRows rows={4} /></div> : (
+            <DataTable<InvestigationCase>
+              label="Investigation cases"
+              rows={cases ?? []}
+              rowKey={(c) => c.id}
+              pageSize={25}
+              empty="No investigation cases yet. Cases are created from an analysis in the results dashboard, to enable PDF reporting and integrity checks."
+              columns={[
+                { key: 'num', header: 'Case', mono: true, className: 'whitespace-nowrap', sortValue: (c) => c.case_number,
+                  render: (c) => <a href={`#case/${c.id}`} className="text-accent hover:underline">{c.case_number}</a> },
+                { key: 'title', header: 'Title', className: 'max-w-0 w-full', render: (c) => <span className="block truncate">{c.title || '—'}</span> },
+                { key: 'status', header: 'Status', render: (c) => <StatusTag tone={c.status === 'open' ? 'accent' : 'neutral'}>{c.status}</StatusTag> },
+                { key: 'msgs', header: 'Messages', align: 'right', mono: true, sortValue: (c) => c.analyses.length,
+                  render: (c) => c.analyses.length },
+                { key: 'evidence', header: 'Evidence', hideBelow: 'xl', mono: true, render: (c) => c.evidence_policy.store_mode },
+                { key: 'created', header: 'Opened', mono: true, className: 'whitespace-nowrap text-muted', sortValue: (c) => c.created_at,
+                  render: (c) => formatDate(c.created_at) },
+              ]}
+            />
+          )}
+        </Panel>
       )}
     </div>
   )

@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { uploadEml, uploadEmlWithAssessment, getAnalysis, runThreatIntel, ApiError, type AnalysisDetail } from '../api/client'
-import { ErrorAlert, Spinner } from './ui'
+import {
+  uploadEml, uploadEmlWithAssessment, getAnalysis, listAnalyses, runThreatIntel, ApiError,
+  type AnalysisDetail, type AnalysisSummary,
+} from '../api/client'
+import {
+  Button, DataTable, EmptyLine, ErrorAlert, LED, Panel, SkeletonRows, StatusTag, formatBytes, formatDate, verdictTone,
+} from './ui'
 
 const MAX_MB = 10
 
@@ -88,22 +93,23 @@ export default function UploadPage({
     }
   }
 
+  const busy = status === 'uploading' || status === 'analyzing'
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className=" border border-gray-200 bg-white ">
-        <div className="border-b border-gray-100 px-6 py-5">
-          <h2 className="text-base font-semibold text-gray-900">Analyse an email</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Upload a raw <code className=" bg-gray-100 px-1">.eml</code> file
-            (saved from any mail client — “View original / Save as .eml”). Analysis runs
-            entirely on your configured backend; the message body is parsed server-side and
-            the raw file is retained there.
-          </p>
-        </div>
-
-        <div className="px-6 py-5">
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-semibold text-fg">Analyse an email</h1>
+        <p className="text-sm text-muted">
+          Upload a raw <code className="bg-surface-2 px-1 font-mono">.eml</code> file
+          (saved from any mail client — “View original / Save as .eml”). Analysis runs
+          entirely on your configured backend; the message body is parsed server-side and
+          the raw file is retained there.
+        </p>
+      </div>
+      <div className="grid items-start gap-4 xl:grid-cols-12">
+        <Panel title="New analysis" className="xl:col-span-7"
+               status={<span className="font-mono text-xs">max {MAX_MB} MB · .eml / message/rfc822</span>}>
           <label
-            className="block cursor-pointer border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center transition-colors hover:border-indigo-400 hover:bg-indigo-50"
+            className="flex min-h-[132px] cursor-pointer flex-col items-center justify-center border border-dashed border-line-strong bg-bg px-4 py-6 text-center hover:border-accent hover:bg-surface-2"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault()
@@ -116,102 +122,115 @@ export default function UploadPage({
               accept=".eml,message/rfc822"
               className="sr-only"
               onChange={(e) => pickFile(e.target.files?.[0])}
-              disabled={status === 'uploading' || status === 'analyzing'}
+              disabled={busy}
             />
-            <p className="mt-2 text-sm font-medium text-gray-700">
+            <span className="font-mono text-sm text-fg">
               {selectedFile ? selectedFile.name : 'Drop an .eml here or click to choose'}
-            </p>
-            <p className="mt-1 text-xs text-gray-400">
+            </span>
+            <span className="mt-1 text-sm text-muted">
               {selectedFile
                 ? `${formatBytes(selectedFile.size)} — ready to analyse`
                 : `Maximum ${MAX_MB} MB · one file at a time`}
-            </p>
+            </span>
           </label>
 
           {validationMsg && (
-            <p className="mt-3 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="alert">
-              {validationMsg}
+            <p className="mt-3 flex items-center gap-2 border border-warn-line bg-warn-weak px-3 py-1.5 text-sm text-warn" role="alert">
+              <LED tone="warn" />{validationMsg}
             </p>
           )}
-
           {error && (
             <div className="mt-3">
               <ErrorAlert message={error.message} code={error.code} onDismiss={() => setError(null)} />
             </div>
           )}
 
-          <label className="mt-4 flex items-start gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={runAi}
-              onChange={(e) => setRunAi(e.target.checked)}
-              disabled={status === 'uploading' || status === 'analyzing'}
-            />
-            <span>
-              Run AI assessment: ML classification, SHAP explanation and a local Mistral forensic summary
-              <span className="block text-xs text-gray-400">
-                This adds about 1–2 minutes. It runs on this backend's local models, and no email data leaves
-                the server. ML and SHAP can only run now, while the original bytes are available.
+          <fieldset className="mt-3 border-t border-line">
+            <legend className="sr-only">Options</legend>
+            <label className="flex items-start gap-3 border-b border-line py-2.5">
+              <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={runAi}
+                     onChange={(e) => setRunAi(e.target.checked)} disabled={busy} />
+              <span className="min-w-0">
+                <span className="block text-sm text-fg">
+                  Run AI assessment: ML classification, SHAP explanation and a local Mistral forensic summary
+                </span>
+                <span className="block text-sm text-muted">
+                  This adds about 1–2 minutes. It runs on this backend's local models, and no email data leaves
+                  the server. ML and SHAP can only run now, while the original bytes are available.
+                </span>
               </span>
-            </span>
-          </label>
-
-          <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={runIntel}
-              onChange={(e) => setRunIntel(e.target.checked)}
-              disabled={status === 'uploading' || status === 'analyzing'}
-            />
-            <span>
-              I consent to external threat-intel lookups for this analysis (VirusTotal, AbuseIPDB, Shodan, IPinfo, Tor exit list)
-              <span className="block text-xs text-gray-400">
-                Off by default. Only bare public indicators are sent: IPs, domains and attachment SHA-256 hashes. The
-                subject, body, addresses, headers, URL paths and attachments are never sent. Results are informational and
-                do not change the verdict.
+            </label>
+            <label className="flex items-start gap-3 border-b border-line py-2.5">
+              <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={runIntel}
+                     onChange={(e) => setRunIntel(e.target.checked)} disabled={busy} />
+              <span className="min-w-0">
+                <span className="block text-sm text-fg">
+                  I consent to external threat-intel lookups for this analysis (VirusTotal, AbuseIPDB, Shodan, IPinfo, Tor exit list)
+                </span>
+                <span className="block text-sm text-muted">
+                  Off by default. Only bare public indicators are sent: IPs, domains and attachment SHA-256 hashes. The
+                  subject, body, addresses, headers, URL paths and attachments are never sent. Results are informational and
+                  do not change the verdict.
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+          </fieldset>
 
-          <button
-            onClick={submit}
-            disabled={!selectedFile || status === 'uploading' || status === 'analyzing'}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
-            {status === 'uploading' || status === 'analyzing' ? (
-              <Spinner label={intelNote ?? (status === 'uploading' ? 'Uploading…' : 'Analysing…')} />
-            ) : (
-              'Analyse email'
-            )}
-          </button>
-
-          {(status === 'uploading' || status === 'analyzing') && (
-            <div className="mt-4">
-              <div className="h-1.5 w-full overflow-hidden bg-gray-100">
-                <div
-                  className={`h-full bg-indigo-500 ${
- status === 'uploading' ? 'w-1/3' : 'w-2/3'
- } transition-all`}
-                />
-              </div>
-              <p className="mt-2 text-center text-xs text-gray-400">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Button variant="primary" onClick={submit} disabled={!selectedFile || busy}>
+              {busy ? (intelNote ?? (status === 'uploading' ? 'Uploading…' : 'Analysing…')) : 'Analyse email'}
+            </Button>
+            {busy && (
+              <span className="flex items-center gap-2 text-sm text-muted" role="status">
+                <LED tone="accent" className="animate-pulse" />
                 {status === 'uploading'
                   ? 'Uploading the .eml to the backend…'
                   : runAi
                     ? `Running forensics, scoring, ML and SHAP, then the local language model. This usually takes about 1–2 minutes (${elapsed}s elapsed; no stage-by-stage progress is reported).`
                     : 'Running header forensics, authentication checks and scoring…'}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+              </span>
+            )}
+          </div>
+          <p className="mt-3 text-sm text-muted">
+            .eml files carry the full original message: headers, body and attachments metadata.
+          </p>
+        </Panel>
 
-      <p className="mt-3 text-center text-xs text-gray-400">
-        .eml files carry the full original message: headers, body and attachments metadata.
-      </p>
+        <RecentUploads className="xl:col-span-5" />
+      </div>
     </div>
+  )
+}
+
+function RecentUploads({ className = '' }: { className?: string }) {
+  const [rows, setRows] = useState<AnalysisSummary[] | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    const ctl = new AbortController()
+    listAnalyses(ctl.signal).then(setRows).catch(() => { if (!ctl.signal.aborted) setFailed(true) })
+    return () => ctl.abort()
+  }, [])
+  return (
+    <Panel title="Recent analyses" className={className} bodyClassName="p-0"
+           status={<a href="#history" className="font-mono text-xs uppercase text-accent hover:underline">view all</a>}>
+      {failed ? <div className="p-3"><EmptyLine>Recent analyses could not be loaded.</EmptyLine></div>
+        : !rows ? <div className="p-3"><SkeletonRows rows={5} label="Loading recent analyses…" /></div>
+        : (
+          <DataTable<AnalysisSummary>
+            label="Recent analyses"
+            rows={rows.slice(0, 10)}
+            rowKey={(r) => r.id}
+            empty="No analyses yet — the first upload will appear here."
+            columns={[
+              { key: 'v', header: 'Verdict', render: (r) => <StatusTag tone={verdictTone(r.detection_verdict)}>{(r.detection_verdict ?? 'unknown').replace(/_/g, ' ')}</StatusTag> },
+              { key: 's', header: 'Score', align: 'right', mono: true, render: (r) => r.detection_score },
+              { key: 'subj', header: 'Subject', className: 'max-w-0 w-full', render: (r) => (
+                <a href={`#analysis/${r.id}`} className="block truncate text-accent hover:underline">{r.subject || '(no subject)'}</a>) },
+              { key: 't', header: 'Received', mono: true, className: 'whitespace-nowrap text-muted', render: (r) => formatDate(r.created_at) },
+            ]}
+          />
+        )}
+    </Panel>
   )
 }
 
@@ -228,10 +247,4 @@ function friendlyUploadError(err: ApiError): string {
     default:
       return err.message
   }
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }

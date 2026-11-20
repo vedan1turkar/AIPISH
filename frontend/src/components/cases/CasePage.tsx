@@ -13,7 +13,7 @@ import {
   type InvestigationCase,
 } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
-import { ErrorAlert, Panel, Spinner, formatDate } from '../ui'
+import { Button, EmptyLine, ErrorAlert, Panel, Select, Spinner, StatusTag, formatDate } from '../ui'
 import { CampaignBadge, Disclaimer, TierChip } from '../correlation/RelatedPanel'
 import { typeLabel } from '../correlation/model'
 
@@ -77,102 +77,103 @@ export default function CasePage({ id }: { id: string }) {
 
   return (
     <div className="space-y-4" data-testid="case-page">
-      <div className="flex flex-wrap items-center gap-2">
-        <a href="#history" className="text-xs text-indigo-600 hover:underline">← History</a>
-        <h2 className="text-lg font-semibold text-gray-900">
-          <span className="font-mono">{info.case_number}</span>
-          {info.title && <span className="ml-2 text-base font-normal text-gray-600">{info.title}</span>}
-        </h2>
-        <span className="text-xs text-gray-400">{info.status} · opened {formatDate(info.created_at)}</span>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <a href="#history" className="font-mono text-xs uppercase text-accent hover:underline">History</a>
+          <h1 className="text-xl font-semibold text-fg">
+            <span className="font-mono">{info.case_number}</span>
+            {info.title && <span className="ml-2 font-normal text-muted">{info.title}</span>}
+          </h1>
+        </div>
+        <span className="flex items-center gap-3 text-sm text-muted">
+          <StatusTag tone={info.status === 'open' ? 'accent' : 'neutral'}>{info.status}</StatusTag>
+          opened <span className="font-mono">{formatDate(info.created_at)}</span>
+        </span>
       </div>
       {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
 
-      <Panel title={`Analyses in this case (${members.length})`}>
-        {members.length === 0 ? (
-          <p className="text-sm text-gray-500">This case has no analyses.</p>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {members.map((m) => (
-              <li key={m.analysis.id} className="flex flex-wrap items-center justify-between gap-2 py-2" data-testid="case-member">
-                <div className="min-w-0">
-                  <a href={`#analysis/${m.analysis.id}`} className="text-sm font-medium text-indigo-700 hover:underline">
-                    {m.analysis.subject || '(no subject)'}
-                  </a>
-                  <span className="ml-2 font-mono text-xs text-gray-400">{m.analysis.id.slice(0, 8)}</span>
-                  <span className="ml-2 text-xs text-gray-400">score {m.analysis.detection_score}</span>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {m.campaigns.map((c) => <CampaignBadge key={c.id} id={c.id} label={c.label} confidence={c.confidence} />)}
+      <div className="space-y-4">
+        <Panel title={`Analyses in this case (${members.length})`} >
+          {members.length === 0 ? (
+            <EmptyLine>This case has no analyses.</EmptyLine>
+          ) : (
+            <ul className="divide-y divide-line">
+              {members.map((m) => (
+                <li key={m.analysis.id} className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0" data-testid="case-member">
+                  <div className="min-w-0">
+                    <a href={`#analysis/${m.analysis.id}`} className="text-sm text-accent hover:underline">
+                      {m.analysis.subject || '(no subject)'}
+                    </a>
+                    <span className="ml-2 font-mono text-sm text-muted">{m.analysis.id.slice(0, 8)}</span>
+                    <span className="ml-2 font-mono text-sm text-muted">score {m.analysis.detection_score}</span>
+                    {m.campaigns.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {m.campaigns.map((c) => <CampaignBadge key={c.id} id={c.id} label={c.label} confidence={c.confidence} />)}
+                      </div>
+                    )}
                   </div>
-                </div>
-                {canWrite && (
-                  <button
-                    disabled={busy}
-                    onClick={() => act(() => removeCaseAnalysis(id, m.analysis.id))}
-                    className=" border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Remove from case
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {canWrite ? (
-          <form onSubmit={onAdd} className="mt-3 flex flex-wrap items-end gap-2" aria-label="Add analysis to case">
-            <label className="text-xs font-medium text-gray-700">
-              Add analysis
-              <select
-                value={pick}
-                onChange={(e) => setPick(e.target.value)}
-                className="mt-1 block max-w-md border border-gray-300 px-2 py-1.5 text-sm"
-              >
-                <option value="">Choose a stored analysis…</option>
-                {candidates.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.id.slice(0, 8)} · {(a.subject || '(no subject)').slice(0, 60)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="submit"
-              disabled={busy || !pick}
-              className=" bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-300"
-            >
-              Add to case
-            </button>
-          </form>
-        ) : (
-          <p className="mt-3 text-xs text-gray-400" data-testid="case-readonly">Your role can view this case but not change its analyses.</p>
-        )}
-      </Panel>
-
-      <Panel title="Aggregated indicators">
-        <Disclaimer text={disclaimer} />
-        {indicators.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-500">No indicators recorded for this case's analyses.</p>
-        ) : (
-          <table className="mt-2 min-w-full text-left text-xs">
-            <thead className="text-gray-500">
-              <tr><th className="py-1 pr-3">Indicator</th><th className="py-1 pr-3">Type</th><th className="py-1 pr-3">In case</th><th className="py-1 pr-3">All analyses</th><th className="py-1">Link strength</th></tr>
-            </thead>
-            <tbody>
-              {indicators.slice(0, 60).map((i) => (
-                <tr key={i.entity_id} className="border-t border-gray-100" data-testid="case-indicator">
-                  <td className="py-1 pr-3 font-mono break-all">{i.value}</td>
-                  <td className="py-1 pr-3 text-gray-500">{typeLabel(i.type)}</td>
-                  <td className="py-1 pr-3">{i.case_count}</td>
-                  <td className="py-1 pr-3">{i.df}</td>
-                  <td className="py-1">{i.generic_reason ? <span className="text-gray-400">generic: {i.generic_reason}</span> : <TierChip tier={i.tier} />}</td>
-                </tr>
+                  {canWrite && (
+                    <Button size="sm" disabled={busy} onClick={() => act(() => removeCaseAnalysis(id, m.analysis.id))}>
+                      Remove from case
+                    </Button>
+                  )}
+                </li>
               ))}
-            </tbody>
-          </table>
-        )}
-        {shared.length > 0 && (
-          <p className="mt-2 text-xs text-gray-500">{shared.length} indicator(s) appear in more than one analysis of this case.</p>
-        )}
-      </Panel>
+            </ul>
+          )}
+          {canWrite ? (
+            <form onSubmit={onAdd} className="mt-3 flex flex-wrap items-end gap-2 border-t border-line pt-3" aria-label="Add analysis to case">
+              <label className="min-w-[16rem] max-w-[40rem] flex-1">
+                <span className="mb-1 block font-mono text-xs uppercase tracking-wider text-muted">Add analysis</span>
+                <Select value={pick} onChange={(e) => setPick(e.target.value)}>
+                  <option value="">Choose a stored analysis…</option>
+                  {candidates.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.id.slice(0, 8)} · {(a.subject || '(no subject)').slice(0, 60)}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <Button type="submit" variant="primary" disabled={busy || !pick}>Add to case</Button>
+            </form>
+          ) : (
+            <p className="mt-3 border-t border-line pt-3 text-sm text-muted" data-testid="case-readonly">Your role can view this case but not change its analyses.</p>
+          )}
+        </Panel>
+
+        <Panel title="Aggregated indicators" bodyClassName="p-0"
+               status={shared.length > 0 ? <span className="font-mono text-xs">{shared.length} shared within case</span> : undefined}>
+          <div className="border-b border-line p-3"><Disclaimer text={disclaimer} /></div>
+          {indicators.length === 0 ? (
+            <div className="p-3"><EmptyLine>No indicators recorded for this case's analyses.</EmptyLine></div>
+          ) : (
+            <div className="max-h-[32rem] overflow-auto">
+              <table className="w-full text-sm" aria-label="Aggregated indicators">
+                <thead className="sticky top-0 bg-surface">
+                  <tr className="whitespace-nowrap font-mono text-xs uppercase tracking-wider text-muted">
+                    <th className="h-8 border-b border-line px-3 text-left font-normal">Indicator</th>
+                    <th className="h-8 border-b border-line px-3 text-left font-normal">Type</th>
+                    <th className="h-8 border-b border-line px-3 text-right font-normal">In case</th>
+                    <th className="h-8 border-b border-line px-3 text-right font-normal">All</th>
+                    <th className="h-8 border-b border-line px-3 text-left font-normal">Link strength</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {indicators.slice(0, 60).map((i) => (
+                    <tr key={i.entity_id} className="h-row border-b border-line last:border-0 hover:bg-surface-2" data-testid="case-indicator">
+                      <td className="break-all px-3 py-1 font-mono">{i.value}</td>
+                      <td className="whitespace-nowrap px-3 py-1 text-muted">{typeLabel(i.type)}</td>
+                      <td className="px-3 py-1 text-right font-mono">{i.case_count}</td>
+                      <td className="px-3 py-1 text-right font-mono">{i.df}</td>
+                      <td className="px-3 py-1">{i.generic_reason ? <span className="text-muted">generic: {i.generic_reason}</span> : <TierChip tier={i.tier} />}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </div>
     </div>
   )
 }

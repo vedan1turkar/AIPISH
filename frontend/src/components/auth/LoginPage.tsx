@@ -30,7 +30,7 @@ export default function LoginPage({ notice }: { notice?: string | null }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
+    <main className="flex min-h-screen items-center justify-center bg-bg px-4">
       <form onSubmit={onSubmit} aria-label="Sign in" className="w-full max-w-[400px] border border-line bg-surface">
         <div className="flex items-baseline justify-between border-b border-line px-4 py-2.5">
           <h1 className="font-mono text-base font-semibold tracking-wider text-fg">AIPISH</h1>
@@ -64,6 +64,6 @@ export default function LoginPage({ notice }: { notice?: string | null }) {
           Local accounts only · sessions expire after 60 min · access is audited
         </p>
       </form>
-    </div>
+    </main>
   )
 }

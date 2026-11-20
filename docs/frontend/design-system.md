@@ -1,4 +1,4 @@
-# AIPISH design system (P5u-1)
+# AIPISH design system (P5u-1, P5u-2)
 
 The goal is a calm, dense security-engineering console: information-rich, organised and easy to scan.
 Hierarchy comes from type weight and tonal surface steps, not from boxes, shadows or colour.
@@ -9,6 +9,27 @@ only; nothing (logos, text, imagery, icons, colours or branding) was copied. Tak
 - small uppercase mono labels;
 - strict left-aligned grid edges;
 - quiet body text beside a single focal element.
+
+## Design balance: clean AND dense (binding rules)
+
+The target is information-rich but calm. Intentional breathing room is good; dead blank space is not.
+
+1. **One focal element per screen.** Secondary information is quieter (muted, smaller) and never competes.
+2. **Spacing scale 4/8/12/16/24/32.** Panel padding 12–16px; 16px between panels; 12–16px between groups;
+   table rows 32–36px. Never squeeze to fit more in.
+3. **Progressive disclosure.** Essentials first; detail behind tabs, "show details" or "view all". Raw dumps
+   are collapsed.
+4. **12-column grid.** Aligned left edges, label and value columns in KV rows, numbers right-aligned.
+5. **Fewer boxes.** A panel has a title strip and a 1px border; inside, use dividers or whitespace. At most
+   page › panel › rows; no cards inside cards.
+6. **Restrained colour.** Neutral everywhere; colour only for status and the single cyan accent (links,
+   active tab, primary button).
+7. **Restrained type.** Four sizes and two weights (600 for headlines). Mono for data and labels, never for
+   prose.
+8. **Subtle retro cues.** Only title strips, square LEDs, the status bar, mono data and KV rows.
+9. **Overview.** At most five panels in a tidy grid; every panel has real data or one clean empty line.
+10. **Review both ways.** Look for blank regions that look like missing content, and for areas that are
+    crowded or have competing borders or colours. Prefer fewer, better-organised elements.
 
 ## Tokens
 
@@ -63,7 +84,7 @@ No pair fails.
 | Primitive | Purpose |
 |---|---|
 | `Panel` | 1px border, title strip (11px mono uppercase label left, meta / actions right, bottom border), body padding 12px |
-| `DataTable` | Sticky mono header, 34px rows, right-aligned numbers, hover tonal row, one-line empty state |
+| `DataTable` | Sticky mono header, 34px rows, right-aligned numbers, hover tonal row, one-line empty state; optional sortable headers (`sortValue`, `aria-sort`), compact pagination (`pageSize`), `hideBelow` for secondary columns on narrow screens, `rowTestId` |
 | `StatusTag` / `Badge`, `StatusBadge`, `SeverityChip` | Square LED + text label, toned border and tint (2px max radius) |
 | `LED` | 8×8 square status light (never used alone) |
 | `Button` | `primary` (accent fill) / `secondary` / `danger` / `ghost`; square; `sm` 28px, `md` 32px |
@@ -74,8 +95,9 @@ No pair fails.
 | `EmptyLine` / `EmptyState` | One compact line: what is missing, why, and the next action |
 | `CodeBlock` | Raw dumps (headers, hex, JSON), collapsed by default |
 | `Mono` | Mono value that copies itself on click; can display a shortened form while copying the full value |
-| `SkeletonRows` | Compact loading rows |
-| `Kbd`, `Label` | Keyboard hint, mono label |
+| `SkeletonRows` | Compact loading rows (`role=status`, labelled) |
+| `PageNotice` | Whole-page state (404, 403, no analysis open): title strip, status code, one line, actions |
+| `Label` | Mono label |
 
 Shell components:
 - `shell/StatusBar` is the bottom status bar. It polls every 30 s and shows API and ML for everyone, and LLM
@@ -107,28 +129,94 @@ Shell components:
 - Add an icon library. Use text labels, square LEDs, or short mono codes (for example the threat-intel
   status codes `FLG`, `ERR`, `RTL`).
 
-**Guards** (`components/ui/Primitives.test.tsx`), which fail the test suite on:
-- any `rounded`, `rounded-md/lg/xl/2xl/3xl/full` class in `src`;
-- any emoji pictograph in UI source;
+**Guards** (`components/ui/Primitives.test.tsx`) scan every non-test file under `src` (a test asserts the
+pages, graph and shell modules are in the scanned set) and fail the suite on:
+- any `rounded`, `rounded-md/lg/xl/2xl/3xl/full` class;
+- any emoji pictograph;
+- any legacy Tailwind palette class (`text-gray-500`, `bg-white`, `ring-indigo-400`…): semantic tokens only;
+- any hex colour outside `index.css` and the graph theme module;
 - a change to the radius or shadow scale.
 
-## Compatibility layer (to be removed in part 2)
+## Compatibility layer (removed in P5u-2)
 
-Components not yet migrated still use legacy Tailwind palette names such as `bg-white`, `text-gray-500`
-and `bg-red-50`. `tailwind.config.js` maps these onto the dark tokens:
-- **Neutrals** map onto surfaces and lines.
-- **Status families:** red/rose → `danger`, amber/orange → `warn`, emerald/green/teal → `ok`,
-  sky/blue/indigo/violet → `accent`.
-- **Shades:** 50–100 → weak tint, 200–300 → line, 400–900 → the colour itself.
-
-This keeps every page on-theme and contrast-safe while part 2 migrates the remaining pages (History,
-Campaigns, Case, Search, Admin, Upload) to semantic tokens and primitives. New code must use the semantic
-tokens.
+Part 1 mapped legacy palette names onto the dark tokens so unmigrated pages stayed on-theme. In P5u-2 every
+class was migrated to the semantic tokens (690 classes in 16 files) and the mapping was deleted from
+`tailwind.config.js`; the colour scale now holds only the tokens above. The palette guard keeps it that way.
 
 ## Graphs
 
-Cytoscape cannot read CSS variables, so the trace and campaign graphs use the token hex values directly:
-- light labels on the dark canvas;
-- node kinds told apart by shape and label, with the message/analysis node in accent;
-- provenance borders: observed = ok, enriched = accent, inferred = muted;
-- severity borders follow the status colours.
+Both Cytoscape graphs (relay trace and campaign) use one theme module, `components/graph/style.tsx`.
+Cytoscape cannot read CSS variables, so it mirrors the token hex values.
+
+- **Shapes encode kind, never colour:**
+  - message / analysis: rectangle (on `surface-3`);
+  - IP: diamond;
+  - domain or host: square;
+  - URL: dashed square;
+  - relay host, hash, display name: small flat rectangle.
+  - No hexagons, ellipses or rounded shapes; unknown kinds fall back to a square.
+- **Nodes:** `surface-2` fill; 1px border coloured by provenance (observed = ok, enriched = accent,
+  inferred = muted and dimmed); 2px border coloured by finding severity or indicator tier; IBM Plex Mono
+  labels at 10px.
+- **Edges:** 1px, muted (`line-strong`, or `muted` for observed evidence), with mono type labels at 8px;
+  inferred edges are dashed.
+- **Selection:** accent border and edge.
+- **Canvas:** `surface`, on the dark page.
+- **Controls:** square `+`, `−`, `fit` (and `rst` for the trace) buttons, top right.
+- **Fit:** zoom is capped (1.25 on the trace, 1.0 on campaigns) so small graphs never inflate labels.
+- **Legend:** an inline-SVG shape glyph plus a text label per kind, with evidence and edge keys.
+- **Sizing:** the canvas stretches to the height of its row (side column) and follows container resizes.
+- **Behaviour:** layouts, tap/hover handlers and navigation are unchanged.
+
+## Accessibility
+
+- **Automated:** `components/A11y.test.tsx` runs axe-core (devDependency) on login, change password,
+  overview, upload, history, campaign list and detail, search, admin users, and the full shell with the 404
+  notice. jsdom has no layout, so `color-contrast` is off there; it is covered by the computed ratios above
+  and by an in-browser axe run (all rules) during visual QA.
+- **Structure:**
+  - one `main` landmark and one `h1` per page;
+  - panels are labelled `section`s;
+  - tables carry `aria-label`, sortable headers `aria-sort`;
+  - loading rows are labelled `role=status`;
+  - tabs use arrow keys.
+- **Focus and motion:** a 2px accent `:focus-visible` outline everywhere; `prefers-reduced-motion` disables
+  animation and transitions.
+
+## Visual QA checklist
+
+Run this for every page at 1920×1080, 1440×900, 1280×720 and 1024×768, as viewer, analyst and admin, on
+a throwaway database seeded with `python -m app.cli seed-demo-campaign` plus the BEC fixture.
+
+- **Dead space:**
+  - side-by-side panels differ by less than about 100px in height, or the shorter one is a
+    data-dependent list;
+  - a graph canvas stretches to its row instead of leaving a gap;
+  - nothing on the page looks like missing content.
+- **Clutter:**
+  - no competing borders inside panels (dividers only);
+  - at most one accent per area;
+  - IDs and hashes shortened with copy-on-click;
+  - long labels truncate.
+- **Tables:**
+  - 34px rows; headers on one line;
+  - mono ID / IP / hash / time columns; numbers right-aligned;
+  - no character-by-character wrapping;
+  - secondary columns hidden below `xl` rather than scrolling.
+- **Overflow:** no horizontal page scroll at any width; a header or status-bar cell never wraps or clips
+  (secondary status cells hide below `xl`).
+- **Shape:** no element with a radius above 2px (DOM audit: computed `border-radius`).
+- **Graphs:**
+  - shapes match the legend;
+  - labels legible at the capped zoom; no overlapping nodes;
+  - zoom and fit work.
+- **Roles:**
+  - viewers see no Analyse, Users, create-case, generate, add or remove controls; deep links to
+    `#upload` and `#users` land on History;
+  - the status bar shows LLM and intel only to admins.
+- **States:** each page has a loading line or skeleton, a one-line empty state and a one-line error; an
+  unknown hash shows the 404 notice.
+- **Honesty text:** every disclaimer is present verbatim (relay visualization, map, correlation,
+  AI / ML / SHAP notes, footer).
+- **Accessibility:** in-browser axe (all rules) reports 0 violations; the tab order follows the visual
+  order.

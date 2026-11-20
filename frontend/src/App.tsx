@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { getHealth, getAnalysis, getMe, logout, type AnalysisDetail } from './api/client'
 import { useAuth } from './auth/AuthContext'
 import { clearSession, updateUser } from './auth/session'
-import { Button, ErrorAlert, Spinner } from './components/ui'
+import { Button, ErrorAlert, PageNotice, Spinner } from './components/ui'
 import LoginPage from './components/auth/LoginPage'
 import ChangePasswordPage from './components/auth/ChangePasswordPage'
 import AdminUsersPage from './components/admin/AdminUsersPage'
@@ -15,7 +15,7 @@ import SearchPage from './components/search/SearchPage'
 import StatusBar from './components/shell/StatusBar'
 import OverviewPage from './components/overview/OverviewPage'
 
-type View = 'overview' | 'upload' | 'results' | 'history' | 'users' | 'account' | 'campaigns' | 'campaign' | 'case' | 'search'
+type View = 'overview' | 'upload' | 'results' | 'history' | 'users' | 'account' | 'campaigns' | 'campaign' | 'case' | 'search' | 'notfound'
 
 // `perm`: shown only to roles holding it. The backend enforces the same permission on every call.
 const NAV: { id: View; label: string; perm?: string }[] = [
@@ -31,7 +31,7 @@ function Brand() {
   return (
     <div className="flex items-baseline gap-2 whitespace-nowrap">
       <span className="font-mono text-base font-semibold tracking-wider text-fg">AIPISH</span>
-      <span className="hidden font-mono text-xs uppercase tracking-wider text-muted sm:inline">Email threat forensics</span>
+      <span className="hidden font-mono text-xs uppercase tracking-wider text-muted xl:inline">Email threat forensics</span>
     </div>
   )
 }
@@ -46,7 +46,7 @@ export default function App() {
           <Brand />
           <SignOutButton />
         </header>
-        <div className="px-4 py-8"><ChangePasswordPage required /></div>
+        <main className="px-4 py-8"><ChangePasswordPage required /></main>
       </div>
     )
   }
@@ -137,7 +137,9 @@ function SignedInApp() {
       else if (h.startsWith('#analysis/')) {
         const id = h.slice('#analysis/'.length)
         if (id) void openAnalysis(id)
+        else setView('notfound')
       }
+      else setView('notfound')
     }
     applyHash()
     window.addEventListener('hashchange', applyHash)
@@ -175,7 +177,7 @@ function SignedInApp() {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-2 text-sm" data-testid="current-user">
-            <span className="font-mono text-sm text-fg">{user.username}</span>
+            <span className="whitespace-nowrap font-mono text-sm text-fg">{user.username}</span>
             <span className="rounded-sm border border-line-strong px-1.5 font-mono text-xs uppercase tracking-wider text-muted">
               {user.role}
             </span>
@@ -212,7 +214,22 @@ function SignedInApp() {
           />
         )}
         {view === 'results' && !analysis && !loadingId && (
-          <ErrorAlert message="No analysis is open — pick one from history or upload a new file." />
+          <PageNotice title="No analysis open" actions={<>
+            <Button variant="primary" onClick={() => navigate('history')}>Open history</Button>
+            {can('analysis:create') && <Button onClick={() => navigate('upload')}>Analyse an email</Button>}
+          </>}>
+            No analysis is open — pick one from history or upload a new file.
+          </PageNotice>
+        )}
+        {view === 'notfound' && (
+          <PageNotice title="Page not found" code="404" actions={<Button variant="primary" onClick={() => navigate('overview')}>Go to overview</Button>}>
+            There is no page at <span className="font-mono">{window.location.hash || '/'}</span>. Use the navigation above.
+          </PageNotice>
+        )}
+        {view === 'case' && routeId && !can('case:read') && (
+          <PageNotice title="Not permitted" code="403" actions={<Button onClick={() => navigate('history')}>Open history</Button>}>
+            Your role cannot open investigation cases.
+          </PageNotice>
         )}
         {view === 'history' && <HistoryPage onOpenAnalysis={openAnalysis} />}
         {view === 'users' && can('users:manage') && <AdminUsersPage />}
@@ -231,7 +248,10 @@ function SignedInApp() {
 
       {loadingId && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-[rgba(10,14,19,0.82)]">
-          <Spinner label="Loading analysis…" />
+          <div className="border border-line bg-surface px-4 py-3">
+            <Spinner label="Loading analysis…" />
+            <p className="mt-1 font-mono text-xs text-muted">{loadingId}</p>
+          </div>
         </div>
       )}
     </div>

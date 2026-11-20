@@ -33,7 +33,6 @@ export function StatusTag({ tone = 'neutral', children, title, led = true }: {
   )
 }
 
-export const Badge = StatusTag
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost'
 const BTN: Record<ButtonVariant, string> = {
@@ -155,10 +154,6 @@ export function CodeBlock({ children, label = 'raw', defaultOpen = false }: { ch
   )
 }
 
-export function Kbd({ children }: { children: ReactNode }) {
-  return <kbd className="border border-line-strong bg-surface-2 px-1 font-mono text-xs text-fg">{children}</kbd>
-}
-
 /** Mono value (IP, hash, domain, evidence id) that copies itself on click. */
 export function Mono({ children, copy = true, className = '', display }: {
   children: string; copy?: boolean; className?: string; display?: string
@@ -171,16 +166,16 @@ export function Mono({ children, copy = true, className = '', display }: {
               void navigator.clipboard?.writeText(children).then(() => setDone(true), () => undefined)
               window.setTimeout(() => setDone(false), 1200)
             }}
-            className={`max-w-full break-all text-left font-mono text-sm text-fg hover:bg-surface-3 ${className}`}>
+            className={`max-w-full text-left font-mono text-sm text-fg hover:bg-surface-3 ${display ? 'whitespace-nowrap' : 'break-all'} ${className}`}>
       {display ?? children}
     </button>
   )
 }
 
 /** Compact loading placeholder rows (no spinners blocking layout). */
-export function SkeletonRows({ rows = 3 }: { rows?: number }) {
+export function SkeletonRows({ rows = 3, label = 'loading' }: { rows?: number; label?: string }) {
   return (
-    <div aria-busy="true" aria-label="loading" role="status" className="space-y-2 py-1">
+    <div aria-busy="true" aria-label={label} role="status" className="space-y-2 py-1">
       {Array.from({ length: rows }, (_, i) => <div key={i} className="h-3 w-full bg-surface-2" />)}
     </div>
   )
@@ -193,39 +188,100 @@ export interface Column<R> {
   align?: 'left' | 'right'
   mono?: boolean
   className?: string
+  /** Makes the header a sort toggle (asc → desc). */
+  sortValue?: (row: R) => string | number
+  /** Hide this column (header and cells) below the given breakpoint: secondary columns on narrow screens. */
+  hideBelow?: 'xl' | '2xl'
 }
 
-/** Dense table: sticky header, 34px rows, mono header labels, right-aligned numbers. */
-export function DataTable<R>({ columns, rows, rowKey, empty, maxHeight, label }: {
+const HIDE: Record<string, string> = { xl: 'hidden xl:table-cell', '2xl': 'hidden 2xl:table-cell' }
+
+/** Dense table: sticky header, 34px rows, mono header labels, right-aligned numbers,
+ *  optional sortable headers and compact pagination. */
+export function DataTable<R>({ columns, rows, rowKey, empty, maxHeight, label, pageSize, initialSort, rowTestId }: {
   columns: Column<R>[]; rows: R[]; rowKey: (r: R) => string; empty?: ReactNode; maxHeight?: string; label?: string
+  pageSize?: number; initialSort?: { key: string; dir: 'asc' | 'desc' }
+  /** data-testid for each body row (keeps existing test hooks when lists become tables). */
+  rowTestId?: (r: R) => string
 }) {
+  const [sort, setSort] = useState(initialSort ?? null)
+  const [page, setPage] = useState(0)
   if (rows.length === 0) return <EmptyLine>{empty ?? 'No rows.'}</EmptyLine>
+  const col = sort ? columns.find((c) => c.key === sort.key) : undefined
+  const sorted = col?.sortValue
+    ? [...rows].sort((a, b) => {
+        const x = col.sortValue!(a), y = col.sortValue!(b)
+        const r = x < y ? -1 : x > y ? 1 : 0
+        return sort!.dir === 'asc' ? r : -r
+      })
+    : rows
+  const pages = pageSize ? Math.max(1, Math.ceil(sorted.length / pageSize)) : 1
+  const cur = Math.min(page, pages - 1)
+  const visible = pageSize ? sorted.slice(cur * pageSize, cur * pageSize + pageSize) : sorted
   return (
-    <div className="overflow-auto" style={maxHeight ? { maxHeight } : undefined}>
-      <table className="w-full border-collapse text-sm" aria-label={label}>
-        <thead className="sticky top-0 z-[1] bg-surface">
-          <tr>
-            {columns.map((c) => (
-              <th key={c.key} scope="col"
-                  className={`h-8 border-b border-line px-3 font-mono text-xs font-normal uppercase tracking-wider text-muted ${c.align === 'right' ? 'text-right' : 'text-left'}`}>
-                {c.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={rowKey(r)} className="h-row border-b border-line last:border-0 hover:bg-surface-2">
-              {columns.map((c) => (
-                <td key={c.key}
-                    className={`px-3 py-1 align-middle ${c.align === 'right' ? 'text-right' : ''} ${c.mono ? 'font-mono' : ''} ${c.className ?? ''}`}>
-                  {c.render(r)}
-                </td>
-              ))}
+    <div>
+      <div className="overflow-auto" style={maxHeight ? { maxHeight } : undefined}>
+        <table className="w-full border-collapse text-sm" aria-label={label}>
+          <thead className="sticky top-0 z-[1] bg-surface">
+            <tr>
+              {columns.map((c) => {
+                const active = sort?.key === c.key
+                const aria = active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : c.sortValue ? 'none' : undefined
+                return (
+                  <th key={c.key} scope="col" aria-sort={aria}
+                      className={`h-8 whitespace-nowrap border-b border-line px-3 font-mono text-xs font-normal uppercase tracking-wider text-muted ${c.align === 'right' ? 'text-right' : 'text-left'} ${c.hideBelow ? HIDE[c.hideBelow] : ''}`}>
+                    {c.sortValue ? (
+                      <button type="button" className={`inline-flex items-center gap-1 uppercase hover:text-fg ${active ? 'text-fg' : ''}`}
+                              onClick={() => { setSort({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' }); setPage(0) }}>
+                        {c.header}<span aria-hidden className="w-2">{active ? (sort!.dir === 'asc' ? '↑' : '↓') : ''}</span>
+                      </button>
+                    ) : c.header}
+                  </th>
+                )
+              })}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visible.map((r) => (
+              <tr key={rowKey(r)} data-testid={rowTestId?.(r)} className="h-row border-b border-line last:border-0 hover:bg-surface-2">
+                {columns.map((c) => (
+                  <td key={c.key}
+                      className={`px-3 py-1 align-middle ${c.align === 'right' ? 'text-right' : ''} ${c.mono ? 'font-mono' : ''} ${c.className ?? ''} ${c.hideBelow ? HIDE[c.hideBelow] : ''}`}>
+                    {c.render(r)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {pageSize && sorted.length > pageSize && (
+        <nav aria-label={`${label ?? 'Table'} pagination`} className="flex items-center justify-between border-t border-line px-3 py-1.5 font-mono text-xs text-muted">
+          <span>{cur * pageSize + 1}–{Math.min(sorted.length, (cur + 1) * pageSize)} of {sorted.length}</span>
+          <span className="flex gap-1">
+            <Button size="sm" variant="ghost" disabled={cur === 0} onClick={() => setPage(cur - 1)}>Prev</Button>
+            <Button size="sm" variant="ghost" disabled={cur >= pages - 1} onClick={() => setPage(cur + 1)}>Next</Button>
+          </span>
+        </nav>
+      )}
     </div>
+  )
+}
+
+/** Full-width page state (404, no analysis open, no permission): title strip, one line, actions. */
+export function PageNotice({ title, code, children, actions }: {
+  title: string; code?: string; children: ReactNode; actions?: ReactNode
+}) {
+  return (
+    <section aria-label={title} data-testid="page-notice" className="mx-auto mt-8 max-w-[560px] border border-line bg-surface">
+      <div className="flex h-8 items-center justify-between border-b border-line px-3">
+        <h1 className="font-mono text-xs uppercase tracking-wider text-muted">{title}</h1>
+        {code && <span className="font-mono text-xs text-muted">{code}</span>}
+      </div>
+      <div className="p-4">
+        <p className="text-sm text-fg">{children}</p>
+        {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}
+      </div>
+    </section>
   )
 }

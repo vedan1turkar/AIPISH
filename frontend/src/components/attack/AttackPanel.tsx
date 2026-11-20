@@ -20,11 +20,11 @@ export const BAND_LABEL: Record<string, string> = {
 }
 
 const BAND_STYLE: Record<string, string> = {
-  likely: 'bg-rose-50 text-rose-800 ring-rose-200',
-  possible: 'bg-amber-50 text-amber-800 ring-amber-200',
-  not_indicated: 'bg-slate-50 text-slate-700 ring-slate-200',
-  undetermined: 'bg-gray-50 text-gray-600 ring-gray-200',
-  not_assessed: 'bg-indigo-50 text-indigo-800 ring-indigo-200',
+  likely: 'bg-danger-weak text-danger border-danger-line',
+  possible: 'bg-warn-weak text-warn border-warn-line',
+  not_indicated: 'bg-surface-2 text-fg border-line',
+  undetermined: 'bg-surface-2 text-muted border-line',
+  not_assessed: 'bg-accent-weak text-accent border-accent-line',
 }
 
 const TAB_LABEL: Record<string, string> = {
@@ -46,7 +46,7 @@ function Chips({ ids, label }: { ids: string[]; label: string }) {
   if (ids.length === 0) return null
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
-      <span className="text-xs text-gray-500">{label}:</span>
+      <span className="text-xs text-muted">{label}:</span>
       {ids.map((id) => <EvidenceChip key={id} id={id} title={`Go to evidence ${id}`} />)}
     </span>
   )
@@ -56,20 +56,20 @@ function TechniqueCard({ m }: { m: AttackTechniqueMapping }) {
   return (
     <li className="py-2.5 first:pt-0 last:pb-0" data-testid="attack-technique">
       <div className="flex flex-wrap items-center gap-2">
-        <a href={m.url} target="_blank" rel="noopener noreferrer" className="font-mono text-sm font-semibold text-indigo-700 hover:underline">
+        <a href={m.url} target="_blank" rel="noopener noreferrer" className="font-mono text-sm font-semibold text-accent hover:underline">
           {m.technique_id}
         </a>
-        <span className="text-sm font-medium text-gray-900">{m.name}</span>
+        <span className="text-sm font-medium text-fg">{m.name}</span>
         <span
           data-testid="basis-badge"
-          className={` px-1.5 py-0.5 text-xs font-bold uppercase ring-1 ${
- m.basis === 'observed' ? 'bg-emerald-50 text-emerald-800 ring-emerald-300' : 'bg-sky-50 text-sky-800 ring-sky-300'
+          className={` px-1.5 py-0.5 text-xs font-bold uppercase border ${
+ m.basis === 'observed' ? 'bg-ok-weak text-ok border-ok-line' : 'bg-accent-weak text-accent border-accent-line'
  }`}
         >
           {m.basis === 'observed' ? 'Observed' : 'Inferred'}
         </span>
-        <span className="text-xs text-gray-600">confidence: <strong>{m.confidence}</strong></span>
-        <span className="font-mono text-xs text-gray-400">{m.mapping_rule_id}</span>
+        <span className="text-xs text-muted">confidence: <strong>{m.confidence}</strong></span>
+        <span className="font-mono text-xs text-muted">{m.mapping_rule_id}</span>
       </div>
       <p className="mt-1 text-sm text-fg">{m.rationale}</p>
       {m.limitations && <p className="mt-0.5 text-sm text-muted">Limitation: {m.limitations}</p>}
@@ -86,14 +86,14 @@ function HypothesisRow({ h }: { h: SourceTypeHypothesis }) {
   return (
     <li className="py-2" data-testid="hypothesis">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-gray-900">{h.label}</span>
-        <span className={` px-2 py-0.5 text-xs font-semibold ring-1 ${BAND_STYLE[h.band] ?? BAND_STYLE.undetermined}`} data-testid="band">
+        <span className="text-sm font-medium text-fg">{h.label}</span>
+        <span className={` px-2 py-0.5 text-xs font-semibold border ${BAND_STYLE[h.band] ?? BAND_STYLE.undetermined}`} data-testid="band">
           {band}
         </span>
       </div>
-      <p className="mt-0.5 text-xs text-gray-600">{h.rationale}</p>
+      <p className="mt-0.5 text-xs text-muted">{h.rationale}</p>
       {h.missing_data.length > 0 && h.band !== 'not_assessed' && (
-        <p className="mt-0.5 text-xs text-gray-500">Missing data: {h.missing_data.join('; ')}</p>
+        <p className="mt-0.5 text-xs text-muted">Missing data: {h.missing_data.join('; ')}</p>
       )}
       <div className="mt-1"><Chips ids={h.evidence_ids} label="Evidence" /></div>
     </li>
@@ -108,16 +108,16 @@ function EvidenceList({ items, onNavigate }: { items: AttackEvidence[]; onNaviga
           key={e.id}
           id={`evidence-${e.id}`}
           tabIndex={-1}
-          className=" border border-gray-100 bg-gray-50 px-2 py-1.5 text-xs transition-shadow"
+          className=" border border-line bg-surface-2 px-2 py-1.5 text-xs transition-shadow"
           data-testid="attack-evidence"
         >
-          <span className="mr-2 font-mono font-semibold text-indigo-700">{e.id}</span>
-          <span className="mr-2 bg-white px-1 py-0.5 text-xs uppercase text-gray-500 ring-1 ring-gray-200">{e.category}</span>
-          <span className="text-gray-800">{e.statement}</span>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-400">
+          <span className="mr-2 font-mono font-semibold text-accent">{e.id}</span>
+          <span className="mr-2 bg-surface px-1 py-0.5 text-xs uppercase text-muted border border-line">{e.category}</span>
+          <span className="text-fg">{e.statement}</span>
+          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
             <span className="font-mono">{e.source_field}</span>
             {onNavigate && TAB_LABEL[e.tab] && (
-              <button onClick={() => onNavigate(e.tab)} className="text-indigo-600 hover:underline" data-testid="evidence-open-tab">
+              <button onClick={() => onNavigate(e.tab)} className="text-accent hover:underline" data-testid="evidence-open-tab">
                 Open in {TAB_LABEL[e.tab]} tab
               </button>
             )}
@@ -174,16 +174,16 @@ export default function AttackPanel({
   const grouped = groupByTactic(data.mappings)
   return (
     <div className="space-y-4" data-testid="attack-panel">
-      <p className=" border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600" data-testid="attack-disclaimer">
+      <p className=" border border-line bg-surface-2 px-3 py-2 text-xs text-muted" data-testid="attack-disclaimer">
         {data.disclaimer}
       </p>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
         <span>
           MITRE ATT&amp;CK Enterprise {data.attack_version} · {data.catalog_version}
           {data.catalog_verified ? ' · IDs verified against official data' : ' · IDs NOT verified against official data'} · {data.engine_version} ·
           version {data.version} ({data.source}) · {formatDate(data.created_at)}
           {data.inputs.intel_run_id ? ` · intel run ${data.inputs.intel_run_id.slice(0, 8)}` : ' · no intel run'}
-          {data.inputs.intel_simulated && <strong className="ml-1 text-fuchsia-700">SIMULATED provider data</strong>}
+          {data.inputs.intel_simulated && <strong className="ml-1 text-warn">SIMULATED provider data</strong>}
         </span>
         <span className="flex items-center gap-2">
           {history.length > 1 && (
@@ -191,7 +191,7 @@ export default function AttackPanel({
               aria-label="ATT&CK mapping version"
               value={data.version}
               onChange={(e) => onSelectVersion(Number(e.target.value))}
-              className=" border border-gray-300 px-1 py-0.5 text-xs"
+              className=" border border-line-strong px-1 py-0.5 text-xs"
             >
               {history.map((h) => (
                 <option key={h.version} value={h.version}>v{h.version} · {h.source} · {h.technique_count} techniques</option>
@@ -202,7 +202,7 @@ export default function AttackPanel({
         </span>
       </div>
       {recomputeError && <ErrorAlert message={recomputeError} />}
-      {data.new_version === false && <p className="text-xs text-gray-500">Recomputed: no change, so no new version was stored.</p>}
+      {data.new_version === false && <p className="text-xs text-muted">Recomputed: no change, so no new version was stored.</p>}
 
       <Panel title={`ATT&CK techniques (${data.mappings.length})`}>
         {data.mappings.length === 0 ? (
@@ -212,18 +212,18 @@ export default function AttackPanel({
           <div className="space-y-3">
             {grouped.map(([tactic, items]) => (
               <section key={tactic} data-testid="tactic-group">
-                <h4 className="mb-1 border-b border-line pb-1 font-mono text-xs uppercase tracking-wider text-muted">{tactic}</h4>
+                <h3 className="mb-1 border-b border-line pb-1 font-mono text-xs uppercase tracking-wider text-muted">{tactic}</h3>
                 <ul className="divide-y divide-line">{items.map((m) => <TechniqueCard key={m.technique_id} m={m} />)}</ul>
               </section>
             ))}
           </div>
         )}
-        <p className="mt-2 text-xs text-gray-500">{data.note} Observed = directly present in the message; inferred = a reasoned interpretation. ML output can only support a mapping.</p>
+        <p className="mt-2 text-xs text-muted">{data.note} Observed = directly present in the message; inferred = a reasoned interpretation. ML output can only support a mapping.</p>
       </Panel>
 
       <Panel title="Source type (independent hypotheses, not a verdict)">
-        <ul className="divide-y divide-gray-100">{data.source_type.map((h) => <HypothesisRow key={h.hypothesis} h={h} />)}</ul>
-        <p className="mt-2 text-xs text-gray-500">Infrastructure and account hypotheses only. Absence of reports is not evidence of safety.</p>
+        <ul className="divide-y divide-line">{data.source_type.map((h) => <HypothesisRow key={h.hypothesis} h={h} />)}</ul>
+        <p className="mt-2 text-xs text-muted">Infrastructure and account hypotheses only. Absence of reports is not evidence of safety.</p>
       </Panel>
 
       {data.evidence.length > 0 && (

@@ -16,82 +16,82 @@ const NOT_PROOF = 'This is not proof of safety.'
 export const INTEL_STATUS_META: Record<string, StatusMeta> = {
   malicious_or_flagged: {
     label: 'Flagged by provider', icon: 'FLG',
-    className: 'bg-red-100 text-red-800 ring-red-300',
+    className: 'bg-danger-weak text-danger border-danger-line',
     hint: 'The provider reported this indicator as malicious, abusive or anonymising.',
   },
   reported_clean_no_flags: {
     label: 'No flags reported', icon: 'CLR',
-    className: 'bg-slate-100 text-slate-700 ring-slate-300',
+    className: 'bg-surface-2 text-fg border-line-strong',
     hint: `The provider returned data with no flags. ${NOT_PROOF}`,
   },
   record_found: {
     label: 'Record found, no verdict', icon: 'REC',
-    className: 'bg-sky-100 text-sky-800 ring-sky-300',
+    className: 'bg-accent-weak text-accent border-accent-line',
     hint: `The provider returned details but gives no reputation verdict. ${NOT_PROOF}`,
   },
   no_record: {
     label: 'No record / no reports', icon: 'NIL',
-    className: 'bg-gray-100 text-gray-700 ring-gray-300',
+    className: 'bg-surface-2 text-fg border-line-strong',
     hint: `Nothing was found at this provider. ${NOT_PROOF}`,
   },
   provider_error: {
     label: 'Provider error', icon: 'ERR',
-    className: 'bg-orange-100 text-orange-800 ring-orange-300',
+    className: 'bg-warn-weak text-warn border-warn-line',
     hint: 'The provider returned an error, so there is no result.',
   },
   rate_limited: {
     label: 'Rate limited', icon: 'RTL',
-    className: 'bg-amber-100 text-amber-800 ring-amber-300',
+    className: 'bg-warn-weak text-warn border-warn-line',
     hint: 'The provider or local rate limit was reached, so this was not looked up.',
   },
   quota_exhausted: {
     label: 'Daily quota exhausted', icon: 'QTA',
-    className: 'bg-amber-100 text-amber-900 ring-amber-400',
+    className: 'bg-warn-weak text-warn border-warn',
     hint: 'The daily quota is used up, so this was not looked up.',
   },
   auth_failed: {
     label: 'Credential rejected', icon: 'AUT',
-    className: 'bg-rose-100 text-rose-800 ring-rose-300',
+    className: 'bg-danger-weak text-danger border-danger-line',
     hint: 'The provider rejected the configured credential.',
   },
   timeout: {
     label: 'Timed out', icon: 'TMO',
-    className: 'bg-orange-100 text-orange-800 ring-orange-300',
+    className: 'bg-warn-weak text-warn border-warn-line',
     hint: 'The provider did not respond in time.',
   },
   malformed_response: {
     label: 'Unreadable response', icon: 'BAD',
-    className: 'bg-orange-100 text-orange-900 ring-orange-400',
+    className: 'bg-warn-weak text-warn border-warn',
     hint: 'The provider response could not be read, so nothing is shown.',
   },
   not_permitted: {
     label: 'Not permitted', icon: 'NPM',
-    className: 'bg-purple-100 text-purple-800 ring-purple-300',
+    className: 'bg-accent-weak text-accent border-accent-line',
     hint: 'The provider plan or policy does not allow this lookup.',
   },
   not_attempted_consent_disabled: {
     label: 'Not run: no consent', icon: 'CNS',
-    className: 'bg-indigo-50 text-indigo-800 ring-indigo-200',
+    className: 'bg-accent-weak text-accent border-accent-line',
     hint: 'External lookups were not consented to for this analysis.',
   },
   not_attempted_offline: {
     label: 'Not run: offline mode', icon: 'OFF',
-    className: 'bg-zinc-100 text-zinc-700 ring-zinc-300',
+    className: 'bg-surface-2 text-fg border-line-strong',
     hint: 'Offline mode blocks external calls, and no cached result exists.',
   },
   not_attempted_cap_reached: {
     label: 'Not looked up: cap reached', icon: 'CAP',
-    className: 'bg-zinc-100 text-zinc-700 ring-zinc-300',
+    className: 'bg-surface-2 text-fg border-line-strong',
     hint: 'The per-analysis indicator cap was reached.',
   },
   missing_credentials: {
     label: 'Not run: no credential', icon: 'KEY',
-    className: 'bg-zinc-100 text-zinc-700 ring-zinc-300',
+    className: 'bg-surface-2 text-fg border-line-strong',
     hint: 'No credential is configured for this provider.',
   },
   not_applicable_indicator: {
     label: 'Not applicable', icon: 'N/A',
-    className: 'bg-gray-50 text-gray-600 ring-gray-200',
+    className: 'bg-surface-2 text-muted border-line',
     hint: 'This indicator is not eligible for lookup (for example a private IP or an internal domain), so it was never sent.',
   },
 }
@@ -99,7 +99,7 @@ export const INTEL_STATUS_META: Record<string, StatusMeta> = {
 export function statusMeta(status: string): StatusMeta {
   return (
     INTEL_STATUS_META[status] ?? {
-      label: status.replace(/_/g, ' '), icon: '???', className: 'bg-gray-100 text-gray-700 ring-gray-300',
+      label: status.replace(/_/g, ' '), icon: '???', className: 'bg-surface-2 text-fg border-line-strong',
       hint: 'Unrecognised status.',
     }
   )
