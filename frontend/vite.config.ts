@@ -7,6 +7,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
     plugins: [react()],
+    // build identifier shown in the status bar (frontend package version)
+    define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.1.0') },
     server: {
       port: 5173,
       proxy: {

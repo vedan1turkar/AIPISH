@@ -15,7 +15,7 @@ export function IntelStatusChip({ status }: { status: string }) {
     <span
       title={m.hint}
       data-status={status}
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset whitespace-nowrap ${m.className}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium ring-1 ring-inset whitespace-nowrap ${m.className}`}
     >
       <span aria-hidden>{m.icon}</span>
       {m.label}
@@ -25,7 +25,7 @@ export function IntelStatusChip({ status }: { status: string }) {
 
 function Disclaimer() {
   return (
-    <div role="note" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+    <div role="note" className=" border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
       <strong>Read with care:</strong> {INTEL_DISCLAIMER}
     </div>
   )
@@ -47,7 +47,7 @@ function ConsentCard({
     ? ORDER_PROVIDERS.filter((p) => status.providers[p]?.enabled).map((p) => status.providers[p].label)
     : []
   return (
-    <Panel title="External lookup consent" status={<span className="text-[11px] text-gray-400">External lookups are off unless you opt in for this analysis</span>}>
+    <Panel title="External lookup consent" status={<span className="text-xs text-gray-400">External lookups are off unless you opt in for this analysis</span>}>
       <div className="space-y-2 text-sm text-gray-700">
         <p>
           <strong>What is sent:</strong> only the bare indicator: a public IP address, a domain name, or an attachment
@@ -60,7 +60,7 @@ function ConsentCard({
           strings, attachments, case IDs, or private and internal addresses.
         </p>
         {status?.offline && (
-          <p className="rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
+          <p className=" bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
             Offline mode is on, so no external calls are made. Only cached results are shown, and they are labelled stale
             if expired.
           </p>
@@ -80,7 +80,7 @@ function ConsentCard({
             type="button"
             onClick={() => onRun(true)}
             disabled={!agreed || running}
-            className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+            className=" bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             {running ? 'Running lookups…' : hasRun ? 'Run threat intel lookup again' : 'Run threat intel lookup'}
           </button>
@@ -88,7 +88,7 @@ function ConsentCard({
             type="button"
             onClick={() => onRun(false)}
             disabled={running}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className=" border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Decline external lookups (record decision)
           </button>
@@ -111,7 +111,7 @@ export function ProviderStatusChips({ status }: { status: IntelServiceStatus | n
             ? 'bg-amber-50 text-amber-800 ring-amber-200'
             : 'bg-gray-50 text-gray-600 ring-gray-200'
         return (
-          <li key={key} title={p.note ?? ''} className={`rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset ${cls}`}>
+          <li key={key} title={p.note ?? ''} className={` px-2 py-0.5 text-xs ring-1 ring-inset ${cls}`}>
             <span aria-hidden>{p.enabled ? '● ' : '○ '}</span>
             {p.label}: {state}
           </li>
@@ -125,30 +125,30 @@ function ResultRow({ r }: { r: IntelResult }) {
   const facts = factsFor(r)
   const cache = cacheLabel(r)
   return (
-    <li className="rounded-lg border border-gray-200 p-3" data-provider={r.provider}>
+    <li className=" border border-gray-200 p-3" data-provider={r.provider}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold text-gray-800">{r.provider_label}</span>
         <IntelStatusChip status={r.status} />
         {cache && (
           <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-              r.cache_state === 'stale' ? 'bg-amber-200 text-amber-900' : 'bg-gray-100 text-gray-600'
-            }`}
+            className={` px-1.5 py-0.5 text-xs font-semibold ${
+ r.cache_state === 'stale' ? 'bg-amber-200 text-amber-900' : 'bg-gray-100 text-gray-600'
+ }`}
           >
             {cache}
             {r.cache_state === 'stale' ? ` · ${ageText(r.cache_age_seconds)}` : ''}
           </span>
         )}
-        <span className="text-[11px] text-gray-400">
+        <span className="text-xs text-gray-400">
           {r.fetched_at ? `fetched ${formatDate(r.fetched_at)}` : 'no data fetched'}
         </span>
       </div>
       <p className="mt-1 text-xs text-gray-600 break-words">{r.message}</p>
       {r.retry_after_seconds ? (
-        <p className="mt-0.5 text-[11px] text-amber-700">Retry after about {r.retry_after_seconds}s.</p>
+        <p className="mt-0.5 text-xs text-amber-700">Retry after about {r.retry_after_seconds}s.</p>
       ) : null}
       {facts.length > 0 && (
-        <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-0.5 text-[11px] sm:grid-cols-2">
+        <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-0.5 text-xs sm:grid-cols-2">
           {facts.map(([k, v]) => (
             <div key={k} className="flex min-w-0 gap-1">
               <dt className="shrink-0 text-gray-400">{k}:</dt>
@@ -157,7 +157,7 @@ function ResultRow({ r }: { r: IntelResult }) {
           ))}
         </dl>
       )}
-      <p className="mt-1 text-[10px] text-gray-400">Source: {r.source}</p>
+      <p className="mt-1 text-xs text-gray-400">Source: {r.source}</p>
     </li>
   )
 }
@@ -165,13 +165,13 @@ function ResultRow({ r }: { r: IntelResult }) {
 function IndicatorCard({ ind }: { ind: IntelIndicator }) {
   const notLooked = ind.state !== 'looked_up'
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm" data-indicator={ind.indicator}>
+    <div className=" border border-gray-200 bg-white p-3 " data-indicator={ind.indicator}>
       <div className="flex flex-wrap items-center gap-2">
         <code className="break-all text-sm font-semibold text-gray-900">{ind.indicator}</code>
-        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] uppercase text-gray-600">{ind.indicator_type}</span>
+        <span className=" bg-gray-100 px-1.5 py-0.5 text-xs uppercase text-gray-600">{ind.indicator_type}</span>
         {notLooked && <IntelStatusChip status={ind.state} />}
       </div>
-      <p className="mt-0.5 text-[11px] text-gray-500">From: {ind.origins.join(', ')}</p>
+      <p className="mt-0.5 text-xs text-gray-500">From: {ind.origins.join(', ')}</p>
       {notLooked ? (
         <p className="mt-1 text-xs text-gray-600">{ind.message ?? ind.rejection_reason}</p>
       ) : (
@@ -216,7 +216,7 @@ export function RunSummary({ run }: { run: ThreatIntelRun }) {
         ))}
       </ul>
       {idle.length > 0 && (
-        <p className="text-[11px] text-gray-400">
+        <p className="text-xs text-gray-400">
           No applicable indicators for: {idle.map((p) => p.replace(/_/g, ' ')).join(', ')}.
         </p>
       )}
@@ -250,7 +250,7 @@ export default function ThreatIntelPanel({
     <div className="space-y-4">
       <Disclaimer />
       {simulated && (
-        <div className="rounded-lg border-2 border-dashed border-fuchsia-400 bg-fuchsia-50 px-3 py-2 text-xs font-semibold text-fuchsia-900">
+        <div className=" border-2 border-dashed border-fuchsia-400 bg-fuchsia-50 px-3 py-2 text-xs font-semibold text-fuchsia-900">
           SIMULATED providers: these results come from a local stub, not from real provider data.
         </div>
       )}
@@ -258,7 +258,7 @@ export default function ThreatIntelPanel({
       {canRun ? (
         <ConsentCard status={status} running={running} hasRun={!!run} onRun={onRun} />
       ) : (
-        <p className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500" data-testid="intel-readonly">
+        <p className=" border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500" data-testid="intel-readonly">
           Your role can view stored threat-intel results but cannot run external lookups.
         </p>
       )}
@@ -268,16 +268,15 @@ export default function ThreatIntelPanel({
       {error && !loading && <ErrorAlert message={`Could not load threat-intel results: ${error}`} />}
       {!loading && !error && !run && (
         <EmptyState
-          icon="🛡️"
           title="No threat-intel lookup has been run"
           hint="Nothing has been sent to any external provider for this analysis."
         />
       )}
       {run && (
-        <Panel title="Threat-intelligence results" status={<span className="text-[11px] text-gray-400">Informational only: not part of the score or verdict</span>}>
+        <Panel title="Threat-intelligence results" status={<span className="text-xs text-gray-400">Informational only: not part of the score or verdict</span>}>
           <RunSummary run={run} />
           {!run.consent.granted && (
-            <p className="mt-2 rounded bg-indigo-50 px-2 py-1 text-xs text-indigo-800">
+            <p className="mt-2 bg-indigo-50 px-2 py-1 text-xs text-indigo-800">
               External lookups were declined for this run. Nothing was sent to any provider.
             </p>
           )}
@@ -288,7 +287,7 @@ export default function ThreatIntelPanel({
               run.indicators.map((ind) => <IndicatorCard key={`${ind.indicator_type}:${ind.indicator}`} ind={ind} />)
             )}
           </div>
-          <p className="mt-3 text-[11px] text-gray-400">
+          <p className="mt-3 text-xs text-gray-400">
             Not configured (out of scope): {Object.values(run.not_configured).join(' · ')}
           </p>
         </Panel>

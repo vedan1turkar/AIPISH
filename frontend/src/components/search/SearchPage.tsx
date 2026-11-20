@@ -38,12 +38,12 @@ export default function SearchPage() {
   const r = res?.results
   const total = r ? Object.values(r).reduce((n, x) => n + (x?.total ?? 0), 0) : 0
   const maxTotal = r ? Math.max(0, ...Object.values(r).map((x) => x?.total ?? 0)) : 0
-  const field = 'mt-1 block rounded-lg border border-gray-300 px-2 py-1.5 text-sm'
+  const field = 'mt-1 block border border-gray-300 px-2 py-1.5 text-sm'
 
   return (
     <div className="space-y-4" data-testid="search-page">
       <h2 className="text-lg font-semibold text-gray-900">Search</h2>
-      <form onSubmit={onSubmit} aria-label="Search" className="flex flex-wrap items-end gap-2 rounded-xl border border-gray-200 bg-white p-3">
+      <form onSubmit={onSubmit} aria-label="Search" className="flex flex-wrap items-end gap-2 border border-gray-200 bg-white p-3">
         <label className="text-xs font-medium text-gray-700">
           Domain, IP, hash, case or analysis ID, subject…
           <input name="q" value={q} maxLength={200} onChange={(e) => setQ(e.target.value)} className={`${field} w-72`} />
@@ -76,13 +76,13 @@ export default function SearchPage() {
           To
           <input type="date" name="date_to" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={field} />
         </label>
-        <button type="submit" disabled={busy} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-300">
+        <button type="submit" disabled={busy} className=" bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-300">
           Search
         </button>
       </form>
       {error && <ErrorAlert message={error} />}
       {busy && <Spinner label="Searching…" />}
-      {res && !busy && total === 0 && <EmptyState icon="🔎" title="No results" hint="Try a shorter value or another filter." />}
+      {res && !busy && total === 0 && <EmptyState title="No results" hint="Try a shorter value or another filter." />}
       {r?.analysis && r.analysis.total > 0 && (
         <Panel title={`Analyses (${r.analysis.total})`}>
           <ul className="divide-y divide-gray-100" data-testid="search-analyses">
@@ -136,10 +136,10 @@ export default function SearchPage() {
       {res && maxTotal > PAGE && (
         <div className="flex items-center gap-2 text-xs">
           <button disabled={offset === 0 || busy} onClick={() => run(Math.max(0, offset - PAGE))}
-                  className="rounded border border-gray-300 bg-white px-2 py-1 disabled:opacity-50">Previous</button>
+                  className=" border border-gray-300 bg-white px-2 py-1 disabled:opacity-50">Previous</button>
           <span className="text-gray-500">results {offset + 1}–{Math.min(offset + PAGE, maxTotal)}</span>
           <button disabled={offset + PAGE >= maxTotal || busy} onClick={() => run(offset + PAGE)}
-                  className="rounded border border-gray-300 bg-white px-2 py-1 disabled:opacity-50">Next</button>
+                  className=" border border-gray-300 bg-white px-2 py-1 disabled:opacity-50">Next</button>
         </div>
       )}
     </div>

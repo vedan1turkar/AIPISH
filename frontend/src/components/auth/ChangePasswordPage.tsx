@@ -2,7 +2,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, changePassword, getMe } from '../../api/client'
 import { setSession } from '../../auth/session'
-import { ErrorAlert, Panel } from '../ui'
+import { Button, ErrorAlert, Field, Input, LED, Panel } from '../ui'
 
 export default function ChangePasswordPage({ required, onDone }: { required: boolean; onDone?: () => void }) {
   const [current, setCurrent] = useState('')
@@ -38,45 +38,32 @@ export default function ChangePasswordPage({ required, onDone }: { required: boo
   }
 
   const field = (label: string, name: string, value: string, set: (v: string) => void, auto: string) => (
-    <label className="block text-xs font-medium text-gray-700">
-      {label}
-      <input
-        name={name}
-        type="password"
-        autoComplete={auto}
-        value={value}
-        onChange={(e) => set(e.target.value)}
-        required
-        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-      />
-    </label>
+    <Field label={label}>
+      <Input name={name} type="password" autoComplete={auto} value={value} onChange={(e) => set(e.target.value)} required />
+    </Field>
   )
 
   return (
-    <div className="mx-auto max-w-md">
+    <div className="mx-auto max-w-[440px]">
       <Panel title={required ? 'Change your temporary password' : 'Change password'}>
         <form onSubmit={onSubmit} aria-label="Change password" className="space-y-3">
           {required && (
-            <p className="text-xs text-amber-800">
-              Your account uses a temporary password. Choose a new one to continue.
+            <p className="flex items-center gap-2 text-sm text-warn">
+              <LED tone="warn" />Your account uses a temporary password. Choose a new one to continue.
             </p>
           )}
-          <p className="text-xs text-gray-500">
+          <p className="text-sm text-muted">
             12–128 characters, not based on your username and not a common password. Changing it signs out
             your other sessions.
           </p>
           {error && <ErrorAlert message={error} />}
-          {done && !required && <p role="status" className="text-xs text-emerald-700">Password changed.</p>}
+          {done && !required && <p role="status" className="flex items-center gap-2 text-sm text-ok"><LED tone="ok" />Password changed.</p>}
           {field('Current password', 'current', current, setCurrent, 'current-password')}
           {field('New password', 'new', next, setNext, 'new-password')}
           {field('Repeat new password', 'confirm', confirm, setConfirm, 'new-password')}
-          <button
-            type="submit"
-            disabled={busy || !current || !next || !confirm}
-            className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
+          <Button type="submit" variant="primary" disabled={busy || !current || !next || !confirm}>
             {busy ? 'Saving…' : 'Change password'}
-          </button>
+          </Button>
         </form>
       </Panel>
     </div>

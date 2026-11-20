@@ -6,7 +6,7 @@ import { CONFIDENCE_STYLE, TIER_STYLE, typeLabel } from './model'
 
 export function TierChip({ tier }: { tier: string }) {
   return (
-    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ring-1 ${TIER_STYLE[tier] ?? TIER_STYLE.weak}`}>
+    <span className={` px-1.5 py-0.5 text-xs font-semibold uppercase ring-1 ${TIER_STYLE[tier] ?? TIER_STYLE.weak}`}>
       {tier}
     </span>
   )
@@ -17,16 +17,16 @@ export function CampaignBadge({ id, label, confidence }: { id: string; label: st
     <a
       href={`#campaign/${id}`}
       data-testid="campaign-badge"
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${CONFIDENCE_STYLE[confidence] ?? CONFIDENCE_STYLE.low}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold ring-1 ${CONFIDENCE_STYLE[confidence] ?? CONFIDENCE_STYLE.low}`}
     >
-      🕸️ {label} · {confidence} confidence
+      {label} · {confidence} confidence
     </a>
   )
 }
 
 export function Disclaimer({ text }: { text: string }) {
   return (
-    <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600" data-testid="corr-disclaimer">
+    <p className=" border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600" data-testid="corr-disclaimer">
       {text}
     </p>
   )
@@ -40,8 +40,8 @@ function IndicatorList({ items }: { items: SharedIndicator[] }) {
           <TierChip tier={i.tier} />
           <span className="text-gray-500">{typeLabel(i.type)}</span>
           <span className="font-mono text-gray-900 break-all">{i.value}</span>
-          {i.damped && <span className="text-[10px] text-amber-700">(damped: common value)</span>}
-          <span className="text-[10px] text-gray-400" title={i.evidence.map((e) => `${e.analysis_id?.slice(0, 8) ?? ''} ${e.source_field}`).join('\n')}>
+          {i.damped && <span className="text-xs text-amber-700">(damped: common value)</span>}
+          <span className="text-xs text-gray-400" title={i.evidence.map((e) => `${e.analysis_id?.slice(0, 8) ?? ''} ${e.source_field}`).join('\n')}>
             evidence: {Array.from(new Set(i.evidence.map((e) => e.source_field))).join(', ')}
           </span>
         </li>
@@ -95,13 +95,12 @@ export default function RelatedPanel({ analysisId }: { analysisId: string }) {
               <CampaignBadge key={c.id} id={c.id} label={c.label} confidence={c.confidence} />
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-gray-500">Grouped by shared infrastructure only: not an identification of a sender or person.</p>
+          <p className="mt-2 text-xs text-gray-500">Grouped by shared infrastructure only: not an identification of a sender or person.</p>
         </Panel>
       )}
       <Panel title={`Related analyses (${linked.length} linked)`}>
         {linked.length === 0 ? (
           <EmptyState
-            icon="🔗"
             title="No related analyses found"
             hint="No other stored analysis shares enough non-generic infrastructure with this one. This is not a claim that the message is unique."
           />
@@ -113,13 +112,13 @@ export default function RelatedPanel({ analysisId }: { analysisId: string }) {
                   <a href={`#analysis/${r.analysis.id}`} className="font-medium text-indigo-700 hover:underline">
                     {r.analysis.subject || '(no subject)'}
                   </a>
-                  <span className="font-mono text-[11px] text-gray-400">{r.analysis.id.slice(0, 8)}</span>
-                  <span className="text-[11px] text-gray-400">{formatDate(r.analysis.created_at)}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${CONFIDENCE_STYLE[r.confidence ?? 'low']}`}>
+                  <span className="font-mono text-xs text-gray-400">{r.analysis.id.slice(0, 8)}</span>
+                  <span className="text-xs text-gray-400">{formatDate(r.analysis.created_at)}</span>
+                  <span className={` px-2 py-0.5 text-xs font-semibold ring-1 ${CONFIDENCE_STYLE[r.confidence ?? 'low']}`}>
                     link {r.score.toFixed(2)} · {r.confidence}
                   </span>
                 </div>
-                <p className="mt-0.5 text-[11px] text-gray-500">Why: {r.explanation}.</p>
+                <p className="mt-0.5 text-xs text-gray-500">Why: {r.explanation}.</p>
                 <IndicatorList items={r.indicators} />
               </li>
             ))}
@@ -128,14 +127,14 @@ export default function RelatedPanel({ analysisId }: { analysisId: string }) {
       </Panel>
       {weak.length > 0 && (
         <Panel title={`Shared indicators below the link threshold (${weak.length})`}>
-          <p className="text-[11px] text-gray-500">These analyses share something, but not enough to be linked.</p>
+          <p className="text-xs text-gray-500">These analyses share something, but not enough to be linked.</p>
           <ul className="divide-y divide-gray-100">
             {weak.map((r) => (
               <li key={r.analysis.id} className="py-2">
                 <a href={`#analysis/${r.analysis.id}`} className="text-xs text-indigo-700 hover:underline">
                   {r.analysis.subject || r.analysis.id.slice(0, 8)}
                 </a>
-                <span className="ml-2 text-[11px] text-gray-500">{r.explanation}</span>
+                <span className="ml-2 text-xs text-gray-500">{r.explanation}</span>
                 <IndicatorList items={r.indicators} />
               </li>
             ))}
@@ -148,7 +147,7 @@ export default function RelatedPanel({ analysisId }: { analysisId: string }) {
           indicators ({genericSummary(data.generic_only_overlaps.indicators)}): stop-listed or very common values never link analyses.
         </p>
       )}
-      <p className="text-[11px] text-gray-400">{data.rule}</p>
+      <p className="text-xs text-gray-400">{data.rule}</p>
     </div>
   )
 }

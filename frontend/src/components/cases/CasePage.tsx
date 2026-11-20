@@ -83,7 +83,7 @@ export default function CasePage({ id }: { id: string }) {
           <span className="font-mono">{info.case_number}</span>
           {info.title && <span className="ml-2 text-base font-normal text-gray-600">{info.title}</span>}
         </h2>
-        <span className="text-[11px] text-gray-400">{info.status} · opened {formatDate(info.created_at)}</span>
+        <span className="text-xs text-gray-400">{info.status} · opened {formatDate(info.created_at)}</span>
       </div>
       {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
 
@@ -98,8 +98,8 @@ export default function CasePage({ id }: { id: string }) {
                   <a href={`#analysis/${m.analysis.id}`} className="text-sm font-medium text-indigo-700 hover:underline">
                     {m.analysis.subject || '(no subject)'}
                   </a>
-                  <span className="ml-2 font-mono text-[11px] text-gray-400">{m.analysis.id.slice(0, 8)}</span>
-                  <span className="ml-2 text-[11px] text-gray-400">score {m.analysis.detection_score}</span>
+                  <span className="ml-2 font-mono text-xs text-gray-400">{m.analysis.id.slice(0, 8)}</span>
+                  <span className="ml-2 text-xs text-gray-400">score {m.analysis.detection_score}</span>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {m.campaigns.map((c) => <CampaignBadge key={c.id} id={c.id} label={c.label} confidence={c.confidence} />)}
                   </div>
@@ -108,7 +108,7 @@ export default function CasePage({ id }: { id: string }) {
                   <button
                     disabled={busy}
                     onClick={() => act(() => removeCaseAnalysis(id, m.analysis.id))}
-                    className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    className=" border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   >
                     Remove from case
                   </button>
@@ -124,7 +124,7 @@ export default function CasePage({ id }: { id: string }) {
               <select
                 value={pick}
                 onChange={(e) => setPick(e.target.value)}
-                className="mt-1 block max-w-md rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+                className="mt-1 block max-w-md border border-gray-300 px-2 py-1.5 text-sm"
               >
                 <option value="">Choose a stored analysis…</option>
                 {candidates.map((a) => (
@@ -137,7 +137,7 @@ export default function CasePage({ id }: { id: string }) {
             <button
               type="submit"
               disabled={busy || !pick}
-              className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-300"
+              className=" bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-300"
             >
               Add to case
             </button>
@@ -170,7 +170,7 @@ export default function CasePage({ id }: { id: string }) {
           </table>
         )}
         {shared.length > 0 && (
-          <p className="mt-2 text-[11px] text-gray-500">{shared.length} indicator(s) appear in more than one analysis of this case.</p>
+          <p className="mt-2 text-xs text-gray-500">{shared.length} indicator(s) appear in more than one analysis of this case.</p>
         )}
       </Panel>
     </div>

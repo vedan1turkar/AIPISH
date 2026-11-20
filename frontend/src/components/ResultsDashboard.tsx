@@ -25,8 +25,13 @@ import {
   type MlStatus,
 } from '../api/client'
 import {
+  Button,
   ErrorAlert,
   MetaRow,
+  EmptyLine,
+  KV,
+  Mono,
+  Tabs,
   Panel,
   ScoreBadge,
   SeverityChip,
@@ -38,6 +43,7 @@ import {
 } from './ui'
 import { HeaderForensicsPanel, AnomaliesPanel, IntelligenceDetailsPanel } from './ForensicsPanels'
 import TraceView from './trace/TraceView'
+import VerdictStrip from './VerdictStrip'
 import { AssessmentOverviewCard, AssessmentView } from './assessment/AssessmentPanels'
 import ThreatIntelPanel from './intel/ThreatIntelPanel'
 import RelatedPanel from './correlation/RelatedPanel'
@@ -47,17 +53,17 @@ import { useAuth } from '../auth/AuthContext'
 
 type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'attack' | 'trace' | 'ai'
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'overview', label: 'Overview', icon: '📋' },
-  { id: 'findings', label: 'Findings', icon: '🚩' },
-  { id: 'auth', label: 'Authentication', icon: '🔐' },
-  { id: 'headers', label: 'Headers & relay', icon: '🔀' },
-  { id: 'intel', label: 'IP & domain intel', icon: '🌐' },
-  { id: 'threat', label: 'Threat intel', icon: '🛡️' },
-  { id: 'related', label: 'Related', icon: '🔗' },
-  { id: 'attack', label: 'ATT&CK', icon: '🧭' },
-  { id: 'trace', label: 'Trace view', icon: '🕸️' },
-  { id: 'ai', label: 'AI assessment', icon: '🤖' },
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'findings', label: 'Findings' },
+  { id: 'auth', label: 'Authentication' },
+  { id: 'headers', label: 'Headers & relay' },
+  { id: 'intel', label: 'IP & domain intel' },
+  { id: 'threat', label: 'Threat intel' },
+  { id: 'related', label: 'Related' },
+  { id: 'attack', label: 'ATT&CK' },
+  { id: 'trace', label: 'Trace view' },
+  { id: 'ai', label: 'AI assessment' },
 ]
 
 export default function ResultsDashboard({
@@ -323,63 +329,38 @@ export default function ResultsDashboard({
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
-      {/* header */}
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-4">
+      {/* header: subject + identifiers + actions */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {analysis.subject || '(no subject)'}
-          </h2>
-          <p className="mt-0.5 text-xs text-gray-400 break-all">
-            analysis {analysis.id.slice(0, 8)} · sha256 {analysis.sha256.slice(0, 16)}… ·{' '}
-            {formatDate(analysis.created_at)}
+          <h1 className="truncate text-xl font-semibold text-fg">{analysis.subject || '(no subject)'}</h1>
+          <p className="mt-0.5 flex flex-wrap gap-x-3 font-mono text-sm text-muted">
+            <span>analysis <Mono>{analysis.id}</Mono></span>
+            <span>sha256 <Mono display={`${analysis.sha256.slice(0, 16)}…`}>{analysis.sha256}</Mono></span>
+            <span>{formatDate(analysis.created_at)}</span>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {can('analysis:create') && (
-            <button
-              onClick={onNewAnalysis}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              + New analysis
-            </button>
-          )}
-          <button
+          {can('analysis:create') && <Button onClick={onNewAnalysis}>New analysis</Button>}
+          <Button
+            variant="primary"
             onClick={handleDownloadPdf}
             disabled={pdfBusy || caseBusy || (!caseInfo && !canCreateCase)}
             title={!caseInfo && !canCreateCase ? 'No investigation case exists yet; an analyst must create one.' : undefined}
-            className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            {pdfBusy ? 'Preparing report…' : '⬇ Download forensic PDF'}
-          </button>
+            {pdfBusy ? 'Preparing report…' : 'Download forensic PDF'}
+          </Button>
         </div>
       </div>
+
+      <VerdictStrip analysis={analysis} assessment={assessment} attack={attack} intelRun={intelRun}
+                    caseInfo={caseInfo} integrity={integrity} />
 
       {(pdfError || caseError) && (
-        <div className="mb-4">
-          <ErrorAlert message={pdfError ?? caseError ?? ''} onDismiss={() => { setPdfError(null); setCaseError(null) }} />
-        </div>
+        <ErrorAlert message={pdfError ?? caseError ?? ''} onDismiss={() => { setPdfError(null); setCaseError(null) }} />
       )}
 
-      {/* tabs (scrollable on mobile) */}
-      <div className="mb-4 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <nav className="flex gap-1 rounded-lg bg-gray-100 p-1" aria-label="Result sections">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              aria-selected={tab === t.id}
-              role="tab"
-              className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                tab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              <span className="mr-1" aria-hidden>{t.icon}</span>
-              {t.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <Tabs items={TABS} active={tab} onChange={setTab} label="Result sections" />
 
       {tab === 'overview' && (
         <OverviewTab
@@ -504,7 +485,7 @@ function OverviewTab({
                   <li key={fdt.rule_id} className="flex flex-wrap items-center gap-2 text-sm">
                     <SeverityChip severity={fdt.severity} />
                     <span className="text-gray-800">{fdt.title}</span>
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">
+                    <span className=" bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">
                       +{fdt.contribution} pts
                     </span>
                     <StatusBadge
@@ -518,7 +499,7 @@ function OverviewTab({
               </ul>
             )}
             {d.unknowns.length > 0 && (
-              <div className="mt-3 rounded-md bg-gray-50 px-3 py-2">
+              <div className="mt-3 bg-gray-50 px-3 py-2">
                 <p className="text-xs font-semibold text-gray-500">Data that could not be evaluated</p>
                 <ul className="mt-1 space-y-0.5 text-xs text-gray-500">
                   {d.unknowns.map((u, i) => (
@@ -589,9 +570,9 @@ function OverviewTab({
                 <button
                   onClick={onCreateCase}
                   disabled={caseBusy}
-                  className="mt-2 inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                  className="mt-2 inline-flex items-center gap-2 border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
                 >
-                  {caseBusy ? <Spinner /> : '📁 Create investigation case'}
+                  {caseBusy ? <Spinner /> : 'Create investigation case'}
                 </button>
               ) : (
                 <p className="mt-2 text-xs text-gray-400">Your role can view cases but not create them.</p>
@@ -616,7 +597,7 @@ function OverviewTab({
                     <span className="text-sm text-gray-700 capitalize">{integrity.result}</span>
                   </div>
                   <p className="mt-1 text-xs text-gray-500">{integrity.detail || 'Integrity recomputed over retained raw bytes.'}</p>
-                  <p className="mt-1 font-mono text-[11px] break-all text-gray-400">recorded {integrity.sha256_recorded}</p>
+                  <p className="mt-1 font-mono text-xs break-all text-gray-400">recorded {integrity.sha256_recorded}</p>
                 </div>
               ) : (
                 <p className="text-sm text-gray-500">
@@ -629,7 +610,7 @@ function OverviewTab({
                 <button
                   onClick={onIntegrityCheck}
                   disabled={caseBusy || integrityBusy || !caseInfo}
-                  className="mt-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="mt-2 border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Run integrity check
                 </button>
@@ -679,18 +660,19 @@ function FindingsTab({ analysis }: { analysis: AnalysisDetail }) {
             </p>
           </div>
         ) : (
-          <ul className="space-y-3">
+          <ul className="divide-y divide-line">
             {d.findings.map((fdt) => (
               <li
                 key={fdt.rule_id}
-                className="rounded-lg border border-gray-200 p-4"
+                className="py-3 first:pt-0 last:pb-0"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <SeverityChip severity={fdt.severity} />
                   <span className="font-medium text-gray-900">{fdt.title}</span>
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">
+                  <span className="font-mono text-sm text-muted">
                     +{fdt.contribution}/{fdt.weight} pts
                   </span>
+                  <span className="font-mono text-xs text-muted">{fdt.rule_id}</span>
                   <span className="ml-auto">
                     <StatusBadge
                       kind={fdt.knowledge === 'fact' ? 'verified' : 'inferred'}
@@ -700,15 +682,11 @@ function FindingsTab({ analysis }: { analysis: AnalysisDetail }) {
                     />
                   </span>
                 </div>
-                <dl className="mt-3 space-y-1.5 text-sm">
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-gray-400">Evidence</dt>
-                    <dd className="text-gray-800">{fdt.evidence}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-gray-400">Why it matters</dt>
-                    <dd className="text-gray-600">{fdt.rationale}</dd>
-                  </div>
+                <dl className="mt-2 grid grid-cols-[minmax(5rem,9rem)_1fr] gap-x-3 gap-y-1 text-sm">
+                  <dt className="font-mono text-xs uppercase leading-5 tracking-wider text-muted">Evidence</dt>
+                  <dd className="font-mono text-fg">{fdt.evidence}</dd>
+                  <dt className="font-mono text-xs uppercase leading-5 tracking-wider text-muted">Why it matters</dt>
+                  <dd className="text-muted">{fdt.rationale}</dd>
                 </dl>
               </li>
             ))}
@@ -718,7 +696,7 @@ function FindingsTab({ analysis }: { analysis: AnalysisDetail }) {
 
       <Panel title="Observed facts (no points added)">
         {d.observed_facts.length === 0 ? (
-          <EmptyStateInline icon="ℹ️" text="No neutral observations were recorded for this message." />
+          <EmptyStateInline text="No neutral observations were recorded for this message." />
         ) : (
           <ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">
             {d.observed_facts.map((fact, i) => (
@@ -792,28 +770,29 @@ function AuthTab({ analysis }: { analysis: AnalysisDetail }) {
       </Panel>
 
       <Panel title="Alignment">
-        <div className="grid gap-2 sm:grid-cols-3">
-          {Object.entries(a.alignment).length === 0 ? (
-            <p className="text-sm text-gray-400 sm:col-span-3">No alignment data was computed.</p>
-          ) : (
-            Object.entries(a.alignment).map(([k, v]) => (
-              <div key={k} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
-                <span className="text-xs font-semibold uppercase text-gray-600">{k}</span>
-                <StatusBadge kind={v === 'aligned' ? 'verified' : 'inferred'} title={v} />
-                <span className="text-xs text-gray-500">{v}</span>
-              </div>
-            ))
-          )}
-        </div>
+        {Object.entries(a.alignment).length === 0 ? (
+          <EmptyLine>No alignment data was computed.</EmptyLine>
+        ) : (
+          <dl className="grid gap-x-8 sm:grid-cols-2">
+            {Object.entries(a.alignment).map(([k, v]) => (
+              <KV key={k} label={k}>
+                <span className="inline-flex items-center gap-2">
+                  <StatusBadge kind={v === 'aligned' ? 'verified' : 'inferred'} title={v} />
+                  <span className="text-muted">{v}</span>
+                </span>
+              </KV>
+            ))}
+          </dl>
+        )}
       </Panel>
 
       <Panel title="Raw Authentication-Results header lines (observed facts)">
         {analysis.authentication_results.length === 0 ? (
-          <EmptyStateInline icon="ℹ️" text="No Authentication-Results headers present in the message." />
+          <EmptyStateInline text="No Authentication-Results headers present in the message." />
         ) : (
           <ul className="space-y-1 text-xs">
             {analysis.authentication_results.map((line, i) => (
-              <li key={i} className="font-mono break-all rounded bg-gray-50 px-2 py-1 text-gray-700">
+              <li key={i} className="font-mono break-all bg-gray-50 px-2 py-1 text-gray-700">
                 {line}
               </li>
             ))}
@@ -827,13 +806,13 @@ function AuthTab({ analysis }: { analysis: AnalysisDetail }) {
 function misMatchNote(p: { status: string; claims: string[] }, mismatch: boolean) {
   if (mismatch) {
     return (
-      <span className="rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-700">
+      <span className=" bg-red-50 px-1.5 py-0.5 text-xs font-medium text-red-700">
         header claim conflicts with verification
       </span>
     )
   }
   if (p.status.startsWith('verified_') && p.claims.length === 0) {
-    return <span className="text-[11px] text-gray-400">no header claim to compare</span>
+    return <span className="text-xs text-gray-400">no header claim to compare</span>
   }
   return null
 }
@@ -846,11 +825,11 @@ function HeadersTab({ analysis }: { analysis: AnalysisDetail }) {
       <AnomaliesPanel data={analysis.forensics} />
       <Panel title="Full header counts (observed facts)">
         {Object.keys(analysis.header_counts).length === 0 ? (
-          <EmptyStateInline icon="ℹ️" text="No headers were counted." />
+          <EmptyStateInline text="No headers were counted." />
         ) : (
           <div className="flex flex-wrap gap-2">
             {Object.entries(analysis.header_counts).map(([k, v]) => (
-              <span key={k} className="rounded bg-gray-100 px-2 py-1 text-xs font-mono text-gray-700">
+              <span key={k} className=" bg-gray-100 px-2 py-1 text-xs font-mono text-gray-700">
                 {k}: {v}
               </span>
             ))}
@@ -875,13 +854,12 @@ function IntelTab({ analysis }: { analysis: AnalysisDetail }) {
         }
       >
         {enr.degraded.length > 0 && (
-          <div className="mb-3 rounded-md bg-orange-50 px-3 py-2 text-xs text-orange-800">
+          <div className="mb-3 bg-orange-50 px-3 py-2 text-xs text-orange-800">
             Some providers were unavailable and skipped: {enr.degraded.join(', ')}
           </div>
         )}
         {enr.results.length === 0 ? (
           <EmptyStateInline
-            icon="🌐"
             text={
               enr.degraded.length > 0
                 ? 'No enrichment data was returned — required providers were unavailable.'
@@ -911,7 +889,7 @@ function IntelTab({ analysis }: { analysis: AnalysisDetail }) {
                     <td className="py-2.5 pr-3 text-xs text-gray-500">{r.latency_ms} ms</td>
                     <td className="py-2.5 text-xs text-gray-500">
                       <EvidenceSummary evidence={r.evidence} />
-                      <div className="mt-0.5 font-mono text-[11px] text-gray-300">{r.provenance}</div>
+                      <div className="mt-0.5 font-mono text-xs text-gray-300">{r.provenance}</div>
                     </td>
                   </tr>
                 ))}
@@ -953,11 +931,6 @@ function IntelTabInner({ analysis }: { analysis: AnalysisDetail }) {
   return <IntelligenceDetailsPanel analysis={analysis} />
 }
 
-function EmptyStateInline({ icon, text }: { icon: string; text: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500">
-      <span className="text-xl text-gray-400" aria-hidden>{icon}</span>
-      <span>{text}</span>
-    </div>
-  )
+function EmptyStateInline({ text }: { text: string }) {
+  return <EmptyLine>{text}</EmptyLine>
 }

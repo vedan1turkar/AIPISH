@@ -90,11 +90,11 @@ export default function UploadPage({
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className=" border border-gray-200 bg-white ">
         <div className="border-b border-gray-100 px-6 py-5">
           <h2 className="text-base font-semibold text-gray-900">Analyse an email</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Upload a raw <code className="rounded bg-gray-100 px-1">.eml</code> file
+            Upload a raw <code className=" bg-gray-100 px-1">.eml</code> file
             (saved from any mail client — “View original / Save as .eml”). Analysis runs
             entirely on your configured backend; the message body is parsed server-side and
             the raw file is retained there.
@@ -103,7 +103,7 @@ export default function UploadPage({
 
         <div className="px-6 py-5">
           <label
-            className="block cursor-pointer rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center transition-colors hover:border-indigo-400 hover:bg-indigo-50/40"
+            className="block cursor-pointer border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center transition-colors hover:border-indigo-400 hover:bg-indigo-50"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault()
@@ -118,9 +118,6 @@ export default function UploadPage({
               onChange={(e) => pickFile(e.target.files?.[0])}
               disabled={status === 'uploading' || status === 'analyzing'}
             />
-            <span className="text-3xl" aria-hidden>
-              ✉️
-            </span>
             <p className="mt-2 text-sm font-medium text-gray-700">
               {selectedFile ? selectedFile.name : 'Drop an .eml here or click to choose'}
             </p>
@@ -132,7 +129,7 @@ export default function UploadPage({
           </label>
 
           {validationMsg && (
-            <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800" role="alert">
+            <p className="mt-3 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="alert">
               {validationMsg}
             </p>
           )}
@@ -181,7 +178,7 @@ export default function UploadPage({
           <button
             onClick={submit}
             disabled={!selectedFile || status === 'uploading' || status === 'analyzing'}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             {status === 'uploading' || status === 'analyzing' ? (
               <Spinner label={intelNote ?? (status === 'uploading' ? 'Uploading…' : 'Analysing…')} />
@@ -192,11 +189,11 @@ export default function UploadPage({
 
           {(status === 'uploading' || status === 'analyzing') && (
             <div className="mt-4">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+              <div className="h-1.5 w-full overflow-hidden bg-gray-100">
                 <div
-                  className={`h-full rounded-full bg-indigo-500 ${
-                    status === 'uploading' ? 'w-1/3' : 'w-2/3'
-                  } transition-all`}
+                  className={`h-full bg-indigo-500 ${
+ status === 'uploading' ? 'w-1/3' : 'w-2/3'
+ } transition-all`}
                 />
               </div>
               <p className="mt-2 text-center text-xs text-gray-400">

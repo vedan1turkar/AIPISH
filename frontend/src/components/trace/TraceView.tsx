@@ -13,12 +13,14 @@ const KIND_SHAPE: Record<string, string> = {
   url: 'round-tag',
 }
 
+// Graph palette = design tokens as hex (Cytoscape cannot read CSS variables). Node kinds are told
+// apart by shape and label; only the message node uses the accent.
 const KIND_COLOR: Record<string, string> = {
-  message: '#4f46e5',
-  relay_host: '#0f766e',
-  ip: '#0369a1',
-  domain: '#7c3aed',
-  url: '#c2410c',
+  message: '#4cc9f0',
+  relay_host: '#5b6b7c',
+  ip: '#8593a1',
+  domain: '#6f7f8f',
+  url: '#a3b0bc',
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -30,17 +32,17 @@ const KIND_LABEL: Record<string, string> = {
 }
 
 const PROV_STYLE: Record<string, { border: string; 'border-width': number; opacity: number }> = {
-  observed: { border: '#16a34a', 'border-width': 3, opacity: 1 },
-  enriched: { border: '#2563eb', 'border-width': 3, opacity: 1 },
-  inferred: { border: '#9ca3af', 'border-width': 3, opacity: 0.75 },
+  observed: { border: '#3fb950', 'border-width': 3, opacity: 1 },
+  enriched: { border: '#4cc9f0', 'border-width': 3, opacity: 1 },
+  inferred: { border: '#8593a1', 'border-width': 3, opacity: 0.75 },
 }
 
 /** Border color by actual finding severity — no fixture-specific rules. */
 const SEV_BORDER: Record<string, string> = {
-  low: '#f59e0b',
-  medium: '#f97316',
-  high: '#dc2626',
-  critical: '#991b1b',
+  low: '#8593a1',
+  medium: '#e3a008',
+  high: '#f0524f',
+  critical: '#f0524f',
 }
 
 const CY_LAYOUT = {
@@ -78,7 +80,7 @@ function buildElements(g: TraceGraph): ElementDefinition[] {
       },
       style: {
         shape: KIND_SHAPE[n.kind] ?? 'ellipse',
-        'background-color': KIND_COLOR[n.kind] ?? '#6b7280',
+        'background-color': KIND_COLOR[n.kind] ?? '#8593a1',
         opacity: base.opacity,
         ...seStyle,
       },
@@ -100,16 +102,16 @@ function buildElements(g: TraceGraph): ElementDefinition[] {
       },
       style: {
         width: 2,
-        'line-color': observed ? '#6b7280' : '#cbd5e1',
+        'line-color': observed ? '#8593a1' : '#3a4757',
         'line-style': observed ? 'solid' : 'dashed',
-        'target-arrow-color': observed ? '#6b7280' : '#cbd5e1',
+        'target-arrow-color': observed ? '#8593a1' : '#3a4757',
         'target-arrow-shape': 'triangle',
         'curve-style': 'bezier',
         label: e.label,
         'font-size': 9,
-        color: observed ? '#4b5563' : '#94a3b8',
+        color: observed ? '#dbe3ea' : '#8593a1',
         'font-style': observed ? 'normal' : 'italic',
-        'text-background-color': '#f9fafb',
+        'text-background-color': '#10161d',
         'text-background-opacity': 0.85,
         'text-background-padding': 2,
       },
@@ -150,19 +152,19 @@ function EvidenceCard({
       : []
   const enr = item.enrichment_statuses ?? []
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className=" border border-gray-200 bg-white p-4 ">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
         <span
-          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${
-            item.provenance === 'observed'
-              ? 'bg-emerald-100 text-emerald-800 ring-emerald-300'
-              : item.provenance === 'enriched'
-                ? 'bg-blue-100 text-blue-800 ring-blue-300'
-                : item.provenance === 'inferred'
-                  ? 'bg-gray-100 text-gray-600 ring-gray-300'
-                  : 'bg-indigo-100 text-indigo-700 ring-indigo-200'
-          }`}
+          className={` px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+ item.provenance === 'observed'
+ ? 'bg-emerald-100 text-emerald-800 ring-emerald-300'
+ : item.provenance === 'enriched'
+ ? 'bg-blue-100 text-blue-800 ring-blue-300'
+ : item.provenance === 'inferred'
+ ? 'bg-gray-100 text-gray-600 ring-gray-300'
+ : 'bg-indigo-100 text-indigo-700 ring-indigo-200'
+ }`}
         >
           {isEdge ? `${item.provenance ?? '?'} edge` : (item.provenance ?? '?')}
         </span>
@@ -175,19 +177,19 @@ function EvidenceCard({
           Relationship: <span className="font-semibold">{item.relationship}</span>
         </p>
       )}
-      <p className="truncate font-mono text-[11px] text-gray-400">{item.id}</p>
+      <p className="truncate font-mono text-xs text-gray-400">{item.id}</p>
 
       {/* severity + associated findings — from actual detection findings */}
       {item.severity && (
         <div className="mt-2 flex items-center gap-1.5">
           <SeverityChip severity={item.severity} />
-          <span className="text-[11px] text-gray-500">referenced by detection findings</span>
+          <span className="text-xs text-gray-500">referenced by detection findings</span>
         </div>
       )}
       {linked.length > 0 && (
         <div className="mt-2 space-y-1">
           {linked.map((f) => (
-            <div key={f.rule_id} className="rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px]">
+            <div key={f.rule_id} className=" border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs">
               <span className="font-medium text-gray-800">{f.title}</span>
               <span className="ml-1 text-gray-400">(+{f.contribution} pts)</span>
               <p className="mt-0.5 break-all text-gray-600">{f.evidence}</p>
@@ -198,9 +200,9 @@ function EvidenceCard({
 
       {/* enrichment statuses — verbatim provider results, or nothing when none */}
       {enr.length > 0 && (
-        <div className="mt-2 rounded bg-blue-50 px-2 py-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Enrichment</p>
-          <ul className="mt-0.5 space-y-0.5 text-[11px] text-blue-900">
+        <div className="mt-2 bg-blue-50 px-2 py-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Enrichment</p>
+          <ul className="mt-0.5 space-y-0.5 text-xs text-blue-900">
             {enr.map((s, i) => (
               <li key={i}>
                 <span className="font-mono">{s.provider}</span>: {s.status} · {s.latency_ms} ms
@@ -267,12 +269,12 @@ export default function TraceView({ analysis }: { analysis: AnalysisDetail }) {
             style: {
               label: 'data(label)',
               'font-size': 11,
-              color: '#111827',
+              color: '#dbe3ea',
               'text-valign': 'bottom',
               'text-margin-y': 8,
               'text-wrap': 'wrap',
               'text-max-width': 112,
-              'text-outline-color': '#f9fafb',
+              'text-outline-color': '#0a0e13',
               'text-outline-width': 2,
               width: 32,
               height: 32,
@@ -350,17 +352,17 @@ export default function TraceView({ analysis }: { analysis: AnalysisDetail }) {
   return (
     <div className="space-y-4">
       {/* legend + disclaimer */}
-      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+      <div className=" border border-gray-200 bg-white p-3 ">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600">
             <span className="font-semibold text-gray-700">Evidence:</span>
             {(['observed', 'inferred'] as const).map((p) => (
               <span key={p} className="flex items-center gap-1.5">
                 <span
-                  className={`inline-block h-3 w-3 rounded-full ring-2 ${
-                    p === 'observed'
-                      ? 'bg-emerald-600 ring-emerald-300'
-                      : 'bg-gray-400 opacity-70 ring-gray-200'
-                  }`}
+                  className={`inline-block h-3 w-3 ring-2 ${
+ p === 'observed'
+ ? 'bg-emerald-600 ring-emerald-300'
+ : 'bg-gray-400 opacity-70 ring-gray-200'
+ }`}
                 />
                 {p === 'observed' && 'Observed (from message bytes)'}
                 {p === 'inferred' && 'Inferred (heuristic reconstruction)'}
@@ -396,11 +398,10 @@ export default function TraceView({ analysis }: { analysis: AnalysisDetail }) {
       </div>
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="relative h-[min(68vh,620px)] min-h-[440px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm">
+        <div className="relative h-[min(68vh,620px)] min-h-[440px] overflow-hidden border border-gray-200 bg-gray-50 ">
           {!hasData ? (
             <div className="flex h-full items-center justify-center p-4">
               <EmptyState
-                icon="🕸️"
                 title="Nothing to trace yet"
                 hint="This message has no relay hops, IPs, sender domain or URLs to visualize."
               />
@@ -423,7 +424,7 @@ export default function TraceView({ analysis }: { analysis: AnalysisDetail }) {
                   title="Zoom in"
                   aria-label="Zoom in"
                   onClick={() => zoomBy(1.25)}
-                  className="h-7 w-7 rounded-md border border-gray-300 bg-white/95 text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 active:bg-gray-100"
+                  className="h-7 w-7 border border-gray-300 bg-surface text-sm font-semibold text-gray-600 hover:bg-gray-50 active:bg-gray-100"
                 >
                   +
                 </button>
@@ -431,7 +432,7 @@ export default function TraceView({ analysis }: { analysis: AnalysisDetail }) {
                   title="Zoom out"
                   aria-label="Zoom out"
                   onClick={() => zoomBy(1 / 1.25)}
-                  className="h-7 w-7 rounded-md border border-gray-300 bg-white/95 text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 active:bg-gray-100"
+                  className="h-7 w-7 border border-gray-300 bg-surface text-sm font-semibold text-gray-600 hover:bg-gray-50 active:bg-gray-100"
                 >
                   −
                 </button>
@@ -439,7 +440,7 @@ export default function TraceView({ analysis }: { analysis: AnalysisDetail }) {
                   title="Fit to screen"
                   aria-label="Fit to screen"
                   onClick={() => cyRef.current?.fit(undefined, 30)}
-                  className="h-7 w-7 rounded-md border border-gray-300 bg-white/95 text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 active:bg-gray-100"
+                  className="h-7 w-7 border border-gray-300 bg-surface text-sm font-semibold text-gray-600 hover:bg-gray-50 active:bg-gray-100"
                 >
                   ⤢
                 </button>
@@ -452,13 +453,13 @@ export default function TraceView({ analysis }: { analysis: AnalysisDetail }) {
                     cy.layout({ ...CY_LAYOUT }).run()
                     cy.fit(undefined, 30)
                   }}
-                  className="h-7 w-7 rounded-md border border-gray-300 bg-white/95 text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 active:bg-gray-100"
+                  className="h-7 w-7 border border-gray-300 bg-surface text-sm font-semibold text-gray-600 hover:bg-gray-50 active:bg-gray-100"
                 >
                   ↺
                 </button>
               </div>
               {graph.nodes.length > 1 && (
-                <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-gray-200 bg-white/90 px-2 py-1 text-[11px] text-gray-500 shadow-sm">
+                <div className="pointer-events-none absolute bottom-3 left-3 border border-gray-200 bg-surface px-2 py-1 text-xs text-gray-500 ">
                   {graph.nodes.length} entities · {graph.edges.length} relationships · select an entity or arrow for evidence
                 </div>
               )}
@@ -476,7 +477,7 @@ export default function TraceView({ analysis }: { analysis: AnalysisDetail }) {
           {selected ? (
             <EvidenceCard item={selected} finding_details={analysis.detection?.findings ?? []} />
           ) : (
-            <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-5 text-center text-xs text-gray-400">
+            <div className=" border border-dashed border-gray-300 bg-white px-4 py-5 text-center text-xs text-gray-400">
               Click an entity or arrow to inspect its evidence, source, findings and enrichment status.
             </div>
           )}
@@ -492,9 +493,9 @@ export default function TraceView({ analysis }: { analysis: AnalysisDetail }) {
 function MapPanel({ geoNodes }: { geoNodes: TraceNode[] }) {
   if (geoNodes.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className=" border border-gray-200 bg-white p-4 ">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Infrastructure location</h3>
-        <p className="mt-2 rounded-md bg-orange-50 px-3 py-2 text-xs text-orange-700">
+        <p className="mt-2 bg-orange-50 px-3 py-2 text-xs text-orange-700">
           Map unavailable — no geolocation provider returned coordinates for the observed
           public IPs. Enable a provider (e.g. <code>ENRICH_ENABLE_IPGEO</code> or a
           MaxMind database key) to see infrastructure locations plotted; nothing is invented
@@ -505,15 +506,15 @@ function MapPanel({ geoNodes }: { geoNodes: TraceNode[] }) {
   }
   // Provider-reported coordinates only — plotted on an equirectangular grid.
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className=" border border-gray-200 bg-white p-4 ">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
         Infrastructure location (provider-reported)
       </h3>
-      <p className="mt-1 text-[11px] italic text-gray-400">
+      <p className="mt-1 text-xs italic text-gray-400">
         Network infrastructure location only — this does not locate or identify a person.
       </p>
       <div className="mt-2 overflow-x-auto">
-        <svg viewBox="0 0 360 180" className="h-40 w-full min-w-[320px] rounded border border-gray-100 bg-sky-50">
+        <svg viewBox="0 0 360 180" className="h-40 w-full min-w-[320px] border border-gray-100 bg-sky-50">
           {[30, 60, 90, 120, 150].map((y) => (
             <line key={y} x1="0" y1={y} x2="360" y2={y} stroke="#e0f2fe" strokeWidth="0.5" />
           ))}
@@ -536,7 +537,7 @@ function MapPanel({ geoNodes }: { geoNodes: TraceNode[] }) {
           })}
         </svg>
       </div>
-      <ul className="mt-2 space-y-0.5 text-[11px] text-gray-500">
+      <ul className="mt-2 space-y-0.5 text-xs text-gray-500">
         {geoNodes.map((n) => (
           <li key={n.id}>
             <span className="font-mono">{n.label}</span> → {n.geo!.label} ({n.geo!.provider})

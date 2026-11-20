@@ -25,23 +25,22 @@ export function HeaderForensicsPanel({ data }: { data: Forensics }) {
           {chain.length === 0 ? (
             <div className="mt-2">
               <EmptyState
-                icon="🔀"
                 title="No relay hops found"
                 hint="No Received headers are present. The message's transport path cannot be reconstructed from the available evidence."
               />
             </div>
           ) : (
-            <ol className="mt-2 space-y-2">
+            <ol className="mt-2 border-y border-line">
               {chain.map((hop, i) => (
                 <li
                   key={hop.index ?? i}
-                  className={`relative rounded-lg border p-3 pl-9 ${
-                    hop.trusted ? 'border-emerald-200 bg-emerald-50/40' : 'border-gray-200 bg-white'
+                  className={`relative border-b border-l-2 border-b-line py-2 pl-10 pr-2 last:border-b-0 ${
+                    hop.trusted ? 'border-l-ok' : 'border-l-transparent'
                   }`}
                 >
                   <span
-                    className={`absolute left-3 top-3 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white ${
-                      hop.trusted ? 'bg-emerald-500' : 'bg-gray-400'
+                    className={`absolute left-2 top-2 flex h-5 min-w-[1.5rem] items-center justify-center border font-mono text-xs ${
+                      hop.trusted ? 'border-ok-line text-ok' : 'border-line-strong text-muted'
                     }`}
                   >
                     {hop.index ?? i + 1}
@@ -54,7 +53,7 @@ export function HeaderForensicsPanel({ data }: { data: Forensics }) {
                       <span className="text-xs text-gray-400">{hop.from_ip_category}</span>
                     )}
                     {hop.tls && (
-                      <span className="rounded bg-teal-50 px-1.5 py-0.5 text-[11px] text-teal-700 ring-1 ring-inset ring-teal-200">
+                      <span className=" bg-teal-50 px-1.5 py-0.5 text-xs text-teal-700 ring-1 ring-inset ring-teal-200">
                         TLS
                       </span>
                     )}
@@ -116,7 +115,7 @@ export function HeaderForensicsPanel({ data }: { data: Forensics }) {
         </div>
 
         {data.forgery_note && (
-          <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">{data.forgery_note}</p>
+          <p className=" bg-gray-50 px-3 py-2 text-xs text-gray-600">{data.forgery_note}</p>
         )}
         {data.disclaimer && (
           <p className="text-xs italic text-gray-400">{data.disclaimer}</p>
@@ -139,20 +138,19 @@ export function AnomaliesPanel({ data }: { data: Forensics }) {
     >
       {incs.length === 0 ? (
         <EmptyState
-          icon="✔️"
           title="No header anomalies detected"
           hint="Received-chain structure, address relationships and timestamp order looked internally consistent."
         />
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-line">
           {incs.map((inc, i) => (
-            <li key={inc.rule_id ?? i} className="rounded-lg border border-gray-200 p-3">
+            <li key={inc.rule_id ?? i} className="py-2.5 first:pt-0 last:pb-0">
               <div className="flex items-center gap-2">
                 <SeverityChip severity={inc.severity} />
                 <span className="font-mono text-xs text-gray-400">{inc.rule_id}</span>
               </div>
-              <p className="mt-1.5 text-sm text-gray-800">{inc.evidence}</p>
-              <p className="mt-1 text-xs text-gray-500">{inc.rationale}</p>
+              <p className="mt-1 font-mono text-sm text-fg">{inc.evidence}</p>
+              <p className="mt-0.5 text-sm text-muted">{inc.rationale}</p>
             </li>
           ))}
         </ul>

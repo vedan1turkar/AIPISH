@@ -40,7 +40,7 @@ export function RunStatus({ state }: { state: ComponentState }) {
     <span
       data-testid="run-status"
       data-status={state.status}
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${cls}`}
+      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${cls}`}
     >
       {state.title}
     </span>
@@ -49,7 +49,7 @@ export function RunStatus({ state }: { state: ComponentState }) {
 
 function NotRun({ state, children }: { state: ComponentState; children?: ReactNode }) {
   return (
-    <div className="rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900" role="status">
+    <div className=" border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900" role="status">
       <p>{state.message || 'This component did not produce a result.'}</p>
       {children}
     </div>
@@ -92,7 +92,7 @@ export function EvidenceChip({ id, title }: { id: string; title: string }) {
       }}
       title={title}
       aria-label={`Go to evidence ${id}`}
-      className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+      className=" bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
     >
       {id}
     </a>
@@ -134,9 +134,9 @@ export function MlPanel({ ml, mlStatus }: { ml: MlResult | null | undefined; mlS
                   <tr key={p.label}>
                     <td className="w-32 py-0.5 pr-2 text-gray-700">{p.label}</td>
                     <td className="py-0.5">
-                      <div className="h-2 rounded bg-gray-100">
+                      <div className="h-2 bg-gray-100">
                         <div
-                          className="h-2 rounded bg-indigo-500"
+                          className="h-2 bg-indigo-500"
                           style={{ width: `${Math.round(Math.max(0, Math.min(1, p.value)) * 100)}%` }}
                         />
                       </div>
@@ -171,7 +171,7 @@ export function ShapPanel({ explanation, ml }: { explanation: ShapExplanation | 
     <Panel title="SHAP feature contributions" status={<RunStatus state={state} />}>
       {state.ran && comps.length > 0 ? (
         <div data-testid="shap-result">
-          <p className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="shap-coverage">
+          <p className="mb-2 bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="shap-coverage">
             {cov.sentence}
             {!cov.notExplained.some((n) => n.component === 'transformer') && ' SHAP does not explain the DistilRoBERTa component.'}
           </p>
@@ -186,7 +186,7 @@ export function ShapPanel({ explanation, ml }: { explanation: ShapExplanation | 
               </p>
               <p className="mt-1 text-xs text-gray-700" data-testid="shap-net">{v.netSentence}</p>
               {v.divergenceNote && (
-                <p className="mt-1 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="shap-divergence">
+                <p className="mt-1 bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="shap-divergence">
                   <strong>Why the ensemble still predicts this class:</strong> {v.divergenceNote}
                 </p>
               )}
@@ -245,7 +245,7 @@ function ShapBar({ row }: { row: ReturnType<typeof shapRows>[number] }) {
   const bar = (side: 'away' | 'toward') =>
     (row.shap < 0 ? 'away' : 'toward') === side ? (
       <div
-        className={`h-3 rounded ${side === 'away' ? 'ml-auto bg-blue-500' : 'bg-red-500'} ${row.aggregated ? 'opacity-50' : ''}`}
+        className={`h-3 ${side === 'away' ? 'ml-auto bg-blue-500' : 'bg-red-500'} ${row.aggregated ? 'opacity-50' : ''}`}
         style={{ width: `${Math.max(2, row.magnitudePct)}%` }}
         title={`${row.shap > 0 ? '+' : ''}${row.shap.toFixed(4)}`}
       />
@@ -280,14 +280,14 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
       title="AI-generated forensic interpretation"
       status={
         <span className="flex items-center gap-2">
-          <span className="rounded-full bg-fuchsia-100 px-2 py-0.5 text-[11px] font-semibold text-fuchsia-800 ring-1 ring-inset ring-fuchsia-300">
+          <span className=" bg-fuchsia-100 px-2 py-0.5 text-xs font-semibold text-fuchsia-800 ring-1 ring-inset ring-fuchsia-300">
             AI-generated
           </span>
           <RunStatus state={state} />
         </span>
       }
     >
-      <p className="mb-3 rounded-md bg-fuchsia-50 px-3 py-2 text-xs text-fuchsia-900" data-testid="ai-label">
+      <p className="mb-3 bg-fuchsia-50 px-3 py-2 text-xs text-fuchsia-900" data-testid="ai-label">
         {fs?.label ?? 'AI-generated interpretation by a local language model. It may be wrong.'} It never
         replaces the rule-engine verdict or the ML classification.
       </p>
@@ -326,7 +326,7 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
             ) : (
               <ol className="mt-1 space-y-2">
                 {(fs?.findings ?? []).map((f, i) => (
-                  <li key={i} className="rounded-md border border-gray-100 px-3 py-2" data-testid="summary-finding">
+                  <li key={i} className=" border border-gray-100 px-3 py-2" data-testid="summary-finding">
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge
                         kind={basisKind(f.basis)}
@@ -341,7 +341,7 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
                         ref.item ? (
                           <EvidenceChip key={ref.id} id={ref.id} title={ref.item.statement} />
                         ) : (
-                          <span key={ref.id} className="rounded bg-red-50 px-1.5 py-0.5 font-mono text-[11px] text-red-700">
+                          <span key={ref.id} className=" bg-red-50 px-1.5 py-0.5 font-mono text-xs text-red-700">
                             {ref.id} (not in evidence list)
                           </span>
                         ),
@@ -353,7 +353,7 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
             )}
           </section>
           {(fs?.rejected_findings ?? []).length > 0 && (
-            <details className="rounded-md bg-gray-50 px-3 py-2" data-testid="rejected-findings">
+            <details className=" bg-gray-50 px-3 py-2" data-testid="rejected-findings">
               <summary className="cursor-pointer text-xs font-semibold text-gray-600">
                 {fs?.rejected_findings?.length} model statement(s) rejected by validation. These are not evidence.
               </summary>
@@ -383,7 +383,7 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
       </div>
       <p className="mt-4 text-xs text-gray-500" data-testid="privacy-note">{PRIVACY_NOTE}</p>
       {(fs?.security?.injection_patterns_detected ?? []).length > 0 && (
-        <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-xs text-red-800" data-testid="injection-warning">
+        <p className="mt-4 bg-red-50 px-3 py-2 text-xs text-red-800" data-testid="injection-warning">
           The email contains text that looks like a prompt-injection attempt (
           {fs?.security?.injection_patterns_detected.join(', ')}). It was treated as data, not as instructions.
         </p>
@@ -405,8 +405,8 @@ export function FinancialWarning({ fs }: { fs: ForensicSummary | null | undefine
   if (!w) return null
   return (
     <div role="alert" data-testid="financial-warning"
-      className="rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
-      <p className="font-semibold">⚠ Independent verification required</p>
+      className=" border-2 border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+      <p className="font-semibold">Independent verification required</p>
       <p className="mt-1">{w.text}</p>
       {w.signals.length > 0 && <p className="mt-1 text-xs text-red-700">Signals: {w.signals.join(', ')}</p>}
     </div>
@@ -429,7 +429,7 @@ function Recommendations({ fs, index }: { fs: ForensicSummary | null | undefined
       <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">
         {r.evidence_ids.map((id) =>
           index.has(id) ? <EvidenceChip key={id} id={id} title="Supporting evidence" /> : (
-            <span key={id} className="rounded bg-red-50 px-1.5 py-0.5 font-mono text-[11px] text-red-700">{id} (not in evidence list)</span>
+            <span key={id} className=" bg-red-50 px-1.5 py-0.5 font-mono text-xs text-red-700">{id} (not in evidence list)</span>
           ),
         )}
       </span>
@@ -473,7 +473,7 @@ function Recommendations({ fs, index }: { fs: ForensicSummary | null | undefined
         </div>
       )}
       {g.rejected.length > 0 && (
-        <details open className="rounded-md border border-red-200 bg-red-50/40 px-3 py-2" data-testid="rejected-recommendations">
+        <details open className=" border border-red-200 bg-red-50 px-3 py-2" data-testid="rejected-recommendations">
           <summary className="cursor-pointer text-xs font-semibold text-red-800">
             {g.rejected.length} model suggestion(s) rejected as unsafe or unsupported. Shown for transparency; do not follow.
           </summary>
@@ -525,13 +525,13 @@ export function EvidencePanel({ fs }: { fs: ForensicSummary | null | undefined }
                 key={e.id}
                 id={`evidence-${e.id}`}
                 tabIndex={-1}
-                className="flex flex-wrap items-start gap-2 rounded px-1 py-0.5 text-sm transition-shadow focus:outline-none"
+                className="flex flex-wrap items-start gap-2 px-1 py-0.5 text-sm transition-shadow focus:outline-none"
               >
                 <span className="w-9 shrink-0 font-mono text-xs text-gray-500">{e.id}</span>
-                <span title={meta.hint} className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset ${meta.className}`}>
+                <span title={meta.hint} className={`shrink-0 px-2 py-0.5 text-xs ring-1 ring-inset ${meta.className}`}>
                   {meta.label}
                 </span>
-                <span className="shrink-0 font-mono text-[11px] text-gray-400">{e.source}</span>
+                <span className="shrink-0 font-mono text-xs text-gray-400">{e.source}</span>
                 <span className="min-w-0 flex-1 break-words text-gray-800">{e.statement}</span>
               </li>
             )
@@ -539,7 +539,7 @@ export function EvidencePanel({ fs }: { fs: ForensicSummary | null | undefined }
         </ul>
       )}
       {unavailable.length > 0 && (
-        <div className="mt-4 rounded-md bg-gray-50 px-3 py-2" data-testid="unavailable-info">
+        <div className="mt-4 bg-gray-50 px-3 py-2" data-testid="unavailable-info">
           <p className="text-xs font-semibold text-gray-600">Checks that did not run or returned nothing (not passed)</p>
           <ul className="mt-1 space-y-0.5 text-xs text-gray-600">
             {unavailable.map((u, i) => (
@@ -596,8 +596,8 @@ export function AssessmentView({
       data-testid="generate-button"
       className={
         primary
-          ? 'rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300'
-          : 'rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300'
+          ? ' bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300'
+          : ' border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300'
       }
     >
       {generating ? 'Generating…' : label}
@@ -605,7 +605,7 @@ export function AssessmentView({
   )
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-600 shadow-sm">
+      <div className=" border border-gray-200 bg-white px-4 py-3 text-xs text-gray-600 ">
         <p>
           This tab holds three <strong>separate</strong> assessments: an ML classification, a SHAP explanation
           of part of that classifier, and a language-model interpretation. The deterministic rule-engine
@@ -630,7 +630,7 @@ export function AssessmentView({
       </div>
 
       {generating && (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900" role="status" data-testid="generating">
+        <div className=" border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900" role="status" data-testid="generating">
           <div className="flex items-center gap-2">
             <Spinner />
             <span>
@@ -656,7 +656,6 @@ export function AssessmentView({
       {!assessment && !error ? (
         <div className="space-y-3">
           <EmptyState
-            icon="🤖"
             title="No AI assessment has been generated for this analysis"
             hint="You can generate the local-LLM forensic summary now. It takes about 1–2 minutes. ML and SHAP need the original email bytes, which a stored analysis keeps only under the raw evidence policy."
           />
@@ -681,7 +680,7 @@ export function AssessmentView({
                   History
                   <select
                     data-testid="version-select"
-                    className="rounded border border-gray-300 bg-white px-1 py-0.5 text-xs"
+                    className=" border border-gray-300 bg-white px-1 py-0.5 text-xs"
                     value={assessment.assessment_id ?? ''}
                     onChange={(e) => onSelectVersion(e.target.value)}
                     disabled={generating}
@@ -700,12 +699,12 @@ export function AssessmentView({
           </div>
           <FinancialWarning fs={assessment.forensic_summary} />
           {viewingOld && (
-            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="old-version-banner">
+            <p className=" bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="old-version-banner">
               You are viewing an earlier version (v{assessment.version}). The latest is v{history[0]?.version}. A PDF
               downloaded now will contain this version.
             </p>
           )}
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid items-start gap-4 lg:grid-cols-2">
             <MlPanel ml={assessment.ml} mlStatus={mlStatus} />
             <ShapPanel explanation={assessment.explanation} ml={assessment.ml} />
           </div>

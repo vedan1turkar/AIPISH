@@ -193,8 +193,8 @@ function analysis(): AnalysisDetail {
 describe('role-aware dashboard', () => {
   it('viewer: read-only (no new analysis, case creation, intel run or generate)', async () => {
     render(withRole(<ResultsDashboard analysis={analysis()} onNewAnalysis={() => {}} />, 'viewer'))
-    expect(screen.queryByText('+ New analysis')).toBeNull()
-    expect(screen.queryByText('📁 Create investigation case')).toBeNull()
+    expect(screen.queryByText('New analysis')).toBeNull()
+    expect(screen.queryByText('Create investigation case')).toBeNull()
     expect(screen.getByText('Your role can view cases but not create them.')).toBeTruthy()
     expect(screen.queryByText('Run integrity check')).toBeNull()
     fireEvent.click(screen.getByRole('tab', { name: /Threat intel/ }))
@@ -206,8 +206,8 @@ describe('role-aware dashboard', () => {
 
   it('analyst: actions available', async () => {
     render(withRole(<ResultsDashboard analysis={analysis()} onNewAnalysis={() => {}} />, 'analyst'))
-    expect(screen.getByText('+ New analysis')).toBeTruthy()
-    expect(screen.getByText('📁 Create investigation case')).toBeTruthy()
+    expect(screen.getByText('New analysis')).toBeTruthy()
+    expect(screen.getByText('Create investigation case')).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: /Threat intel/ }))
     expect(screen.queryByTestId('intel-readonly')).toBeNull()
   })
@@ -225,7 +225,7 @@ describe('role-aware dashboard', () => {
     vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() }))
     render(withRole(<ResultsDashboard analysis={analysis()} onNewAnalysis={() => {}} />, 'viewer'))
     await screen.findByText('CASE-1')
-    fireEvent.click(screen.getByText('⬇ Download forensic PDF'))
+    fireEvent.click(screen.getByText('Download forensic PDF'))
     await waitFor(() => expect(created).toHaveBeenCalled())
     const pdf = calls.find((c) => c.url.includes('/report/a1'))!
     expect(authHeader(pdf.init)).toBe('Bearer test-token-viewer')

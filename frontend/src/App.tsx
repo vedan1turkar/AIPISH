@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { getHealth, getAnalysis, getMe, logout, type AnalysisDetail } from './api/client'
 import { useAuth } from './auth/AuthContext'
 import { clearSession, updateUser } from './auth/session'
-import { ErrorAlert, Spinner } from './components/ui'
+import { Button, ErrorAlert, Spinner } from './components/ui'
 import LoginPage from './components/auth/LoginPage'
 import ChangePasswordPage from './components/auth/ChangePasswordPage'
 import AdminUsersPage from './components/admin/AdminUsersPage'
@@ -12,29 +12,41 @@ import HistoryPage from './components/HistoryPage'
 import { CampaignDetailView, CampaignList } from './components/correlation/CampaignsPage'
 import CasePage from './components/cases/CasePage'
 import SearchPage from './components/search/SearchPage'
-import BackendStatus from './components/BackendStatus'
+import StatusBar from './components/shell/StatusBar'
+import OverviewPage from './components/overview/OverviewPage'
 
-type View = 'upload' | 'results' | 'history' | 'users' | 'account' | 'campaigns' | 'campaign' | 'case' | 'search'
+type View = 'overview' | 'upload' | 'results' | 'history' | 'users' | 'account' | 'campaigns' | 'campaign' | 'case' | 'search'
 
 // `perm`: shown only to roles holding it. The backend enforces the same permission on every call.
-const NAV: { id: View; label: string; icon: string; perm?: string }[] = [
-  { id: 'upload', label: 'Analyse', icon: '📥', perm: 'analysis:create' },
-  { id: 'history', label: 'History', icon: '🗂️', perm: 'analysis:read' },
-  { id: 'campaigns', label: 'Campaigns', icon: '🕸️', perm: 'correlation:read' },
-  { id: 'search', label: 'Search', icon: '🔎', perm: 'search:read' },
-  { id: 'users', label: 'Users', icon: '👥', perm: 'users:manage' },
+const NAV: { id: View; label: string; perm?: string }[] = [
+  { id: 'overview', label: 'Overview', perm: 'analysis:read' },
+  { id: 'upload', label: 'Analyse', perm: 'analysis:create' },
+  { id: 'history', label: 'History', perm: 'analysis:read' },
+  { id: 'campaigns', label: 'Campaigns', perm: 'correlation:read' },
+  { id: 'search', label: 'Search', perm: 'search:read' },
+  { id: 'users', label: 'Users', perm: 'users:manage' },
 ]
+
+function Brand() {
+  return (
+    <div className="flex items-baseline gap-2 whitespace-nowrap">
+      <span className="font-mono text-base font-semibold tracking-wider text-fg">AIPISH</span>
+      <span className="hidden font-mono text-xs uppercase tracking-wider text-muted sm:inline">Email threat forensics</span>
+    </div>
+  )
+}
 
 export default function App() {
   const auth = useAuth()
   if (!auth.session) return <LoginPage notice={auth.reason} />
   if (auth.session.user.must_change_password) {
     return (
-      <div className="min-h-screen bg-gray-50 px-4 py-10">
-        <ChangePasswordPage required />
-        <div className="mt-4 text-center">
+      <div className="min-h-screen bg-bg">
+        <header className="flex h-11 items-center justify-between border-b border-line bg-surface px-4">
+          <Brand />
           <SignOutButton />
-        </div>
+        </header>
+        <div className="px-4 py-8"><ChangePasswordPage required /></div>
       </div>
     )
   }
@@ -44,7 +56,8 @@ export default function App() {
 function SignOutButton() {
   const [busy, setBusy] = useState(false)
   return (
-    <button
+    <Button
+      size="sm"
       onClick={async () => {
         setBusy(true)
         try {
@@ -55,17 +68,16 @@ function SignOutButton() {
         clearSession('You signed out.')
       }}
       disabled={busy}
-      className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
     >
       Sign out
-    </button>
+    </Button>
   )
 }
 
 function SignedInApp() {
   const { session, can } = useAuth()
   const user = session!.user
-  const [view, setView] = useState<View>(() => (can('analysis:create') ? 'upload' : 'history'))
+  const [view, setView] = useState<View>('overview')
   // Resume: analysis currently open in the dashboard (either fresh from upload
   // or re-opened from history). `null` on the upload page.
   const [analysis, setAnalysis] = useState<AnalysisDetail | null>(null)
@@ -90,7 +102,7 @@ function SignedInApp() {
   }, [])
 
   useEffect(() => {
-    // Warm the health check so BackendStatus is ready on first paint.
+    // Warm the health check (the status bar polls it too).
     void getHealth().catch(() => undefined)
     // Re-validate a session restored from sessionStorage (a revoked token → 401 → login page).
     void getMe().then(updateUser).catch(() => undefined)
@@ -108,7 +120,8 @@ function SignedInApp() {
   useEffect(() => {
     const applyHash = () => {
       const h = window.location.hash
-      if (h === '#upload') setView(allowed('upload') ? 'upload' : 'history')
+      if (h === '#overview' || h === '') setView('overview')
+      else if (h === '#upload') setView(allowed('upload') ? 'upload' : 'history')
       else if (h === '#history') setView('history')
       else if (h === '#users') setView(allowed('users') ? 'users' : 'history')
       else if (h === '#account') setView('account')
@@ -139,58 +152,46 @@ function SignedInApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* top bar */}
-      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-2">
-            <span aria-hidden className="text-xl">🛡️</span>
-            <h1 className="text-base font-semibold text-gray-900 whitespace-nowrap">
-              Email Forensics Platform
-            </h1>
-            <BackendStatus />
-          </div>
-          <nav className="flex gap-1 rounded-lg bg-gray-100 p-1 sm:ml-auto" aria-label="Main navigation">
-            {NAV.filter((n) => !n.perm || can(n.perm)).map((n) => (
-              <button
-                key={n.id}
-                onClick={() => navigate(n.id)}
-                aria-current={view === n.id ? 'page' : undefined}
-                className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ${
-                  view === n.id || (view === 'results' && n.id === 'upload')
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                <span className="mr-1" aria-hidden>{n.icon}</span>
-                {n.label}
-              </button>
-            ))}
+    <div className="flex min-h-screen flex-col bg-bg pb-7">
+      <header className="sticky top-0 z-10 border-b border-line bg-surface">
+        <div className="mx-auto flex h-11 max-w-content items-stretch gap-6 px-4">
+          <div className="flex items-center"><Brand /></div>
+          <nav className="flex items-stretch overflow-x-auto" aria-label="Main navigation">
+            {NAV.filter((n) => !n.perm || can(n.perm)).map((n) => {
+              const on = view === n.id || (view === 'results' && n.id === 'history') ||
+                (view === 'campaign' && n.id === 'campaigns') || (view === 'case' && n.id === 'history')
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => navigate(n.id)}
+                  aria-current={on ? 'page' : undefined}
+                  className={`-mb-px whitespace-nowrap border-b-2 px-3 text-sm ${
+                    on ? 'border-accent bg-surface-2 text-fg' : 'border-transparent text-muted hover:bg-surface-3 hover:text-fg'
+                  }`}
+                >
+                  {n.label}
+                </button>
+              )
+            })}
           </nav>
-          <div className="flex items-center gap-2 text-xs" data-testid="current-user">
-            <span className="text-gray-700">
-              <span aria-hidden>👤</span> <strong>{user.username}</strong>
-            </span>
-            <span className="rounded-full bg-indigo-50 px-2 py-0.5 font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200">
+          <div className="ml-auto flex items-center gap-2 text-sm" data-testid="current-user">
+            <span className="font-mono text-sm text-fg">{user.username}</span>
+            <span className="rounded-sm border border-line-strong px-1.5 font-mono text-xs uppercase tracking-wider text-muted">
               {user.role}
             </span>
-            <button
-              onClick={() => navigate('account')}
-              className="rounded-md px-2 py-1 font-medium text-gray-500 hover:text-gray-800"
-            >
-              Password
-            </button>
+            <Button size="sm" variant="ghost" onClick={() => navigate('account')}>Password</Button>
             <SignOutButton />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-content flex-1 px-4 py-4">
         {loadError && (
           <div className="mb-4">
             <ErrorAlert message={loadError} onDismiss={() => setLoadError(null)} />
           </div>
         )}
+        {view === 'overview' && <OverviewPage onOpenAnalysis={(id) => { window.location.hash = `#analysis/${id}` }} />}
         {view === 'upload' && can('analysis:create') && (
           <UploadPage
             onAnalyzed={(detail) => {
@@ -220,15 +221,16 @@ function SignedInApp() {
         {view === 'campaign' && routeId && can('correlation:read') && <CampaignDetailView id={routeId} />}
         {view === 'case' && routeId && can('case:read') && <CasePage id={routeId} />}
         {view === 'search' && can('search:read') && <SearchPage />}
+        <p className="mt-6 border-t border-line pt-2 text-sm text-muted">
+          All results come from the connected backend. Heuristic scores are investigative
+          indicators — not proof of who sent a message or where they are located.
+        </p>
       </main>
 
-      <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-gray-400 sm:px-6">
-        All results come from the connected backend. Heuristic scores are investigative
-        indicators — not proof of who sent a message or where they are located.
-      </footer>
+      <StatusBar />
 
       {loadingId && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-white/60">
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-[rgba(10,14,19,0.82)]">
           <Spinner label="Loading analysis…" />
         </div>
       )}

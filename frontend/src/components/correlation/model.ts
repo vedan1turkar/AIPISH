@@ -27,15 +27,16 @@ export const CONFIDENCE_STYLE: Record<string, string> = {
 }
 
 export const NODE_COLOR: Record<string, string> = {
-  analysis: '#4f46e5',
-  public_ip: '#0369a1',
-  reply_to_domain: '#7c3aed',
-  sender_domain: '#7c3aed',
-  return_path_domain: '#7c3aed',
-  message_id_domain: '#7c3aed',
-  url_host: '#c2410c',
-  attachment_hash: '#be123c',
-  display_name_alias: '#475569',
+  // design-token hex values (Cytoscape cannot read CSS variables); kinds differ by shape + label
+  analysis: '#4cc9f0',
+  public_ip: '#8593a1',
+  reply_to_domain: '#6f7f8f',
+  sender_domain: '#6f7f8f',
+  return_path_domain: '#6f7f8f',
+  message_id_domain: '#6f7f8f',
+  url_host: '#a3b0bc',
+  attachment_hash: '#f0524f',
+  display_name_alias: '#5b6b7c',
 }
 
 export const NODE_SHAPE: Record<string, string> = {

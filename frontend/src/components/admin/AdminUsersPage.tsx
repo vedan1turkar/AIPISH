@@ -64,13 +64,13 @@ export default function AdminUsersPage() {
       <h2 className="text-lg font-semibold text-gray-900">User management</h2>
       {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
       {secret && (
-        <div role="alert" className="rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div role="alert" className=" border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-semibold">Temporary password for {secret.username}</p>
           <p className="mt-1 font-mono text-base break-all" data-testid="temp-password">{secret.password}</p>
           <p className="mt-1 text-xs">{secret.note} It will not be shown again.</p>
           <button
             onClick={() => setSecret(null)}
-            className="mt-2 rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-medium"
+            className="mt-2 border border-amber-400 bg-white px-2 py-1 text-xs font-medium"
           >
             I have handed it over: hide it
           </button>
@@ -88,7 +88,7 @@ export default function AdminUsersPage() {
               required
               minLength={3}
               maxLength={64}
-              className="mt-1 block rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+              className="mt-1 block border border-gray-300 px-3 py-1.5 text-sm"
             />
           </label>
           <label className="text-xs font-medium text-gray-700">
@@ -97,7 +97,7 @@ export default function AdminUsersPage() {
               name="new-role"
               value={newRole}
               onChange={(e) => setNewRole(e.target.value as AdminUser['role'])}
-              className="mt-1 block rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+              className="mt-1 block border border-gray-300 px-2 py-1.5 text-sm"
             >
               {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
@@ -105,7 +105,7 @@ export default function AdminUsersPage() {
           <button
             type="submit"
             disabled={busyId === 'new' || newName.trim().length < 3}
-            className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-300"
+            className=" bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-300"
           >
             Create with temporary password
           </button>
@@ -142,7 +142,7 @@ export default function AdminUsersPage() {
                         onChange={(e) =>
                           act(u.id, () => updateUser(u.id, { role: e.target.value as AdminUser['role'] }))
                         }
-                        className="rounded border border-gray-300 px-1 py-0.5"
+                        className=" border border-gray-300 px-1 py-0.5"
                       >
                         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
@@ -158,14 +158,14 @@ export default function AdminUsersPage() {
                         <button
                           disabled={busyId === u.id}
                           onClick={() => act(u.id, () => updateUser(u.id, { is_active: !u.is_active }))}
-                          className="rounded border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50 disabled:opacity-50"
+                          className=" border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50 disabled:opacity-50"
                         >
                           {u.is_active ? 'Disable' : 'Enable'}
                         </button>
                         <button
                           disabled={busyId === u.id}
                           onClick={() => act(u.id, async () => showOnce(await resetUserPassword(u.id)))}
-                          className="rounded border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50 disabled:opacity-50"
+                          className=" border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50 disabled:opacity-50"
                         >
                           Reset password
                         </button>

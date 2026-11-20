@@ -30,18 +30,18 @@ export function CampaignList() {
       <h2 className="text-lg font-semibold text-gray-900">Candidate campaigns</h2>
       <Disclaimer text={disclaimer} />
       {items.length === 0 ? (
-        <EmptyState icon="🕸️" title="No candidate campaigns" hint="No group of analyses shares enough non-generic infrastructure yet." />
+        <EmptyState title="No candidate campaigns" hint="No group of analyses shares enough non-generic infrastructure yet." />
       ) : (
-        <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
+        <ul className="divide-y divide-gray-100 border border-gray-200 bg-white">
           {items.map((c) => (
             <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" data-testid="campaign-row">
               <a href={`#campaign/${c.id}`} className="font-medium text-indigo-700 hover:underline">{c.label}</a>
-              <div className="flex gap-2 text-[11px]">
-                <span className={`rounded-full px-2 py-0.5 font-semibold ring-1 ${CONFIDENCE_STYLE[c.confidence]}`}>
+              <div className="flex gap-2 text-xs">
+                <span className={` px-2 py-0.5 font-semibold ring-1 ${CONFIDENCE_STYLE[c.confidence]}`}>
                   {c.confidence} ({c.confidence_score.toFixed(2)})
                 </span>
-                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600">{c.member_count} analyses</span>
-                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600">v{c.version}</span>
+                <span className=" bg-gray-100 px-1.5 py-0.5 text-gray-600">{c.member_count} analyses</span>
+                <span className=" bg-gray-100 px-1.5 py-0.5 text-gray-600">v{c.version}</span>
                 <span className="text-gray-400">updated {formatDate(c.updated_at)}</span>
               </div>
             </li>
@@ -66,13 +66,13 @@ function CampaignGraph({ detail }: { detail: CampaignDetail }) {
         layout: { name: 'cose', animate: false, padding: 20 },
         style: [
           { selector: 'node', style: { label: 'data(label)', 'background-color': 'data(color)', shape: 'data(shape)' as never,
-                                       color: '#111827', 'font-size': 9, 'text-wrap': 'ellipsis', 'text-max-width': '110px',
+                                       color: '#dbe3ea', 'font-size': 9, 'text-wrap': 'ellipsis', 'text-max-width': '110px',
                                        'text-valign': 'bottom', 'text-margin-y': 4, width: 26, height: 26 } },
           { selector: 'node.analysis', style: { width: 34, height: 22 } },
           { selector: 'node.tier-strong', style: { 'border-width': 3, 'border-color': '#e11d48' } },
           { selector: 'node.tier-medium', style: { 'border-width': 3, 'border-color': '#d97706' } },
-          { selector: 'edge', style: { label: 'data(label)', 'font-size': 7, color: '#6b7280', width: 1.5,
-                                       'line-color': '#cbd5e1', 'curve-style': 'bezier', 'text-rotation': 'autorotate' } },
+          { selector: 'edge', style: { label: 'data(label)', 'font-size': 7, color: '#8593a1', width: 1.5,
+                                       'line-color': '#3a4757', 'curve-style': 'bezier', 'text-rotation': 'autorotate' } },
         ],
       })
       cy.on('mouseover tap', 'node, edge', (e) => setTip(String(e.target.data('tooltip') ?? '')))
@@ -90,9 +90,9 @@ function CampaignGraph({ detail }: { detail: CampaignDetail }) {
       {failed ? (
         <p className="text-xs text-gray-500">The graph could not be drawn in this browser; the member and indicator lists below hold the same data.</p>
       ) : (
-        <div ref={ref} data-testid="campaign-graph" className="h-96 w-full rounded-lg border border-gray-200 bg-white" />
+        <div ref={ref} data-testid="campaign-graph" className="h-96 w-full border border-gray-200 bg-white" />
       )}
-      <p className="mt-1 min-h-[1rem] text-[11px] text-gray-600" data-testid="graph-tip">
+      <p className="mt-1 min-h-[1rem] text-xs text-gray-600" data-testid="graph-tip">
         {tip ?? 'Hover or tap a node or edge to see its evidence reference. Tap an analysis to open it.'}
       </p>
     </div>
@@ -122,10 +122,10 @@ export function CampaignDetailView({ id }: { id: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <a href="#campaigns" className="text-xs text-indigo-600 hover:underline">← Candidate campaigns</a>
         <h2 className="text-lg font-semibold text-gray-900">{d.label}</h2>
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${CONFIDENCE_STYLE[d.confidence]}`}>
+        <span className={` px-2 py-0.5 text-xs font-semibold ring-1 ${CONFIDENCE_STYLE[d.confidence]}`}>
           {d.confidence} confidence ({d.confidence_score.toFixed(2)})
         </span>
-        <span className="text-[11px] text-gray-400">status {d.status} · version {d.version} · {d.member_count} analyses</span>
+        <span className="text-xs text-gray-400">status {d.status} · version {d.version} · {d.member_count} analyses</span>
       </div>
       <Disclaimer text={d.disclaimer} />
       <Panel title="Shared-infrastructure graph">
@@ -145,13 +145,13 @@ export function CampaignDetailView({ id }: { id: string }) {
                   <span className="font-mono break-all">{i.value}</span>
                   <span className="text-gray-400">weight {i.weight}</span>
                 </div>
-                <p className="mt-0.5 text-[11px] text-gray-500">
+                <p className="mt-0.5 text-xs text-gray-500">
                   Evidence: {i.evidence.map((e) => `${e.analysis_id?.slice(0, 8)} ${e.source_field}`).join(' · ')}
                 </p>
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-[11px] text-gray-400">{d.reasons.rule}</p>
+          <p className="mt-3 text-xs text-gray-400">{d.reasons.rule}</p>
         </Panel>
         <Panel title="Member analyses">
           <ul className="divide-y divide-gray-100">

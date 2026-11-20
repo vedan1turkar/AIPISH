@@ -177,7 +177,7 @@ describe('dashboard ATT&CK tab', () => {
     await screen.findByText('No ATT&CK techniques could be mapped from the available evidence.')
     await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/investigations')).toBe(true))
     await new Promise((r) => setTimeout(r, 0))
-    fireEvent.click(screen.getByText('⬇ Download forensic PDF'))
+    fireEvent.click(screen.getByText('Download forensic PDF'))
     await waitFor(() => expect(calls.some((c) => c.url.includes('/report/an1'))).toBe(true))
     const pdf = calls.find((c) => c.url.includes('/report/an1'))!
     expect(pdf.url).toContain('attack_id=m0')

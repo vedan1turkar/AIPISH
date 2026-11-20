@@ -1,3 +1,55 @@
+/* AIPISH design tokens + base (P5u-1). Dark theme is the only theme. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --bg: #0a0e13;
+  --surface: #10161d;
+  --surface-2: #151c25;
+  --surface-3: #1b2430;          /* hover / active tonal step */
+  --line: #2a3441;
+  --line-strong: #3a4757;
+  --fg: #dbe3ea;
+  --muted: #8593a1;
+
+  --accent: #4cc9f0;
+  --accent-hover: #7ad7f4;
+  --accent-weak: #0e2630;
+  --accent-line: #1f4b5c;
+  --ok: #3fb950;
+  --ok-weak: #0f2316;
+  --ok-line: #1f4a2b;
+  --warn: #e3a008;
+  --warn-weak: #2a1f05;
+  --warn-line: #5a430c;
+  --danger: #f0524f;
+  --danger-weak: #2c1213;
+  --danger-line: #5e2524;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  html { background: var(--bg); }
+  body {
+    @apply bg-bg font-sans text-base text-fg antialiased;
+    font-feature-settings: "tnum" 1;          /* tabular numerals everywhere */
+  }
+  ::selection { background: var(--accent); color: var(--bg); }
+  a { color: var(--accent); }
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input, select, textarea { color: var(--fg); }
+  input::placeholder, textarea::placeholder { color: var(--muted); }
+  * { scrollbar-width: thin; scrollbar-color: var(--line-strong) var(--surface); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border: 2px solid var(--surface); border-radius: 0; }
+  code, kbd, pre, samp { @apply font-mono; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+                           transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
