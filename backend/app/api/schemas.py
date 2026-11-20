@@ -97,6 +97,8 @@ class ChainHopOut(BaseModel):
 
 
 class ForensicsOut(BaseModel):
+    # P5d.1: 2 = fixed address comparison; None = analysis stored before the fix (not rewritten)
+    header_comparison_version: int | None = None
     relay_chain: list[ChainHopOut] = Field(default_factory=list)
     trusted_boundary_index: int | None = None
     candidate_ips: list[str] = Field(default_factory=list)

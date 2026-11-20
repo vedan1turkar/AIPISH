@@ -87,9 +87,9 @@ class Ctx:
         self.f = _findings(self.a)
         self.inc = _inconsistencies(self.a)
         self.suppressed: list[str] = []
-        # Guard against a known upstream artefact: the header-forensics Return-Path comparison can
-        # keep a trailing '>' and report identical domains as different. Only use the inconsistency
-        # if the stored From and Return-Path domains still differ after normalisation.
+        # Guard against the pre-P5d.1 forensics artefact (trailing '>' made identical domains look
+        # different). Fixed upstream in P5d.1 for new analyses; kept because analyses stored before
+        # the fix are not rewritten. Harmless on fixed data (the inconsistency is simply absent).
         if "returnpath_mismatch" in self.inc:
             rp = str(self.a.get("return_path") or "").strip().strip("<>").rpartition("@")[2].strip("<> .").lower()
             fd = str(self.a.get("from_domain") or "").strip(". ").lower()

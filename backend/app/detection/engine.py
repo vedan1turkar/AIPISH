@@ -66,6 +66,7 @@ def run_detection(
     auth_alignment: dict[str, str] | None = None,
     enrichment_url_ip_not_global: list[str] | None = None,
     enrichment_domain_no_mx_and_new: list[str] | None = None,
+    legacy_domain_compare: bool = False,
 ) -> DetectionResult:
     """Run every rule in fixed order; aggregate into a bounded 0-100 score.
 
@@ -73,7 +74,7 @@ def run_detection(
     rules return nothing (no fabricated results from missing evidence).
     """
     cfg = cfg or get_config()
-    f = features or build_features(parsed, cfg)
+    f = features or build_features(parsed, cfg, legacy_domain_compare=legacy_domain_compare)
     if forensic_inconsistencies is not None:
         f.forensic_inconsistencies = forensic_inconsistencies
     if auth_verified_fail_protocols is not None:

@@ -18,6 +18,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from app.ingestion.addresses import address_domain, normalize_mail_domain
 from app.ingestion.parser import ParsedEmail
 
 logger = logging.getLogger(__name__)
@@ -120,13 +121,13 @@ def extract_ar_claims(parsed: ParsedEmail) -> dict[str, list[tuple[str, str]]]:
 
 
 def _from_domain(parsed: ParsedEmail) -> str | None:
-    return parsed.from_.domain.lower() if parsed.from_ else None
+    # P5d.1: normalised (case, trailing dot, IDNA) so alignment compares like with like
+    return normalize_mail_domain(parsed.from_.domain) if parsed.from_ else None
 
 
 def _returnpath_domain(parsed: ParsedEmail) -> str | None:
-    rp = parsed.return_path or ""
-    m = re.match(r"<?([^@\s>]+)@([^>\s]+)>?", rp.strip())
-    return m.group(2).lower() if m else None
+    # P5d.1: parsed with email.utils (display names, comments, "<>" bounce → None)
+    return address_domain(parsed.return_path)
 
 
 # ── SPF ───────────────────────────────────────────────────────────────────

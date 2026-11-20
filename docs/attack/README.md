@@ -92,7 +92,12 @@ that shows it.
 | M12_domains | T1583.001 | inferred | look-alike domain, or `domain_no_mx_shortlived` (registration-age evidence) | low / medium (registration evidence) |
 | M13_tor_origin | T1090.003 | inferred | an **origin-candidate** IP is in the Tor exit list, or IPinfo reports Tor | medium |
 
-### Guard against a pre-existing upstream artefact
+### Guard against a pre-existing upstream artefact (fixed upstream in P5d.1)
+
+> **Update (P5d.1):** the forensics comparison is now fixed for all new analyses (see `docs/CHANGELOG.md`).
+> The guard below is kept because analyses stored before the fix are not rewritten; on fixed data it is
+> a no-op.
+
 - **The bug:** the header-forensics `returnpath_mismatch` check (P2, `forensics/headers.py`) can keep a
   trailing `>` on the Return-Path domain. It then reports identical domains as different, e.g.
   `account-notice.test ≠ account-notice.test>`.

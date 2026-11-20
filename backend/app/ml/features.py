@@ -76,7 +76,28 @@ def run_rules_offline(raw: bytes) -> dict:
 
     Mirrors the upload pipeline minus live lookups: parse -> header forensics
     (medium/high findings bridge in) -> run_detection.
+
+    ML PARITY (P5d.1): this is the ML *feature* path. It deliberately uses the legacy pre-P5d.1
+    address-domain comparison (``legacy_domain_compare=True``) because the trained model's rule
+    features were computed that way. Do not change without retraining. For rule output shown to
+    people, use :func:`run_rules_offline_current`.
     """
+    from app.detection import run_detection
+    from app.forensics.headers import run_header_forensics
+    from app.ingestion.parser import parse_eml
+
+    try:
+        parsed = parse_eml(raw)
+        forensics = run_header_forensics(parsed, legacy_domain_compare=True)
+        consequential = [i.rule_id for i in forensics.inconsistencies if i.severity in ("medium", "high")]
+        return run_detection(parsed, forensic_inconsistencies=consequential, legacy_domain_compare=True).to_dict()
+    except Exception as exc:  # the parser can fail on some real-world headers
+        return {"error": f"{type(exc).__name__}: {exc}"[:200]}
+
+
+def run_rules_offline_current(raw: bytes) -> dict:
+    """The rule engine offline with the current (fixed) address comparison — for display only,
+    never as model features."""
     from app.detection import run_detection
     from app.forensics.headers import run_header_forensics
     from app.ingestion.parser import parse_eml

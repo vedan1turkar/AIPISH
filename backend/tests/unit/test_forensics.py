@@ -216,4 +216,12 @@ def test_phishing_fixture_still_works() -> None:
     r = run_header_forensics(parsed)
     assert r.chain, "existing fixture must not break"
     ids = [i.rule_id for i in r.inconsistencies]
-    assert "returnpath_mismatch" in ids
+    # P5d.1: From and Return-Path are both paypa1-secure.com. The old assertion that a
+    # returnpath_mismatch fires encoded the trailing-'>' bug; the real Reply-To divergence remains.
+    assert "returnpath_mismatch" not in ids
+    assert "replyto_mismatch" in ids
+    assert r.header_comparison_version == 2
+    # the legacy comparison (ML feature path only) still reproduces the pre-fix output exactly
+    legacy = run_header_forensics(parsed, legacy_domain_compare=True)
+    assert "returnpath_mismatch" in [i.rule_id for i in legacy.inconsistencies]
+    assert legacy.header_comparison_version == 1

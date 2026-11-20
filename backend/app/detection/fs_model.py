@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from app.detection.config import DetectionConfig, get_config
 from app.ingestion.parser import ParsedEmail
+from app.ingestion.addresses import normalize_mail_domain
 
 _URL_TOKEN_RE = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
 # invisible / zero-width characters used to break up visible words or URLs
@@ -77,9 +78,22 @@ class FeatureModel:
     enrichment_domain_no_mx_and_new: list[str] = field(default_factory=list)  # sender-domain DNS+RDAP corroboration
 
 
-def _norm_domain(d: str) -> str:
+def _legacy_norm_domain(d: str) -> str:
+    """Pre-P5d.1 domain normalisation (no trailing-dot / IDNA handling).
+
+    Intentionally preserved ONLY for the ML feature path (``legacy_domain_compare=True``), so the
+    trained model keeps receiving the inputs it was trained on. Do not use elsewhere."""
     d = _INVISIBLE_RE.sub("", d).strip().lower()
     return d[4:] if d.startswith("www.") else d
+
+
+_norm_domain = _legacy_norm_domain      # URL-host handling (unchanged; not an address comparison)
+
+
+def _addr_domain(d: str | None) -> str:
+    """P5d.1 address-domain normalisation for sender/Reply-To comparisons (www. handling kept)."""
+    n = normalize_mail_domain(d) or ""
+    return n[4:] if n.startswith("www.") else n
 
 
 def _classify_url(url: str, cfg: DetectionConfig) -> UrlFeature:
@@ -111,15 +125,22 @@ def _classify_url(url: str, cfg: DetectionConfig) -> UrlFeature:
     )
 
 
-def build_features(parsed: ParsedEmail, cfg: DetectionConfig | None = None) -> FeatureModel:
+def build_features(parsed: ParsedEmail, cfg: DetectionConfig | None = None, *,
+                   legacy_domain_compare: bool = False) -> FeatureModel:
+    """``legacy_domain_compare=True`` reproduces the pre-P5d.1 sender/Reply-To comparison exactly;
+    it is used only by the ML feature path to match model training."""
     cfg = cfg or get_config()
 
     from_domain = parsed.from_.domain if parsed.from_ else None
+    norm = _legacy_norm_domain if legacy_domain_compare else _addr_domain
     reply_domains: list[str] = []
     for a in parsed.reply_to:
-        d = _norm_domain(a.domain or (a.email.rpartition("@")[2] if "@" in a.email else ""))
+        d = norm(a.domain or (a.email.rpartition("@")[2] if "@" in a.email else ""))
         if d and len(d) >= cfg.min_reply_to_domain_len:
             reply_domains.append(d)
+    # domain used for comparisons (the displayed from_domain field is unchanged)
+    cmp_from = (from_domain if legacy_domain_compare else (normalize_mail_domain(from_domain) or from_domain)) \
+        if from_domain else None
 
     text = "\n".join(filter(None, [parsed.body_text]))
     subject = parsed.subject or ""
@@ -136,7 +157,7 @@ def build_features(parsed: ParsedEmail, cfg: DetectionConfig | None = None) -> F
     if display_name and from_domain:
         for brand in cfg.brand_domains:
             brand_name = brand.split(".")[0]
-            if brand_name in display_name and from_domain != brand:
+            if brand_name in display_name and cmp_from != brand:
                 brand_in_name = brand
                 break
 
@@ -155,5 +176,5 @@ def build_features(parsed: ParsedEmail, cfg: DetectionConfig | None = None) -> F
         received_count=parsed.received_count,
         raw_authentication_results=auth_raw,
         obfuscated_url_count=getattr(parsed, "obfuscated_url_count", 0),
-        sender_and_reply_domains_differ=bool(from_domain) and bool(reply_domains) and all(d != _norm_domain(from_domain) for d in reply_domains),
+        sender_and_reply_domains_differ=bool(from_domain) and bool(reply_domains) and all(d != norm(from_domain) for d in reply_domains),
     )

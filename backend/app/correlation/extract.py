@@ -20,6 +20,7 @@ import unicodedata
 from dataclasses import dataclass
 
 from app.correlation.config import CorrelationConfig
+from app.ingestion.addresses import address_domain
 from app.intel.validate import validate_hash, validate_ip
 
 _LABEL_RE = re.compile(r"^(?!-)[a-z0-9-]{1,63}(?<!-)$")
@@ -78,9 +79,10 @@ def normalize_display_name(value: object) -> str | None:
 
 
 def _domain_of_address(addr: object) -> str | None:
+    # P5d.1: parsed with email.utils (display names, comments, "<>" bounce)
     if not isinstance(addr, str) or "@" not in addr:
         return None
-    return normalize_domain(addr.rpartition("@")[2])
+    return normalize_domain(address_domain(addr) or "")
 
 
 def extract(rec, cfg: CorrelationConfig) -> list[Extracted]:
@@ -136,8 +138,7 @@ def extract(rec, cfg: CorrelationConfig) -> list[Extracted]:
     add("sender_domain", normalize_domain(rec.from_domain or ""), "sender_domain", "from.domain")
     for i, addr in enumerate(rec.reply_to_emails or []):
         add("reply_to_domain", _domain_of_address(addr), "reply_to_domain", f"reply_to[{i}]")
-    rp = (rec.return_path or "").strip().strip("<>")
-    add("return_path_domain", _domain_of_address(rp), "return_path_domain", "return_path")
+    add("return_path_domain", _domain_of_address(rec.return_path or ""), "return_path_domain", "return_path")
     mid = (rec.message_id or "").strip().strip("<>")
     if "@" in mid:
         add("message_id_domain", normalize_domain(mid.rpartition("@")[2]), "message_id_domain", "message_id")

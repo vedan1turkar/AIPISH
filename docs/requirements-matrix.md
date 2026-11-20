@@ -35,6 +35,13 @@ Recommended technologies are listed for traceability. They are not functional sc
 | BLK | 3 | 3 | 3 | 3 | 3 |
 | **Total** | 60 | 60 | 60 | 60 | 60 |
 
+## P5d.1 correction (no status changes)
+
+The header-forensics Return-Path comparison bug was fixed, along with the same bug class in the Reply-To,
+Message-ID, auth-alignment, enrichment and correlation domain handling. R8 and R10 stay VER with updated
+evidence. The ML feature path intentionally keeps the legacy comparison, so model inputs and outputs are
+unchanged (proven to 4 decimals). The impact study is in `docs/CHANGELOG.md`.
+
 ## Changes made in P5d
 
 | ID | Before | After | Why |
@@ -44,7 +51,7 @@ Recommended technologies are listed for traceability. They are not functional sc
 | R15 | PART | PART | Tor, VPN and proxy flags and hosting signals now drive the "anonymised infrastructure" hypothesis and T1090.003. Still no open-relay or botnet source, and live provider data is unverified. |
 | R40 | VER | VER | Attribution disclaimer on the ATT&CK tab, the source-type panel, PDF 7C and the API results. |
 
-Pre-existing bug found (not fixed, to avoid changing rule scores): the header-forensics Return-Path comparison can keep a trailing `>` and flag identical domains. The ATT&CK engine guards against it; see `docs/attack/README.md`.
+Pre-existing bug found (fixed in P5d.1, see `docs/CHANGELOG.md`): the header-forensics Return-Path comparison can keep a trailing `>` and flag identical domains. The ATT&CK engine guards against it; see `docs/attack/README.md`.
 
 ## Changes made in P5c
 
@@ -95,9 +102,9 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R5 | Labelled dataset | VER | `ml/dataset/*`, `data/DATA_CARD.md` · `test_dataset.py` | Era and source confound |
 | R6 | BEC detection | PART | `payment_diversion` / `credential_request` rules, ML fraud class, P4.2 policy | No real BEC data; no executive-impersonation check |
 | R7 | Combined risk score | PART | Rule score bridges forensics, auth and enrichment | ML not combined; no behavioural signal; threat intel deliberately informational in P5a |
-| R8 | Header fields and alignment | VER | `forensics/headers.py`, `auth/` · `test_forensics.py`, `test_auth.py` | — |
+| R8 | Header fields and alignment | VER | `forensics/headers.py`, `auth/`, `ingestion/addresses.py` (P5d.1 parsed + normalised address domains) · `test_forensics.py`, `test_auth.py`, `test_address_comparison.py` | Analyses stored before P5d.1 keep the old comparison (not rewritten) |
 | R9 | SPF/DKIM/DMARC verification | IMP-U | `auth/__init__.py` live checks · DNS stubbed in tests | Never verified live |
-| R10 | Routing anomalies / forged fields | VER | `forensics/headers.py` · `test_forensics.py` | — |
+| R10 | Routing anomalies / forged fields | VER | `forensics/headers.py` · `test_forensics.py`, `test_address_comparison.py` | P5d.1 removed a false Return-Path mismatch (trailing `>`); rule weights not yet re-baselined |
 | R11 | Authorised vs suspicious infrastructure | IMP-U | SPF result plus relay trust | Depends on live SPF (R9) |
 | R12 | Relay-chain reconstruction | VER | `run_header_forensics` · `test_forensics.py` | Heuristic trust boundary |
 | R13 | Candidate IPs / earliest reliable node | VER | `forensics/headers.py` · `test_forensics.py` | — |
@@ -120,7 +127,7 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R30 | Evidence preservation / chain-of-custody support | PART | SHA-256, optional raw retention, versioned assessments and intel runs | Not tamper-resistant |
 | R31 | Retention, masking, redaction | PART | `CASE_EVIDENCE_RETENTION_DAYS`, `llm/redact.py` | Retention not enforced; body stored in clear |
 | R32 | RBAC | VER | `security/permissions.py`, `security/deps.py` (app-wide `enforce_access`), `api/admin_router.py` · `test_access_control.py` (route inventory + role matrix), `Auth.test.tsx` | Roles are global: no per-case ownership/ACLs |
-| R33 | Tests | VER | Backend 533 passed / 6 skipped (5 opt-in live intel tests); frontend 104 passed | No CI; no browser E2E suite |
+| R33 | Tests | VER | Backend 564 passed / 6 skipped (5 opt-in live intel tests); frontend 104 passed | No CI; no browser E2E suite |
 | R34 | Main database (PostgreSQL) | PART | SQLAlchemy and SQLite | No PostgreSQL or migrations tool |
 | R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; intel lookups and correlation recompute run synchronously |
 | R36 | Email integration (IMAP/SMTP/Graph) | MISS | — | Test mailbox or Azure tenant |

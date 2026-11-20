@@ -21,6 +21,12 @@ from typing import Any
 
 from app.forensics.config import ForensicsConfig, get_forensics_config
 from app.forensics.ipclass import IPClass, classify_ip
+from app.ingestion.addresses import (
+    HEADER_COMPARISON_VERSION,
+    address_domain,
+    message_id_domain,
+    normalize_mail_domain,
+)
 from app.ingestion.parser import ParsedEmail
 
 # ── Received-header token parsers ─────────────────────────────────────────
@@ -88,6 +94,8 @@ class HeaderForensicsResult:
     confidence_rules: list[str]             # the documented rule table
     forgery_note: str
     disclaimer: str
+    # P5d.1: 2 = parsed + normalised address comparison; 1 = legacy (ML feature path only).
+    header_comparison_version: int = 1
 
     def to_dict(self) -> dict:
         return {
@@ -101,6 +109,7 @@ class HeaderForensicsResult:
                 }
                 for h in self.chain
             ],
+            "header_comparison_version": self.header_comparison_version,
             "trusted_boundary_index": self.trusted_boundary_index,
             "candidate_ips": self.candidate_ips,
             "earliest_candidate_ip": self.earliest_candidate_ip,
@@ -240,18 +249,33 @@ def _reg_domain(host: str) -> str:
     return ".".join(parts[-2:]) if len(parts) >= 2 else host
 
 
-def _dom(addr: str | None) -> str | None:
+def _legacy_dom(addr: str | None) -> str | None:
+    """Pre-P5d.1 Return-Path domain: keeps a trailing '>' (the bug).
+
+    Intentionally preserved ONLY for the ML feature path (``legacy_domain_compare=True``), so the
+    trained model keeps receiving the inputs it was trained on. Do not use elsewhere."""
     if not addr or "@" not in addr:
         return None
     return addr.rpartition("@")[2].lower().strip()
 
 
-def _inconsistencies(parsed: ParsedEmail, hops: list[ParsedHop], cfg: ForensicsConfig) -> list[Inconsistency]:
+def _inconsistencies(parsed: ParsedEmail, hops: list[ParsedHop], cfg: ForensicsConfig,
+                     legacy_domain_compare: bool = False) -> list[Inconsistency]:
     out: list[Inconsistency] = []
-    from_dom = parsed.from_.domain.lower() if parsed.from_ else None
+    if legacy_domain_compare:
+        from_dom = parsed.from_.domain.lower() if parsed.from_ else None
+        rp_dom = _legacy_dom(parsed.return_path) if parsed.return_path else None
+        rt_doms = [(rt, rt.domain.lower() if rt.domain else None) for rt in parsed.reply_to]
+        mid = parsed.message_id or ""
+        mid_dom = mid.rpartition("@")[2].lower().rstrip(">") if "@" in mid else None
+    else:
+        # P5d.1: parse addresses (display names, comments, <> bounce) and normalise domains
+        from_dom = normalize_mail_domain(parsed.from_.domain) if parsed.from_ else None
+        rp_dom = address_domain(parsed.return_path)
+        rt_doms = [(rt, normalize_mail_domain(rt.domain)) for rt in parsed.reply_to]
+        mid_dom = message_id_domain(parsed.message_id)
 
-    # Return-Path vs From
-    rp_dom = _dom(parsed.return_path) if parsed.return_path else None
+    # Return-Path vs From (the null reverse-path "<>" has no domain → never a mismatch)
     if from_dom and rp_dom and rp_dom != from_dom and "mailfrom" not in (parsed.return_path or "").lower():
         out.append(Inconsistency(
             "returnpath_mismatch", cfg.severity_returnpath_mismatch,
@@ -261,8 +285,7 @@ def _inconsistencies(parsed: ParsedEmail, hops: list[ParsedHop], cfg: ForensicsC
         ))
 
     # Reply-To vs From
-    for rt in parsed.reply_to:
-        rt_dom = rt.domain.lower() if rt.domain else None
+    for rt, rt_dom in rt_doms:
         if from_dom and rt_dom and rt_dom != from_dom:
             out.append(Inconsistency(
                 "replyto_mismatch", cfg.severity_replyto_mismatch,
@@ -271,8 +294,6 @@ def _inconsistencies(parsed: ParsedEmail, hops: list[ParsedHop], cfg: ForensicsC
             ))
 
     # Message-ID vs From
-    mid = parsed.message_id or ""
-    mid_dom = mid.rpartition("@")[2].lower().rstrip(">") if "@" in mid else None
     if from_dom and mid_dom and mid_dom != from_dom and mid_dom not in (from_dom.split(".")[-2:]):
         out.append(Inconsistency(
             "messageid_domain_mismatch", cfg.severity_messageid_mismatch,
@@ -320,7 +341,11 @@ def _inconsistencies(parsed: ParsedEmail, hops: list[ParsedHop], cfg: ForensicsC
 def run_header_forensics(
     parsed: ParsedEmail,
     cfg: ForensicsConfig | None = None,
+    *,
+    legacy_domain_compare: bool = False,
 ) -> HeaderForensicsResult:
+    """``legacy_domain_compare=True`` reproduces the pre-P5d.1 address comparison exactly. It is used
+    only by the ML feature path (``app.ml.features.run_rules_offline``) to match model training."""
     cfg = cfg or get_forensics_config()
 
     # Received headers: parser collected them in wire order (top to bottom).
@@ -370,7 +395,7 @@ def run_header_forensics(
                 verified = h.from_ip
                 break
 
-    inconsistencies = _inconsistencies(parsed, parsed_hops, cfg)
+    inconsistencies = _inconsistencies(parsed, parsed_hops, cfg, legacy_domain_compare)
 
     return HeaderForensicsResult(
         chain=chain,
@@ -382,4 +407,5 @@ def run_header_forensics(
         confidence_rules=CONFIDENCE_RULES_DOC,
         forgery_note=FORGERY_NOTE,
         disclaimer=DISCLAIMER,
+        header_comparison_version=1 if legacy_domain_compare else HEADER_COMPARISON_VERSION,
     )

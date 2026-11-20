@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 from app.ingestion.parser import ParsedEmail
+from app.ingestion.addresses import address_domain
 
 _DOMAIN_RE = re.compile(r"^(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)*[a-z]{2,63}$")
 
@@ -102,10 +103,9 @@ def collect_iocs(parsed: ParsedEmail, forensic_ips: list[str]) -> list[Ioc]:
     # mail domains
     if parsed.from_ and parsed.from_.domain:
         add("domain", normalize_domain(parsed.from_.domain), "From header")
-    rp = parsed.return_path or ""
-    m = re.match(r"<?[^@\s>]+@([^>\s]+)>?", rp.strip())
-    if m:
-        add("domain", normalize_domain(m.group(1)), "Return-Path")
+    rp_dom = address_domain(parsed.return_path)       # P5d.1: parsed, "<>" bounce → none
+    if rp_dom:
+        add("domain", normalize_domain(rp_dom), "Return-Path")
     for rt in parsed.reply_to:
         add("domain", normalize_domain(rt.domain), "Reply-To")
 

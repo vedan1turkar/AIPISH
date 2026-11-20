@@ -42,7 +42,10 @@ These are distinct — the earliest candidate is a *candidate*; the verified ori
 
 ### Inconsistency Checks
 - `reply_to_mismatch` (Reply-To domain ∉ sender's From domain),
-- `returnpath_mismatch` (Return-Path domain ≠ From domain when both present),
+- `returnpath_mismatch` (Return-Path domain ≠ From domain when both present). Since P5d.1 both sides
+  are parsed with `email.utils` and normalised (case, trailing dot, IDNA); the null reverse-path `<>`
+  never mismatches. The pre-fix comparison kept a trailing `>` and flagged almost every Return-Path; it
+  survives only as the ML feature path's `legacy_domain_compare=True` (see docs/CHANGELOG.md),
 - `messageid_domain_mismatch` (Message-ID's domain ≠ From's domain),
 - `received_spf_mismatch` (Auth-Results `spf=fail` but Received header contains `spf=pass` or hairstory),
 - `auth_results_spf_mismatch` (Auth-Results `spf=pass` vs Received `spf=fail`),
