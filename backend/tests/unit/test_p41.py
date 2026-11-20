@@ -106,7 +106,8 @@ def test_unsupported_detail_recommendations_are_rejected():
                  "Call back the mobile number in this message to confirm."):
         c = classify(text, pack)
         assert c["kind"] == "rejected", text
-        assert "no deterministic evidence item establishes" in c["reason"]
+        # P4.2: calling a number from the email is now rejected as unsafe (stronger than "unsupported")
+        assert ("no deterministic evidence item establishes" in c["reason"]) or c["reason"].startswith("unsafe:")
 
 
 def test_neutral_and_evidence_linked_recommendations():
@@ -136,11 +137,16 @@ def test_validate_separates_recommendations_from_findings():
                                     "Review the organisation's email security policies."]}
     out = validate(data, pack)
     kinds = [(r["origin"], r["kind"]) for r in out["recommendations"]]
-    assert ("model", "evidence_linked") in kinds and ("model", "general") in kinds
-    assert [r["text"] for r in out["recommendations"] if r["origin"] == "system"] == SYSTEM_GENERAL
-    assert out["rejected_recommendations"][0]["text"].startswith("Investigate the phone number")
-    assert out["recommended_actions"] == ["Investigate the URL provided in the email.",
-                                          "Review the organisation's email security policies."]
+    # P4.2: shown advice is always system-template text; model wording is never passed through
+    assert ("system_template", "evidence_linked") in kinds and ("system", "general") in kinds
+    assert all(r["text"] in SYSTEM_GENERAL for r in out["recommendations"] if r["kind"] == "general")
+    rejected = {r["text"]: r["reason"] for r in out["rejected_recommendations"]}
+    assert "Investigate the phone number provided in the email." in rejected
+    assert "not a recognised investigative action" in rejected["Review the organisation's email security policies."]
+    linked = next(r for r in out["recommendations"] if r["kind"] == "evidence_linked")
+    assert linked["category"] == "url_analysis" and "Do not open" in linked["text"]
+    assert linked["model_suggestions"] == ["Investigate the URL provided in the email."]
+    assert out["recommended_actions"] == [linked["text"]]
     assert len(out["findings"]) == 1                     # recommendations never become findings
 
 
@@ -320,8 +326,8 @@ def test_pdf_section8_shap_and_recommendations(monkeypatch):
     for needle in ("v3", "raw-margin", "not probabilities", "away from 'fraud' overall",
                    "Why the ensemble still predicts this class", "text_semantic_components",
                    "not an individually interpretable", "Additivity: base", "check passed",
-                   "Evidence-linked recommendations", "General investigative recommendations", "(system)",
-                   "Rejected recommendation", "not reliably detected"):
+                   "Evidence-linked recommendations", "General recommendations (system templates",
+                   "Rejected unsafe or unsupported", "INDEPENDENT VERIFICATION REQUIRED", "not reliably detected"):
         assert needle in text, needle
 
 

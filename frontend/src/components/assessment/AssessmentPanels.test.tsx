@@ -11,6 +11,7 @@ import real from './__fixtures__/assessment_ok.json'
 import {
   AssessmentOverviewCard,
   AssessmentView,
+  FinancialWarning,
   EvidencePanel,
   MlPanel,
   ShapPanel,
@@ -294,7 +295,7 @@ describe('P4.1 recommendations', () => {
     expect(out).toContain('href="#evidence-E4"')
     expect(t).toContain('(system)')
     expect(t).toContain('(model)')
-    expect(t).toContain('1 model recommendation(s) rejected')
+    expect(t).toContain('1 model suggestion(s) rejected as unsafe or unsupported')
     expect(t).toContain('no deterministic evidence item establishes')
   })
 
@@ -320,5 +321,62 @@ describe('P4.1 live fixture (real local-Mistral output, versioned + grounded)', 
     expect(t).not.toContain('generated before recommendation grounding')
     expect(live.version).toBe(1)
     expect(text(<ShapPanel explanation={live.explanation} ml={live.ml} />)).toContain('Why the ensemble still predicts this class')
+  })
+})
+
+describe('P4.2 constrained recommendations', () => {
+  const GENERAL = [
+    { text: 'Verify any unusual payment, bank-detail, invoice or supplier request through a previously established, independently verified communication channel.', kind: 'general', origin: 'system', category: 'independent_verification', evidence_ids: [] },
+    { text: 'Do not reply to the suspicious email, and do not use telephone numbers, links, attachments or contact details contained in it for verification.', kind: 'general', origin: 'system', category: 'do_not_use_email_contacts', evidence_ids: [] },
+  ]
+  const fin = {
+    detected: true, evidence_signals: [{ evidence_id: 'E3', term: 'wire' }], email_text_terms: ['iban'], ml_label_fraud: true,
+    warning: 'This email concerns payments, bank details, invoices or suppliers. Do not act on it.',
+  }
+  const p42 = (over: Record<string, unknown> = {}) => ({
+    ...clone().forensic_summary!,
+    recommendation_policy: 'p4.2-constrained',
+    financial_context: fin,
+    recommendations: [
+      { text: 'Investigate the mismatch between the From and Reply-To domains as a possible reply-diversion attempt. Do not send anything to either address.', kind: 'evidence_linked', origin: 'system_template', category: 'reply_to_mismatch', evidence_ids: ['E7'], model_suggestions: ['Investigate the Reply-To mismatch.'] },
+      ...GENERAL,
+    ],
+    rejected_recommendations: [{ text: 'Reply to the sender to confirm the wire transfer.', reason: 'unsafe: replies to the suspicious email', category: 'unsafe' }],
+    ...over,
+  })
+
+  it('labels template advice, never presents general advice as a finding, and shows rejection reasons openly', () => {
+    const out = html(<SummaryPanel fs={p42()} />)
+    const t = text(<SummaryPanel fs={p42()} />)
+    expect(t).toContain('Evidence-linked recommendations (system template; evidence IDs chosen deterministically, not by the model)')
+    expect(t).toContain('General recommendations (system templates: standard practice, not findings, not AI-discovered)')
+    expect(t).toContain('1 model suggestion(s) rejected as unsafe or unsupported. Shown for transparency; do not follow.')
+    expect(t).toContain('unsafe: replies to the suspicious email')
+    expect(out).toMatch(/<details open=""/)
+    expect(out).toContain('href="#evidence-E7"')
+    expect(t).not.toContain('(model)')
+  })
+
+  it('shows the independent-verification warning prominently in the AI tab', () => {
+    const a = { ...clone(), forensic_summary: p42() }
+    const out = html(<AssessmentView assessment={a} loading={false} error={null} generating={false} generateError={null} onGenerate={() => undefined} />)
+    expect(out).toContain('data-testid="financial-warning"')
+    expect(out).toContain('role="alert"')
+    expect(out.indexOf('financial-warning')).toBeLessThan(out.indexOf('>ML classification</h2>'))
+    expect(text(<FinancialWarning fs={p42()} />)).toContain('Signals: wire, iban')
+  })
+
+  it('no warning without detected financial context (never invented)', () => {
+    expect(html(<FinancialWarning fs={p42({ financial_context: { ...fin, detected: false, warning: null } })} />)).toBe('')
+    expect(html(<FinancialWarning fs={clone().forensic_summary} />)).toBe('')
+  })
+
+  it('general advice and the warning still render when the LLM did not run', () => {
+    const failed = p42({ status: 'timeout', summary: null, assessment: null, findings: [], recommendations: GENERAL, rejected_recommendations: [] })
+    const t = text(<SummaryPanel fs={failed} />)
+    expect(t).toContain('did not answer within the time limit')
+    expect(t).toContain('General recommendations (system templates')
+    expect(t).not.toContain('Evidence-linked recommendations')
+    expect(text(<FinancialWarning fs={failed} />)).toContain('Independent verification required')
   })
 })

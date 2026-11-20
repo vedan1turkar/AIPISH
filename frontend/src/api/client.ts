@@ -411,9 +411,21 @@ export interface EvidenceItem {
 export interface Recommendation {
   text: string
   kind: 'evidence_linked' | 'general' | string
-  origin: 'model' | 'system' | string
+  /** P4.2: 'system' (general template) | 'system_template' (evidence-linked template); P4.1: 'model' */
+  origin: 'model' | 'system' | 'system_template' | string
   evidence_ids: string[]
   artefacts?: string[]
+  category?: string
+  model_suggestions?: string[]
+  also_suggested_by_model?: boolean
+}
+
+export interface FinancialContext {
+  detected: boolean
+  evidence_signals: { evidence_id: string; term: string }[]
+  email_text_terms: string[]
+  ml_label_fraud: boolean
+  warning: string | null
 }
 
 export interface SummaryFinding {
@@ -435,7 +447,10 @@ export interface ForensicSummary {
   recommended_actions?: string[]
   /** P4.1: grounded recommendations; absent on assessments generated before P4.1 */
   recommendations?: Recommendation[]
-  rejected_recommendations?: { text: string; reason: string }[]
+  rejected_recommendations?: { text: string; reason: string; category?: string | null }[]
+  /** P4.2 deterministic payment/bank/invoice/supplier context; present even when the LLM failed */
+  financial_context?: FinancialContext
+  recommendation_policy?: string
   limitations?: string[]
   validation?: {
     summary_accepted: boolean

@@ -34,12 +34,16 @@ def status() -> dict:
 def forensic_summary(analysis: dict, ml: dict | None, explanation: dict | None) -> dict:
     t0 = time.monotonic()
     pack = build_pack(analysis, ml, explanation)
+    from app.llm.recommend import financial_context, general_recommendations
+    fin = financial_context(pack)            # deterministic: shown even when the LLM fails
     cfg = C.LLMConfig.load()
     base = {
         "ai_generated": True, "label": AI_LABEL,
         "model": {"provider": "ollama", "name": cfg.model, "digest": None, "local": True},
         "summary": None, "assessment": None, "findings": [], "rejected_findings": [],
         "recommended_actions": [], "limitations": [], "validation": None,
+        "recommendations": general_recommendations(fin), "rejected_recommendations": [],
+        "financial_context": fin, "recommendation_policy": "p4.2-constrained",
         "evidence": pack.items, "unavailable_information": pack.unavailable,
         "system_verdicts": pack.system_verdicts,
         "security": {"injection_patterns_detected": pack.injection_patterns,

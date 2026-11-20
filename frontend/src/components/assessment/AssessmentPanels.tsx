@@ -22,6 +22,7 @@ import {
   mlView,
   PRIVACY_NOTE,
   recommendationGroups,
+  financialWarning,
   shapComponentView,
   shapCoverage,
   shapRows,
@@ -366,7 +367,7 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
               </ul>
             </details>
           )}
-          <Recommendations fs={fs} index={index} />
+
           <BulletList title="Limitations (stated by the model)" items={fs?.limitations} />
           {(fs?.validation?.flags ?? []).length > 0 && (
             <BulletList
@@ -377,6 +378,9 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
         </div>
       )}
 
+      <div className="mt-4">
+        <Recommendations fs={fs} index={index} />
+      </div>
       <p className="mt-4 text-xs text-gray-500" data-testid="privacy-note">{PRIVACY_NOTE}</p>
       {(fs?.security?.injection_patterns_detected ?? []).length > 0 && (
         <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-xs text-red-800" data-testid="injection-warning">
@@ -396,57 +400,87 @@ export function SummaryPanel({ fs, llmStatus }: { fs: ForensicSummary | null | u
   )
 }
 
+export function FinancialWarning({ fs }: { fs: ForensicSummary | null | undefined }) {
+  const w = financialWarning(fs)
+  if (!w) return null
+  return (
+    <div role="alert" data-testid="financial-warning"
+      className="rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+      <p className="font-semibold">⚠ Independent verification required</p>
+      <p className="mt-1">{w.text}</p>
+      {w.signals.length > 0 && <p className="mt-1 text-xs text-red-700">Signals: {w.signals.join(', ')}</p>}
+    </div>
+  )
+}
+
 function Recommendations({ fs, index }: { fs: ForensicSummary | null | undefined; index: Map<string, unknown> }) {
   const g = recommendationGroups(fs)
-  if (!g.graded)
+  if (!g.graded) {
+    if (!componentState(fs).ran) return null
     return (
       <BulletList
         title="Recommended actions (model; generated before recommendation grounding, not checked against the evidence)"
         items={g.legacy}
       />
     )
-  const item = (r: Recommendation, i: number) => (
-    <li key={i} data-testid={`rec-${r.kind}`}>
-      {r.text}
-      {r.kind === 'general' && <span className="ml-1 text-xs text-gray-400">({r.origin === 'system' ? 'system' : 'model'})</span>}
-      {r.evidence_ids.length > 0 && (
-        <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">
-          {r.evidence_ids.map((id) =>
-            index.has(id) ? <EvidenceChip key={id} id={id} title="Cited evidence" /> : (
-              <span key={id} className="rounded bg-red-50 px-1.5 py-0.5 font-mono text-[11px] text-red-700">{id} (not in evidence list)</span>
-            ),
-          )}
-        </span>
-      )}
-    </li>
-  )
+  }
+  const chips = (r: Recommendation) =>
+    r.evidence_ids.length > 0 && (
+      <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">
+        {r.evidence_ids.map((id) =>
+          index.has(id) ? <EvidenceChip key={id} id={id} title="Supporting evidence" /> : (
+            <span key={id} className="rounded bg-red-50 px-1.5 py-0.5 font-mono text-[11px] text-red-700">{id} (not in evidence list)</span>
+          ),
+        )}
+      </span>
+    )
   return (
-    <section data-testid="recommendations">
+    <section data-testid="recommendations" className="space-y-3">
       {g.linked.length > 0 && (
-        <>
+        <div>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-            Evidence-linked recommendations (model; each relies on the cited items)
+            {g.constrained
+              ? 'Evidence-linked recommendations (system template; evidence IDs chosen deterministically, not by the model)'
+              : 'Evidence-linked recommendations (model; each relies on the cited items)'}
           </h3>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-gray-700">{g.linked.map(item)}</ul>
-        </>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            {g.linked.map((r, i) => (
+              <li key={i} data-testid="rec-evidence_linked">
+                {r.text}
+                {chips(r)}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {g.general.length > 0 && (
-        <>
-          <h3 className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            General investigative recommendations (not established by a specific evidence item)
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            {g.constrained
+              ? 'General recommendations (system templates: standard practice, not findings, not AI-discovered)'
+              : 'General investigative recommendations (not established by a specific evidence item)'}
           </h3>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-gray-700">{g.general.map(item)}</ul>
-        </>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            {g.general.map((r, i) => (
+              <li key={i} data-testid="rec-general">
+                {r.text}
+                {!g.constrained && (
+                  <span className="ml-1 text-xs text-gray-400">({r.origin === 'system' ? 'system' : 'model'})</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {g.rejected.length > 0 && (
-        <details className="mt-3 rounded-md bg-gray-50 px-3 py-2" data-testid="rejected-recommendations">
-          <summary className="cursor-pointer text-xs font-semibold text-gray-600">
-            {g.rejected.length} model recommendation(s) rejected because they assert details the evidence does not establish
+        <details open className="rounded-md border border-red-200 bg-red-50/40 px-3 py-2" data-testid="rejected-recommendations">
+          <summary className="cursor-pointer text-xs font-semibold text-red-800">
+            {g.rejected.length} model suggestion(s) rejected as unsafe or unsupported. Shown for transparency; do not follow.
           </summary>
-          <ul className="mt-2 space-y-1 text-xs text-gray-600">
+          <ul className="mt-2 space-y-1 text-xs text-gray-700">
             {g.rejected.map((r, i) => (
               <li key={i}>
-                <span className="line-through decoration-gray-400">{r.text}</span>{' '}
+                <span className="line-through decoration-red-400">{r.text}</span>{' '}
                 <span className="text-red-700">({r.reason})</span>
               </li>
             ))}
@@ -660,6 +694,7 @@ export function AssessmentView({
               {generateButton('Regenerate (new version)', false)}
             </span>
           </div>
+          <FinancialWarning fs={assessment.forensic_summary} />
           {viewingOld && (
             <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="old-version-banner">
               You are viewing an earlier version (v{assessment.version}). The latest is v{history[0]?.version}. A PDF

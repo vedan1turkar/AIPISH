@@ -279,6 +279,8 @@ export function shapComponentView(
 // ── P4.1: recommendations ──────────────────────────────────────────────
 export interface RecommendationGroups {
   graded: boolean
+  /** P4.2 constrained policy: all shown text is system-template text */
+  constrained: boolean
   linked: Recommendation[]
   general: Recommendation[]
   rejected: { text: string; reason: string }[]
@@ -288,9 +290,10 @@ export interface RecommendationGroups {
 export function recommendationGroups(fs: ForensicSummary | null | undefined): RecommendationGroups {
   const recs = fs?.recommendations
   if (!Array.isArray(recs))
-    return { graded: false, linked: [], general: [], rejected: [], legacy: fs?.recommended_actions ?? [] }
+    return { graded: false, constrained: false, linked: [], general: [], rejected: [], legacy: fs?.recommended_actions ?? [] }
   return {
     graded: true,
+    constrained: fs?.recommendation_policy === 'p4.2-constrained',
     linked: recs.filter((r) => r.kind === 'evidence_linked'),
     general: recs.filter((r) => r.kind === 'general'),
     rejected: fs?.rejected_recommendations ?? [],
@@ -300,3 +303,12 @@ export function recommendationGroups(fs: ForensicSummary | null | undefined): Re
 
 export const PRIVACY_NOTE =
   'Before anything reaches the local model, secrets, account and card numbers, phone numbers, address local parts and URL paths are redacted. So are personal names taken from the From/To/Cc headers and names after greetings or sign-offs. Other personal names in the body are not reliably detected and may reach the local model. Nothing is sent to an external service.'
+
+/** P4.2: the deterministic financial-context warning, or null (never invented). */
+export function financialWarning(fs: ForensicSummary | null | undefined): { text: string; signals: string[] } | null {
+  const f = fs?.financial_context
+  if (!f?.detected || !f.warning) return null
+  const label = (t: string) => ({ '[redacted_iban]': 'iban', '[redacted_card]': 'card number' })[t] ?? t
+  const signals = [...new Set([...(f.evidence_signals ?? []).map((x) => x.term), ...(f.email_text_terms ?? [])].map(label))]
+  return { text: f.warning, signals }
+}

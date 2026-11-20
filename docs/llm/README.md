@@ -43,11 +43,17 @@ The response is `{analysis_id, ml, explanation, forensic_summary}`. `forensic_su
   - `status`: one of `ok`, `unavailable`, `timeout`, `invalid_output`.
   - `ai_generated: true`, and a `label` marking the text as an AI interpretation.
   - `model`: provider, name, digest and `local`.
-- **Recommendations (P4.1):** `recommendations` items are tagged by kind:
-  - `evidence_linked`: has cited `evidence_ids`.
-  - `general` (`origin` model or system): not established by a specific evidence item.
-
-  `rejected_recommendations` lists model recommendations that asserted an email detail (a phone number, supplier, approval code …) that no deterministic evidence item establishes. `recommended_actions` keeps the accepted model texts for compatibility.
+- **Recommendations (P4.2, `recommendation_policy: "p4.2-constrained"`).** Model wording is never shown as advice. Each model action is mapped onto a closed set of categories:
+  - **Rejected as unsafe:**
+    - replying to or contacting the alleged sender without a previously established, independently verified channel;
+    - using phone numbers, Reply-To addresses, signatures, links or attachments from the email;
+    - moving money, approving invoices or changing payment details on the email's strength.
+  - **Rejected as unsupported:** asserting a detail of the email (supplier, phone number, approval code, account …) that no deterministic evidence item establishes.
+  - **Evidence-linked:** shown only as a fixed system template, with evidence IDs chosen deterministically from the evidence list. This happens only when the category's required evidence exists.
+  - **General:** fixed system templates, labelled as standard practice and not as findings: independent verification, do not use the email's contacts, preserve evidence, escalate, and hold payments.
+  - **Unrecognised or ambiguous:** rejected.
+  - **How matching works:** on NFKC-normalised text with invisible characters and punctuation removed. A letters-only fallback runs when the text looks letter-spaced.
+  - **Financial-context warning:** `financial_context` is deterministic, built from the evidence, the redacted body terms and the ML label. When it is detected, the dashboard and the PDF show a prominent independent-verification warning, even if the LLM failed.
 - **The model's validated output:**
   - `summary` and `assessment`: set to null if they fail validation.
   - `findings`: each has a `statement`, cited `evidence_ids`, `evidence_categories`, and a `basis` of `verified` or `inferred`.
@@ -83,6 +89,6 @@ The input is [`sample_bec_injection.eml`](sample_bec_injection.eml). It is synth
 - **Wording.** The model can still misstate details. In the example it called the high-severity credential-request finding "medium severity". Always check the cited evidence items.
 - **Validation is pattern-based.** It catches the hallucinations it was designed for (unknown entities, false passes, unwarranted "safe" verdicts), but not every wrong statement.
 - **Personal names (partly addressed in P4.1).** Names taken from the message's own From/To/Cc headers are redacted in the body text, as are single names directly after a greeting or on the line after a sign-off. Recipients become `[RECIPIENT_NAME]` and the sender `[SENDER_NAME]`. Other names in the body, such as third parties, are **not** detected, because there is no local NER model, and may reach the local model. The sender's display name is kept in evidence item E1, because it is a sender-controlled header that impersonation analysis needs.
-- **Recommendation grounding is keyword-based.** A recommendation that names an artefact absent from the evidence, with assertive wording ("the phone number provided"), is rejected. Neutral advice is kept as general. Subtle unsupported claims can still pass.
+- **The recommendation policy is pattern-based and closed-world.** Unsafe or unrecognised model advice is rejected rather than shown, so useful but unusual suggestions may also be rejected. Novel phrasings of unsafe advice that match no pattern fall into "unrecognised" and are still rejected. Only fixed templates are ever displayed.
 - **SHAP scope.** SHAP explains only the XGBoost component. When its raw margin moves away from the predicted class while the ensemble still predicts it, the dashboard, PDF and evidence item say so, quoting each component's probability.
 - **Injection detection** uses known phrasing. Novel wording may go undetected, but it remains fenced, and the output validation still applies.

@@ -154,14 +154,16 @@ def validate(data: dict, pack: EvidencePack) -> dict:
                 flags.append({"field": "recommended_actions", "problems": p, "text": act.strip()[:200]})
             else:
                 actions.append(act.strip()[:300])
-    from app.llm.recommend import ground
+    from app.llm.recommend import financial_context, ground
     recommendations, rejected_recs = ground(actions, pack)
-    actions = [r["text"] for r in recommendations if r["origin"] == "model"]
+    # compatibility field: only advice that passed the policy, in its system-template wording
+    actions = [r["text"] for r in recommendations if r["kind"] == "evidence_linked" or r.get("also_suggested_by_model")]
     limitations = [x.strip()[:300] for x in data["limitations"][:8]
                    if isinstance(x, str) and not check_text(x, pack)]
     return {"summary": summary, "assessment": assessment, "findings": accepted,
             "rejected_findings": rejected, "recommended_actions": actions,
             "recommendations": recommendations, "rejected_recommendations": rejected_recs,
+            "financial_context": financial_context(pack), "recommendation_policy": "p4.2-constrained",
             "limitations": limitations,
             "validation": {"summary_accepted": summary is not None, "assessment_accepted": assessment is not None,
                            "findings_accepted": len(accepted), "findings_rejected": len(rejected),

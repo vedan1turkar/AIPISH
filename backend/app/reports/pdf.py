@@ -422,6 +422,7 @@ def _assessment_section(story: list, a: dict | None) -> None:
     ]))
     story.append(Paragraph("This report prints exactly the assessment version identified above; regenerating "
                            "the assessment later creates a new version and does not change it.", CAVEAT))
+    _financial_warning(story, a.get("forensic_summary") or {})     # prominent: before any model output
 
     # 8.1 ML
     ml = a.get("ml") or {}
@@ -528,12 +529,12 @@ def _assessment_section(story: list, a: dict | None) -> None:
             story.append(Paragraph("<b>Rejected by validation (not evidence):</b>", BODY))
             for r in rejected:
                 story.append(Paragraph(f"• {esc(r.get('statement'))} — <i>{esc(r.get('reason'))}</i>", CAVEAT))
-        _recommendations(story, fs)
         items = fs.get("limitations") or []
         if items:
             story.append(Paragraph("<b>Model-stated limitations:</b>", BODY))
             for x in items:
                 story.append(Paragraph("• " + esc(x), BODY))
+    _recommendations(story, fs)
     story.append(Paragraph(
         "<b>Privacy:</b> before reaching the local model, secrets, account and card numbers, phone numbers, "
         "address local parts and URL paths are redacted, as are personal names taken from the From/To/Cc "
@@ -547,7 +548,7 @@ def _assessment_section(story: list, a: dict | None) -> None:
     evidence = fs.get("evidence") or []
     if evidence:
         story.append(Paragraph("<b>Evidence items cited above</b> (deterministic, produced by the pipeline — "
-                               "not by the LLM)", BODY))
+                               "not by the LLM)", SUBHEAD))
         rows = [[Paragraph(h, BODY) for h in ("<b>ID</b>", "<b>Category</b>", "<b>Source</b>", "<b>Statement</b>")]]
         for e in evidence:
             rows.append([Paragraph(esc(e.get("id")), MONO), Paragraph(esc(e.get("category")), BODY),
@@ -555,7 +556,33 @@ def _assessment_section(story: list, a: dict | None) -> None:
         story.append(_grid(rows, [12 * mm, 20 * mm, 36 * mm, 108 * mm]))
 
 
+WARN = ParagraphStyle("WARNx", parent=BODY, fontSize=9, leading=12, textColor=colors.HexColor("#7f1d1d"))
+
+
+def _financial_warning(story: list, fs: dict) -> None:
+    fin = fs.get("financial_context") or {}
+    if not fin.get("detected"):
+        return
+    terms = ", ".join(sorted({s.get("term", "") for s in fin.get("evidence_signals") or []} |
+                             set(fin.get("email_text_terms") or [])))
+    box = Table([[Paragraph("<b>INDEPENDENT VERIFICATION REQUIRED.</b> " + esc(fin.get("warning") or "")
+                            + (f" <i>(signals: {esc(terms)})</i>" if terms else ""), WARN)]],
+                colWidths=[176 * mm])
+    box.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 1.2, colors.HexColor("#b91c1c")),
+                             ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fef2f2")),
+                             ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                             ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
+    story.append(Spacer(1, 4))
+    story.append(box)
+    story.append(Spacer(1, 4))
+
+
 def _recommendations(story: list, fs: dict) -> None:
+    if fs.get("recommendation_policy") == "p4.2-constrained":
+        _recommendations_p42(story, fs)
+        return
+    if fs.get("status") != "ok":
+        return
     recs = fs.get("recommendations")
     if recs is None:   # assessment generated before P4.1 grounding: show, but unclassified
         items = fs.get("recommended_actions") or []
@@ -581,3 +608,26 @@ def _recommendations(story: list, fs: dict) -> None:
     for r in fs.get("rejected_recommendations") or []:
         story.append(Paragraph(f"• Rejected recommendation: {esc(r.get('text'))} — <i>{esc(r.get('reason'))}</i>",
                                CAVEAT))
+
+
+def _recommendations_p42(story: list, fs: dict) -> None:
+    recs = fs.get("recommendations") or []
+    linked = [r for r in recs if r.get("kind") == "evidence_linked"]
+    general = [r for r in recs if r.get("kind") == "general"]
+    if linked:
+        story.append(Paragraph("<b>Evidence-linked recommendations</b> (system template text; evidence IDs chosen "
+                               "deterministically from the evidence list, not from the model):", SUBHEAD))
+        for r in linked:
+            story.append(Paragraph(f"• {esc(r.get('text'))} <font face='Courier' size='7.5'>"
+                                   f"[{esc(', '.join(r.get('evidence_ids') or []))}]</font>", BODY))
+    if general:
+        story.append(Paragraph("<b>General recommendations (system templates; standard practice, not findings and "
+                               "not AI-discovered):</b>", SUBHEAD))
+        for r in general:
+            story.append(Paragraph("• " + esc(r.get("text")), BODY))
+    rejected = fs.get("rejected_recommendations") or []
+    if rejected:
+        story.append(Paragraph("<b>Rejected unsafe or unsupported model suggestions</b> (shown for transparency; "
+                               "do not follow):", SUBHEAD))
+        for r in rejected:
+            story.append(Paragraph(f"• <strike>{esc(r.get('text'))}</strike> — <i>{esc(r.get('reason'))}</i>", CAVEAT))
