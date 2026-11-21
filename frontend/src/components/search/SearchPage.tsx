@@ -5,6 +5,7 @@ import {
   Button, DataTable, EmptyLine, ErrorAlert, Field, Input, Mono, Panel, Select, Spinner, StatusTag, formatDate, verdictTone,
 } from '../ui'
 import { CONFIDENCE_TONE, typeLabel } from '../correlation/model'
+import { RiskLevelTag } from '../risk/level'
 
 const PAGE = 20
 
@@ -108,6 +109,7 @@ export default function SearchPage() {
                 { key: 'v', header: 'Verdict', render: (a) => (
                   <StatusTag tone={verdictTone(a.detection_verdict)}>{(a.detection_verdict ?? 'unknown').replace(/_/g, ' ')}</StatusTag>) },
                 { key: 's', header: 'Score', align: 'right', mono: true, sortValue: (a) => a.detection_score, render: (a) => a.detection_score },
+                { key: 'cr', header: 'Combined risk', className: 'whitespace-nowrap', render: (a) => <RiskLevelTag level={a.combined_level} score={a.combined_score} /> },
                 { key: 'subj', header: 'Subject', className: 'max-w-0 w-full', render: (a) => (
                   <a href={`#analysis/${a.id}`} className="block truncate font-medium text-accent hover:underline">{a.subject || '(no subject)'}</a>) },
                 { key: 'd', header: 'Sender domain', mono: true, className: 'whitespace-nowrap', render: (a) => a.from_domain ?? '—' },

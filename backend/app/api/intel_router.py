@@ -50,6 +50,9 @@ def run_intel(analysis_id: str, body: ThreatIntelRequest, db: Session = Depends(
         # result returned below is unchanged.
         from app.attack.service import compute_safely
         compute_safely(db, analysis_id, "intel_run")
+        # P5h: refresh the combined risk assessment (failure-isolated).
+        from app.risk.service import compute_safely as risk_safely
+        risk_safely(db, analysis_id, "intel_run")
         return result
     except RunInProgress:
         raise HTTPException(status_code=409, detail={

@@ -15,8 +15,8 @@ role.
 
 | Role | Can do |
 |---|---|
-| **viewer** | Read analyses, cases, results, threat-intel results and assessment history; download PDFs; see ML model status; read correlation, campaigns and search (P5c). P5e: sees personal data **masked** (addresses `x***@domain`, display names "restricted", no body; PDF labelled "MASKED VIEW"). |
-| **analyst** | Everything a viewer can, plus: upload and analyse emails; run ML / SHAP / Mistral assessments; run threat-intel lookups; create cases and add analyses to them; verify evidence integrity. P5e: `pii:view` (unmasked personal data) and `custody:read` (custody timeline). |
+| **viewer** | Read analyses, cases, results, threat-intel results and assessment history; download PDFs; see ML model status; read correlation, campaigns and search (P5c). P5h: reads the combined risk assessment (`risk:read`). P5e: sees personal data **masked** (addresses `x***@domain`, display names "restricted", no body; PDF labelled "MASKED VIEW"). |
+| **analyst** | Everything a viewer can, plus: upload and analyse emails; run ML / SHAP / Mistral assessments; run threat-intel lookups; create cases and add analyses to them; verify evidence integrity. P5e: `pii:view` (unmasked personal data) and `custody:read` (custody timeline). P5h: `risk:recompute`. |
 | **admin** | Everything an analyst can, plus: user management (create, list, change role, disable / enable, reset password); view `/intel/status` and `/llm/status`; read the API docs (dev and test only); rebuild correlation (P5c). P5e: `audit:read` / `audit:manage` (audit log, verify, export, checkpoint) and `retention:manage` (retention runs, legal holds, erasure). |
 
 The role → permission map is in `backend/app/security/permissions.py` (`ROLE_PERMISSIONS`).
@@ -75,6 +75,9 @@ fails if any route is missing from `ROUTE_PERMISSIONS`.
 | `POST` | `/api/v1/admin/users` | `users:manage` | admin |
 | `PATCH` | `/api/v1/admin/users/{user_id}` | `users:manage` | admin |
 | `POST` | `/api/v1/admin/users/{user_id}/reset-password` | `users:manage` | admin |
+| `GET` | `/api/v1/analyses/{analysis_id}/risk` | `risk:read` | viewer, analyst, admin (P5h; masked per P5e) |
+| `GET` | `/api/v1/analyses/{analysis_id}/risk/history` | `risk:read` | viewer, analyst, admin (P5h) |
+| `POST` | `/api/v1/analyses/{analysis_id}/risk/recompute` | `risk:recompute` | analyst, admin (P5h; audited) |
 | `GET` | `/api/v1/audit/events` | `audit:read` | admin (P5e) |
 | `GET` | `/api/v1/audit/export` | `audit:read` | admin (P5e; capped, audited) |
 | `GET` | `/api/v1/audit/verify` | `audit:read` | admin (P5e) |

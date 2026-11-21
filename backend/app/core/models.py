@@ -444,3 +444,41 @@ class GeoObservation(Base):
     source: Mapped[str] = mapped_column(String(32))
     simulated: Mapped[bool] = mapped_column(Boolean, default=True)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MlClassification(Base):
+    """Upload-time ML classification (P5h): the cheap ensemble only — no SHAP, no LLM. Append-only.
+
+    Stored because hash_only analyses cannot be re-classified later. Every outcome is kept, including
+    unavailable / error / not_applicable, so a missing result is never read as "legitimate".
+    Holds probabilities and metadata only, never message content.
+    """
+    __tablename__ = "ml_classification"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    analysis_id: Mapped[str] = mapped_column(String(32), index=True)
+    source: Mapped[str] = mapped_column(String(24))              # upload
+    status: Mapped[str] = mapped_column(String(24))
+    model_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class RiskAssessment(Base):
+    """Explainable combined risk assessment (P5h). Append-only versions; a new version is added only when
+    the result changes (fingerprint). An ADDITIONAL result: never alters the rule score, verdict or ML output.
+    A risk index, not a probability."""
+    __tablename__ = "risk_assessment"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    analysis_id: Mapped[str] = mapped_column(String(32), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(24))              # upload | intel_run | assessment_run | recompute | backfill
+    engine_version: Mapped[str] = mapped_column(String(32))
+    config_version: Mapped[str] = mapped_column(String(32))
+    combined_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    level: Mapped[str] = mapped_column(String(16), index=True)
+    confidence: Mapped[str] = mapped_column(String(8))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    results_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

@@ -1,4 +1,4 @@
-# AIPISH design system (P5u-1, P5u-2, P5g, P5e)
+# AIPISH design system (P5u-1, P5u-2, P5g, P5e, P5h)
 
 The goal is a calm, dense security-engineering console: information-rich, organised and easy to scan.
 Hierarchy comes from type weight and tonal surface steps, not from boxes, shadows or colour.
@@ -247,6 +247,38 @@ integrity note.
 - Tags appear in the analysis header, the History "Retention" column and Case member rows.
 - Redacted (warn LED) and masked (neutral LED) analyses get a one-line banner strip above the tabs.
 - Colour is always paired with text.
+
+## Combined risk (P5h)
+
+- **Verdict strip:**
+  - The cells are rule engine · ML classifier · **Combined risk · index** · source type · threat intel ·
+    evidence.
+  - The strip is 3 × 2 below 2xl and a single row of six at 2xl, so no cell truncates the rule verdict.
+  - The combined cell is its own labelled cell (LED + score + level, sub-line "confidence … · not a
+    probability"). It never merges with or replaces the rule or ML cells.
+  - The ML cell falls back to the stored upload-time classification, labelled as such.
+- **Level tones** (`components/risk/level.tsx`):
+
+  | Level | Tone |
+  |---|---|
+  | minimal | ok |
+  | low | neutral |
+  | medium | warn |
+  | high, critical | danger |
+  | indeterminate | neutral |
+
+  Tones are always shown with the level text.
+- **Risk tab:**
+  - An optional conflict strip (warn LED) shows both views.
+  - Then a stretched 4 + 8 row: **Combined risk** (headline, KV rows, version select, recompute) and **Why
+    this level** (numbered explanation, content cues, disclaimers pinned to the bottom).
+  - Then an `items-start` 8 + 4 row: **Components** (one divided row per component: label, status and role
+    tags, value and effect, reason, evidence chips) and **Evidence** (K-ids, anchor targets for the chips).
+- **History, Overview and Search:** a "Combined risk" `StatusTag` column next to the unchanged rule
+  verdict. Overview hides "From domain" below 2xl and History hides "Received" below xl, so the tables fit
+  at 1280 and 1024.
+- **Analytics:** a "Combined risk levels (index, not a probability)" bar chart beside "Rule verdicts" in
+  the first row.
 
 ## Accessibility
 

@@ -4,7 +4,7 @@ This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 au
 `b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`), **P5b:
 authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns** (`9213bbf`) and **P5d: MITRE ATT&CK mapping and source-type
 classification** and **P5i: PostgreSQL, Docker Compose, Nginx and CI** and **P5g: infrastructure geolocation map and analytics** and **P5e: tamper-evident audit log, retention
-enforcement and personal-data masking**.
+enforcement and personal-data masking** and **P5h: explainable combined risk assessment**.
 
 **ID provenance:**
 - R1–R40 come from the original project matrix.
@@ -26,15 +26,25 @@ Recommended technologies are listed for traceability. They are not functional sc
 
 ## Counts
 
-| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g | After P5e |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 | 30 |
-| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 | 12 |
-| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 | 8 |
-| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 | 7 |
-| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
-| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g | After P5e | After P5h |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 | 30 | 31 |
+| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 | 12 | 12 |
+| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 | 8 | 7 |
+| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 | 7 | 7 |
+| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+
+## Changes made in P5h
+
+| ID | Before | After | Why |
+|---|---|---|---|
+| R7 | PART | VER | Explainable combined risk index (`app/risk/`): ML threat index as the primary signal (no double counting, because the ML features already contain the rule scores), hard-evidence floors, conflict detection, consented-intel corroboration that can only raise, context without score effect; append-only versions; API, UI, PDF 8A. Verified by property tests (monotonicity, floors, unavailable-never-lower, indeterminate, conflict, no-record-never-lowers, determinism) on SQLite and PostgreSQL, an offline study on the 1,709-message test split (combined high+ F1 0.9475 = ML alone; medium+ FPR 3.02 % against 9.60 % for rules suspicious+), and a Docker/nginx/PostgreSQL run with models mounted and a models-absent run. Gaps: no behavioural or sender-history signal; thresholds derived on old, partly synthetic data; a risk index, not a probability. |
+| R3 | PART | PART | The served ML now runs at every upload (stored, failure-isolated). It still never predicts `suspicious` (no data); the combined assessment flags rule/ML conflicts and raises them to at least medium as the documented substitute. Impersonated and fraud are still synthetic only. |
+| R6 | PART | PART | BEC reasoning is now explicit: floor H3 (payment or credential ask plus a sender-identity signal) and the ML fraud/impersonated classes are shown together in the Risk tab. Still no real BEC data and no executive-impersonation check. |
+| R1 | PART | PART | Per-cue breakdown (urgency, credential request, payment diversion, all-caps pressure) is surfaced from the existing lexicon rule findings in the Risk tab. No new NLP. |
+| R33 | VER | VER | Counts updated: backend 723 / 7 skipped (SQLite), 724 / 6 skipped (PostgreSQL); frontend 190. |
 
 ## Changes made in P5e
 
@@ -125,13 +135,13 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 
 | ID | Requirement | Status | Evidence (code · tests) | Gaps / external dependency |
 |---|---|---|---|---|
-| R1 | NLP of subject/body: urgency, impersonation, social engineering | PART | `ml/transformer.py`, lexicon rules in `detection/` · `test_ml.py`, `test_detection.py` | No per-cue NLP output |
+| R1 | NLP of subject/body: urgency, impersonation, social engineering | PART | `ml/transformer.py`, lexicon rules in `detection/`; P5h per-cue list in the Risk tab (from existing rule findings) · `test_ml.py`, `test_detection.py`, `test_risk.py` | No per-cue NLP model output (lexicon cues only) |
 | R2 | Phishing indicators: spoofing, deceptive domains, attachments, links, obfuscation | VER | `detection/` rules · `test_detection.py` | `lookalike_domain` needs a reference domain |
-| R3 | ML classes: legitimate / suspicious / impersonated / phishing / fraud | PART | `ml/train.py`, `ml/inference.py`, `/ml/classify` · `test_ml.py` | `suspicious` has no data; impersonated and fraud are synthetic only |
+| R3 | ML classes: legitimate / suspicious / impersonated / phishing / fraud | PART | `ml/train.py`, `ml/inference.py`, `/ml/classify`; P5h upload-time classification (`ml_classification`) · `test_ml.py`, `test_risk.py` | `suspicious` has no data (combined-risk conflict flag is the documented substitute); impersonated and fraud are synthetic only |
 | R4 | SHAP explanations | PART | `ml/explain.py`, `ml/shap_view.py` · `test_explain.py`, `test_p41.py` | XGBoost half only |
 | R5 | Labelled dataset | VER | `ml/dataset/*`, `data/DATA_CARD.md` · `test_dataset.py` | Era and source confound |
-| R6 | BEC detection | PART | `payment_diversion` / `credential_request` rules, ML fraud class, P4.2 policy | No real BEC data; no executive-impersonation check |
-| R7 | Combined risk score | PART | Rule score bridges forensics, auth and enrichment | ML not combined; no behavioural signal; threat intel deliberately informational in P5a |
+| R6 | BEC detection | PART | `payment_diversion` / `credential_request` rules, ML fraud class, P4.2 policy; P5h hard-evidence floor H3 · `test_risk.py` | No real BEC data; no executive-impersonation check |
+| R7 | Combined risk score | VER | `risk/engine.py`, `risk/service.py`, `/analyses/{id}/risk*`, Risk tab, PDF 8A; offline study `scripts/evaluate_risk.py` · `test_risk.py` (SQLite + PostgreSQL), `Risk.test.tsx`, Docker run | No behavioural/sender-history signal; validation-derived thresholds on old, partly synthetic data; an index, not a probability |
 | R8 | Header fields and alignment | VER | `forensics/headers.py`, `auth/`, `ingestion/addresses.py` (P5d.1 parsed + normalised address domains) · `test_forensics.py`, `test_auth.py`, `test_address_comparison.py` | Analyses stored before P5d.1 keep the old comparison (not rewritten) |
 | R9 | SPF/DKIM/DMARC verification | IMP-U | `auth/__init__.py` live checks · DNS stubbed in tests | Never verified live |
 | R10 | Routing anomalies / forged fields | VER | `forensics/headers.py` · `test_forensics.py`, `test_address_comparison.py` | P5d.1 removed a false Return-Path mismatch (trailing `>`); rule weights not yet re-baselined |
@@ -157,7 +167,7 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R30 | Evidence preservation / chain-of-custody support | VER | SHA-256, optional raw retention, versioned assessments and intel runs; P5e HMAC hash-chained audit log, custody timeline and tab, checkpoints · `test_audit.py`, `Audit.test.tsx`, Docker tamper demo | Tamper-evident, not tamper-proof: no WORM or external timestamping; triggers bypassable by a superuser (detected by the chain); manual checkpoints |
 | R31 | Retention, masking, redaction | VER | P5e `retention/service.py` (redact or delete, grace, legal holds, `retention-run`), `privacy/masking.py` (`pii:view`), masked PDF; `llm/redact.py` · `test_audit.py`, `Audit.test.tsx`, Docker run | No built-in scheduler (cron or Compose profile); subjects not masked; stored in clear |
 | R32 | RBAC | VER | `security/permissions.py`, `security/deps.py` (app-wide `enforce_access`), `api/admin_router.py` · `test_access_control.py` (route inventory + role matrix), `Auth.test.tsx` | Roles are global: no per-case ownership/ACLs |
-| R33 | Tests | VER | Backend 662 passed / 7 skipped on SQLite (6 opt-in live tests + 1 PostgreSQL-only trigger test) and 663 passed / 6 skipped on PostgreSQL; frontend 179 passed; all in CI (P5i, P5g, P5e) | No browser E2E suite |
+| R33 | Tests | VER | Backend 723 passed / 7 skipped on SQLite (6 opt-in live tests + 1 PostgreSQL-only trigger test) and 724 passed / 6 skipped on PostgreSQL; frontend 190 passed; all in CI (P5i, P5g, P5e, P5h) | No browser E2E suite |
 | R34 | Main database (PostgreSQL) | VER | `core/db.py` (`DATABASE_URL`, psycopg 3), `core/migrations.py` (versioned, idempotent) · full suite on PostgreSQL 17, `test_deploy.py`, Compose run (P5i) | No SQLite→PostgreSQL data copy (re-seed path documented) |
 | R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; intel lookups and correlation recompute run synchronously |
 | R36 | Email integration (IMAP/SMTP/Graph) | MISS | — | Test mailbox or Azure tenant |

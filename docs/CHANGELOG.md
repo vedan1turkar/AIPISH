@@ -1,5 +1,57 @@
 # Changelog
 
+## P5h — Explainable combined risk assessment
+
+- **Combined risk index (0–100), an additional result:**
+  - Levels minimal / low / medium / high / critical / indeterminate, with confidence, agreement and flags.
+  - Each component is listed with its status, value, role, effect and evidence ids.
+  - Engine: `app/risk/engine.py`. It is pure and deterministic, and versioned by `engine_version` and
+    `config_version`.
+  - The rule score, verdict and ML outputs are never changed.
+- **Design:**
+  - The ML threat index is the primary signal. Rule points are never added on top, because the XGBoost
+    features already contain the rule scores.
+  - Rules act through floors:
+    - hard evidence H1 risky attachment, H2 verified auth failure + identity, H3 payment/credential +
+      identity (all high);
+    - rule-suspicious → low;
+    - conflict → medium;
+    - rules are the primary signal when ML is missing.
+  - Consented threat intel can only raise, capped at +15. Clean or no-record results contribute nothing.
+  - Campaign and ATT&CK context have no score effect.
+  - Missing components never imply legitimate: the floor is low, and with both missing the result is
+    indeterminate.
+  - Thresholds come from the validation split (`t_med 0.36`, `t_high 0.50`).
+  - Design and properties: `docs/risk/README.md`.
+- **Offline evaluation** (`backend/scripts/evaluate_risk.py`, results in `docs/risk/evaluation_v1.*`), test
+  split of 1,709:
+  - combined high+ F1 0.9475, identical to ML alone;
+  - combined medium+ F1 0.9463 with FPR 3.02 %, against 9.60 % for rules suspicious+.
+  - The strict rule band has a lower FPR (0.80 %) but 6.5 % recall.
+- **Upload-time ML:**
+  - The cheap ensemble classification now runs at every upload when models are available. It is bounded
+    (`AIPISH_ML_UPLOAD_TIMEOUT_SECONDS`), failure-isolated, can be switched off with
+    `AIPISH_ML_AT_UPLOAD=0`, and is stored in the new `ml_classification` table.
+  - The SHAP and Mistral opt-in is unchanged.
+- **Persistence:** append-only `risk_assessment` versions (fingerprinted, idempotent) in migration step 8.
+  They are computed at upload, after intel runs, after AI assessments, on demand, and by
+  `python -m app.cli backfill-risk`.
+- **API:**
+  - `GET /analyses/{id}/risk[?version=]` and `GET /analyses/{id}/risk/history` (viewer+, masked per P5e);
+  - `POST /analyses/{id}/risk/recompute` (analyst+, audited as `risk_recomputed`);
+  - additive `combined_level`, `combined_score` and `combined_confidence` in the analyses list and search,
+    and `combined_levels` in analytics;
+  - `risk_id` pins the PDF section.
+- **PDF:** new section 8A, version-pinned (`risk_id` is recorded in `report_generated`), escaped and
+  masked-view compatible.
+- **Frontend:**
+  - a combined-risk cell in the verdict strip, separate from the rule and ML cells (3×2 below 2xl);
+  - a Risk tab with components, evidence, conflict banner, version picker, recompute and disclaimers;
+  - a combined level in History, Overview and Search;
+  - a combined-level chart in Analytics.
+- **Unchanged:** the 18 rules and their scores, the ML models, ensemble weights, SHAP, LLM prompts, and the
+  existing PDF sections. BEC is still 100 / `phishing_fraud_likely` and ML `impersonated` 0.4355.
+
 ## P5e — Tamper-evident audit log, retention enforcement and personal-data masking
 
 - **Audit chain:**

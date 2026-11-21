@@ -110,6 +110,16 @@ def summary(db: Session, days: int = 30) -> dict:
                 names.setdefault(tid, m.get("name") or tid)
     attack = [{"technique_id": t, "name": names[t], "count": n} for t, n in _top(techniques, 15)]
 
+    # P5h: combined risk levels (latest version per analysis) over the window; additive
+    from app.risk.service import latest_summaries
+    levels = Counter()
+    for chunk in _chunks(ids):
+        found = latest_summaries(db, chunk)
+        for aid in chunk:
+            levels[(found.get(aid) or {}).get("level") or "not_computed"] += 1
+    combined_levels = [{"level": lvl, "count": levels.get(lvl, 0)} for lvl in
+                       ("minimal", "low", "medium", "high", "critical", "indeterminate", "not_computed")]
+
     # campaigns: counts and member-size distribution (portable GROUP BY)
     camp_status = Counter({s: n for s, n in db.query(Campaign.status, func.count(Campaign.id))
                            .group_by(Campaign.status).all()})
@@ -167,6 +177,7 @@ def summary(db: Session, days: int = 30) -> dict:
         "top_sender_domains": domains,
         "geo": geo,
         "attack_techniques": attack,
+        "combined_levels": combined_levels,
         "campaigns": {"by_status": dict(camp_status), "candidate_size_distribution": size_dist,
                       "candidates": camp_status.get("candidate", 0)},
         "intel_coverage": intel,

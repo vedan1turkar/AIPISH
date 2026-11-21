@@ -1,0 +1,1326 @@
+{
+ "config": {
+  "edges": {
+   "critical": 85,
+   "high": 60,
+   "low": 10,
+   "medium": 25
+  },
+  "ml_thresholds": {
+   "t_crit": 0.9,
+   "t_high": 0.5,
+   "t_low": 0.1,
+   "t_med": 0.36
+  }
+ },
+ "dataset": {
+  "manifest_sha256": "d8d583a30ffc85b81010485498cc3a2f4cdf0e2beb3ca677c0eaf13bb9f60ab7",
+  "test": 1709,
+  "validation": 1681
+ },
+ "engine": "risk-engine-1.0",
+ "splits": {
+  "test": {
+   "all": {
+    "combined_high_or_higher": {
+     "per_class_detection": {
+      "fraud": {
+       "flagged_as_threat": 66,
+       "n": 66,
+       "rate": 1.0
+      },
+      "impersonated": {
+       "flagged_as_threat": 36,
+       "n": 36,
+       "rate": 1.0
+      },
+      "legitimate": {
+       "flagged_as_threat": 17,
+       "n": 1125,
+       "rate": 0.0151
+      },
+      "phishing": {
+       "flagged_as_threat": 439,
+       "n": 482,
+       "rate": 0.9108
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.9475,
+      "false_positives": 17,
+      "fpr_legitimate": 0.0151,
+      "precision": 0.9695,
+      "recall": 0.9264,
+      "support_legitimate": 1125,
+      "support_threat": 584
+     }
+    },
+    "combined_medium_or_higher": {
+     "per_class_detection": {
+      "fraud": {
+       "flagged_as_threat": 66,
+       "n": 66,
+       "rate": 1.0
+      },
+      "impersonated": {
+       "flagged_as_threat": 36,
+       "n": 36,
+       "rate": 1.0
+      },
+      "legitimate": {
+       "flagged_as_threat": 34,
+       "n": 1125,
+       "rate": 0.0302
+      },
+      "phishing": {
+       "flagged_as_threat": 453,
+       "n": 482,
+       "rate": 0.9398
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.9463,
+      "false_positives": 34,
+      "fpr_legitimate": 0.0302,
+      "precision": 0.9423,
+      "recall": 0.9503,
+      "support_legitimate": 1125,
+      "support_threat": 584
+     }
+    },
+    "disagreement_examples": [
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "enron-3a7897f8c97296b2",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "legitimate"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-01ecf55b66e7b98c",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0318110910aaaf03",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0322711d91093fcc",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-03f783b26852ae83",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-04e31bc07e2e83e3",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0731ad709adba721",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0794d9a35ed924e5",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0b10d26311477ba2",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0cb6dc511af6d96a",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0d35735cadb7bb47",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0ee878ebb547683e",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     }
+    ],
+    "flags": {
+     "confidence": {
+      "high": 1276,
+      "low": 371,
+      "medium": 62
+     },
+     "conflict_by_kind": {
+      "ml_threat_rules_minimal": 362,
+      "rules_high_ml_legitimate": 9
+     },
+     "conflict_rate": 0.2171,
+     "conflict_total": 371,
+     "conflict_true_label": {
+      "ml_threat_rules_minimal": {
+       "legitimate": 16,
+       "threat": 346
+      },
+      "rules_high_ml_legitimate": {
+       "legitimate": 9
+      }
+     },
+     "hard_floor_fired": {
+      "H3_payment_or_credential_with_identity": 10
+     }
+    },
+    "level_distribution": {
+     "legitimate": {
+      "critical": 10,
+      "high": 7,
+      "indeterminate": 0,
+      "low": 104,
+      "medium": 17,
+      "minimal": 987
+     },
+     "threat": {
+      "critical": 484,
+      "high": 57,
+      "indeterminate": 0,
+      "low": 9,
+      "medium": 14,
+      "minimal": 20
+     }
+    },
+    "ml_argmax_threat": {
+     "multiclass": {
+      "accuracy": 0.9631,
+      "macro_f1": 0.9647,
+      "per_class": {
+       "fraud": {
+        "f1": 0.9771,
+        "precision": 0.9846,
+        "predicted": 65,
+        "recall": 0.9697,
+        "support": 66
+       },
+       "impersonated": {
+        "f1": 0.973,
+        "precision": 0.9474,
+        "predicted": 38,
+        "recall": 1.0,
+        "support": 36
+       },
+       "legitimate": {
+        "f1": 0.9736,
+        "precision": 0.9626,
+        "predicted": 1151,
+        "recall": 0.9849,
+        "support": 1125
+       },
+       "phishing": {
+        "f1": 0.9349,
+        "precision": 0.9626,
+        "predicted": 455,
+        "recall": 0.9087,
+        "support": 482
+       },
+       "suspicious": {
+        "f1": null,
+        "precision": null,
+        "predicted": 0,
+        "recall": null,
+        "support": 0
+       }
+      }
+     },
+     "per_class_detection": {
+      "fraud": {
+       "flagged_as_threat": 66,
+       "n": 66,
+       "rate": 1.0
+      },
+      "impersonated": {
+       "flagged_as_threat": 36,
+       "n": 36,
+       "rate": 1.0
+      },
+      "legitimate": {
+       "flagged_as_threat": 17,
+       "n": 1125,
+       "rate": 0.0151
+      },
+      "phishing": {
+       "flagged_as_threat": 439,
+       "n": 482,
+       "rate": 0.9108
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.9475,
+      "false_positives": 17,
+      "fpr_legitimate": 0.0151,
+      "precision": 0.9695,
+      "recall": 0.9264,
+      "support_legitimate": 1125,
+      "support_threat": 584
+     }
+    },
+    "rules_phishing_fraud_likely": {
+     "per_class_detection": {
+      "fraud": {
+       "flagged_as_threat": 0,
+       "n": 66,
+       "rate": 0.0
+      },
+      "impersonated": {
+       "flagged_as_threat": 0,
+       "n": 36,
+       "rate": 0.0
+      },
+      "legitimate": {
+       "flagged_as_threat": 9,
+       "n": 1125,
+       "rate": 0.008
+      },
+      "phishing": {
+       "flagged_as_threat": 38,
+       "n": 482,
+       "rate": 0.0788
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.1204,
+      "false_positives": 9,
+      "fpr_legitimate": 0.008,
+      "precision": 0.8085,
+      "recall": 0.0651,
+      "support_legitimate": 1125,
+      "support_threat": 584
+     }
+    },
+    "rules_suspicious_or_higher": {
+     "per_class_detection": {
+      "fraud": {
+       "flagged_as_threat": 25,
+       "n": 66,
+       "rate": 0.3788
+      },
+      "impersonated": {
+       "flagged_as_threat": 0,
+       "n": 36,
+       "rate": 0.0
+      },
+      "legitimate": {
+       "flagged_as_threat": 108,
+       "n": 1125,
+       "rate": 0.096
+      },
+      "phishing": {
+       "flagged_as_threat": 179,
+       "n": 482,
+       "rate": 0.3714
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.4554,
+      "false_positives": 108,
+      "fpr_legitimate": 0.096,
+      "precision": 0.6538,
+      "recall": 0.3493,
+      "support_legitimate": 1125,
+      "support_threat": 584
+     }
+    }
+   },
+   "real_only": {
+    "combined_high_or_higher": {
+     "per_class_detection": {
+      "legitimate": {
+       "flagged_as_threat": 17,
+       "n": 1125,
+       "rate": 0.0151
+      },
+      "phishing": {
+       "flagged_as_threat": 439,
+       "n": 482,
+       "rate": 0.9108
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.936,
+      "false_positives": 17,
+      "fpr_legitimate": 0.0151,
+      "precision": 0.9627,
+      "recall": 0.9108,
+      "support_legitimate": 1125,
+      "support_threat": 482
+     }
+    },
+    "combined_medium_or_higher": {
+     "per_class_detection": {
+      "legitimate": {
+       "flagged_as_threat": 34,
+       "n": 1125,
+       "rate": 0.0302
+      },
+      "phishing": {
+       "flagged_as_threat": 453,
+       "n": 482,
+       "rate": 0.9398
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.935,
+      "false_positives": 34,
+      "fpr_legitimate": 0.0302,
+      "precision": 0.9302,
+      "recall": 0.9398,
+      "support_legitimate": 1125,
+      "support_threat": 482
+     }
+    },
+    "disagreement_examples": [
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "enron-3a7897f8c97296b2",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "legitimate"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-01ecf55b66e7b98c",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0318110910aaaf03",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0322711d91093fcc",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-03f783b26852ae83",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-04e31bc07e2e83e3",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0731ad709adba721",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0794d9a35ed924e5",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0b10d26311477ba2",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0cb6dc511af6d96a",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0d35735cadb7bb47",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0ee878ebb547683e",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     }
+    ],
+    "flags": {
+     "confidence": {
+      "high": 1276,
+      "low": 294,
+      "medium": 37
+     },
+     "conflict_by_kind": {
+      "ml_threat_rules_minimal": 285,
+      "rules_high_ml_legitimate": 9
+     },
+     "conflict_rate": 0.1829,
+     "conflict_total": 294,
+     "conflict_true_label": {
+      "ml_threat_rules_minimal": {
+       "legitimate": 16,
+       "threat": 269
+      },
+      "rules_high_ml_legitimate": {
+       "legitimate": 9
+      }
+     },
+     "hard_floor_fired": {
+      "H3_payment_or_credential_with_identity": 10
+     }
+    },
+    "level_distribution": {
+     "legitimate": {
+      "critical": 10,
+      "high": 7,
+      "indeterminate": 0,
+      "low": 104,
+      "medium": 17,
+      "minimal": 987
+     },
+     "threat": {
+      "critical": 404,
+      "high": 35,
+      "indeterminate": 0,
+      "low": 9,
+      "medium": 14,
+      "minimal": 20
+     }
+    },
+    "ml_argmax_threat": {
+     "multiclass": {
+      "accuracy": 0.962,
+      "macro_f1": 0.9543,
+      "per_class": {
+       "fraud": {
+        "f1": null,
+        "precision": null,
+        "predicted": 1,
+        "recall": null,
+        "support": 0
+       },
+       "impersonated": {
+        "f1": null,
+        "precision": null,
+        "predicted": 0,
+        "recall": null,
+        "support": 0
+       },
+       "legitimate": {
+        "f1": 0.9736,
+        "precision": 0.9626,
+        "predicted": 1151,
+        "recall": 0.9849,
+        "support": 1125
+       },
+       "phishing": {
+        "f1": 0.9349,
+        "precision": 0.9626,
+        "predicted": 455,
+        "recall": 0.9087,
+        "support": 482
+       },
+       "suspicious": {
+        "f1": null,
+        "precision": null,
+        "predicted": 0,
+        "recall": null,
+        "support": 0
+       }
+      }
+     },
+     "per_class_detection": {
+      "legitimate": {
+       "flagged_as_threat": 17,
+       "n": 1125,
+       "rate": 0.0151
+      },
+      "phishing": {
+       "flagged_as_threat": 439,
+       "n": 482,
+       "rate": 0.9108
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.936,
+      "false_positives": 17,
+      "fpr_legitimate": 0.0151,
+      "precision": 0.9627,
+      "recall": 0.9108,
+      "support_legitimate": 1125,
+      "support_threat": 482
+     }
+    },
+    "rules_phishing_fraud_likely": {
+     "per_class_detection": {
+      "legitimate": {
+       "flagged_as_threat": 9,
+       "n": 1125,
+       "rate": 0.008
+      },
+      "phishing": {
+       "flagged_as_threat": 38,
+       "n": 482,
+       "rate": 0.0788
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.1437,
+      "false_positives": 9,
+      "fpr_legitimate": 0.008,
+      "precision": 0.8085,
+      "recall": 0.0788,
+      "support_legitimate": 1125,
+      "support_threat": 482
+     }
+    },
+    "rules_suspicious_or_higher": {
+     "per_class_detection": {
+      "legitimate": {
+       "flagged_as_threat": 108,
+       "n": 1125,
+       "rate": 0.096
+      },
+      "phishing": {
+       "flagged_as_threat": 179,
+       "n": 482,
+       "rate": 0.3714
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.4655,
+      "false_positives": 108,
+      "fpr_legitimate": 0.096,
+      "precision": 0.6237,
+      "recall": 0.3714,
+      "support_legitimate": 1125,
+      "support_threat": 482
+     }
+    }
+   }
+  },
+  "validation": {
+   "all": {
+    "combined_high_or_higher": {
+     "per_class_detection": {
+      "fraud": {
+       "flagged_as_threat": 49,
+       "n": 49,
+       "rate": 1.0
+      },
+      "impersonated": {
+       "flagged_as_threat": 21,
+       "n": 25,
+       "rate": 0.84
+      },
+      "legitimate": {
+       "flagged_as_threat": 8,
+       "n": 1125,
+       "rate": 0.0071
+      },
+      "phishing": {
+       "flagged_as_threat": 463,
+       "n": 482,
+       "rate": 0.9606
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.9717,
+      "false_positives": 8,
+      "fpr_legitimate": 0.0071,
+      "precision": 0.9852,
+      "recall": 0.9586,
+      "support_legitimate": 1125,
+      "support_threat": 556
+     }
+    },
+    "combined_medium_or_higher": {
+     "per_class_detection": {
+      "fraud": {
+       "flagged_as_threat": 49,
+       "n": 49,
+       "rate": 1.0
+      },
+      "impersonated": {
+       "flagged_as_threat": 23,
+       "n": 25,
+       "rate": 0.92
+      },
+      "legitimate": {
+       "flagged_as_threat": 20,
+       "n": 1125,
+       "rate": 0.0178
+      },
+      "phishing": {
+       "flagged_as_threat": 473,
+       "n": 482,
+       "rate": 0.9813
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.9723,
+      "false_positives": 20,
+      "fpr_legitimate": 0.0178,
+      "precision": 0.9646,
+      "recall": 0.9802,
+      "support_legitimate": 1125,
+      "support_threat": 556
+     }
+    },
+    "disagreement_examples": [
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "enron-2b3d1d8fd8f83ee2",
+      "ml_label": "impersonated",
+      "rule_verdict": "minimal",
+      "true_label": "legitimate"
+     },
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "enron-562e4ca9400a681e",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "legitimate"
+     },
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "enron-8482960ba6cf7394",
+      "ml_label": "legitimate",
+      "rule_verdict": "minimal",
+      "true_label": "legitimate"
+     },
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "enron-c617088818b93395",
+      "ml_label": "fraud",
+      "rule_verdict": "minimal",
+      "true_label": "legitimate"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-00d15298bbb316cb",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-00d3f472041a2346",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-00e93e41debe8cc5",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-01235dedccf70bee",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-04f7b8f395f9b656",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0521d375b2a84be8",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-063b1126c9dc4030",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-08be0a7878e88a7a",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     }
+    ],
+    "flags": {
+     "confidence": {
+      "high": 1315,
+      "low": 337,
+      "medium": 29
+     },
+     "conflict_by_kind": {
+      "ml_threat_rules_minimal": 327,
+      "rules_high_ml_legitimate": 10
+     },
+     "conflict_rate": 0.2005,
+     "conflict_total": 337,
+     "conflict_true_label": {
+      "ml_threat_rules_minimal": {
+       "legitimate": 8,
+       "threat": 319
+      },
+      "rules_high_ml_legitimate": {
+       "legitimate": 8,
+       "threat": 2
+      }
+     },
+     "hard_floor_fired": {
+      "H3_payment_or_credential_with_identity": 8
+     }
+    },
+    "level_distribution": {
+     "legitimate": {
+      "critical": 1,
+      "high": 7,
+      "indeterminate": 0,
+      "low": 68,
+      "medium": 12,
+      "minimal": 1037
+     },
+     "threat": {
+      "critical": 447,
+      "high": 86,
+      "indeterminate": 0,
+      "low": 5,
+      "medium": 12,
+      "minimal": 6
+     }
+    },
+    "ml_argmax_threat": {
+     "multiclass": {
+      "accuracy": 0.978,
+      "macro_f1": 0.9517,
+      "per_class": {
+       "fraud": {
+        "f1": 0.9796,
+        "precision": 0.9796,
+        "predicted": 49,
+        "recall": 0.9796,
+        "support": 49
+       },
+       "impersonated": {
+        "f1": 0.875,
+        "precision": 0.913,
+        "predicted": 23,
+        "recall": 0.84,
+        "support": 25
+       },
+       "legitimate": {
+        "f1": 0.9842,
+        "precision": 0.9747,
+        "predicted": 1147,
+        "recall": 0.9938,
+        "support": 1125
+       },
+       "phishing": {
+        "f1": 0.9682,
+        "precision": 0.9892,
+        "predicted": 462,
+        "recall": 0.9481,
+        "support": 482
+       },
+       "suspicious": {
+        "f1": null,
+        "precision": null,
+        "predicted": 0,
+        "recall": null,
+        "support": 0
+       }
+      }
+     },
+     "per_class_detection": {
+      "fraud": {
+       "flagged_as_threat": 48,
+       "n": 49,
+       "rate": 0.9796
+      },
+      "impersonated": {
+       "flagged_as_threat": 21,
+       "n": 25,
+       "rate": 0.84
+      },
+      "legitimate": {
+       "flagged_as_threat": 7,
+       "n": 1125,
+       "rate": 0.0062
+      },
+      "phishing": {
+       "flagged_as_threat": 458,
+       "n": 482,
+       "rate": 0.9502
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.967,
+      "false_positives": 7,
+      "fpr_legitimate": 0.0062,
+      "precision": 0.9869,
+      "recall": 0.9478,
+      "support_legitimate": 1125,
+      "support_threat": 556
+     }
+    },
+    "rules_phishing_fraud_likely": {
+     "per_class_detection": {
+      "fraud": {
+       "flagged_as_threat": 0,
+       "n": 49,
+       "rate": 0.0
+      },
+      "impersonated": {
+       "flagged_as_threat": 0,
+       "n": 25,
+       "rate": 0.0
+      },
+      "legitimate": {
+       "flagged_as_threat": 8,
+       "n": 1125,
+       "rate": 0.0071
+      },
+      "phishing": {
+       "flagged_as_threat": 53,
+       "n": 482,
+       "rate": 0.11
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.1718,
+      "false_positives": 8,
+      "fpr_legitimate": 0.0071,
+      "precision": 0.8689,
+      "recall": 0.0953,
+      "support_legitimate": 1125,
+      "support_threat": 556
+     }
+    },
+    "rules_suspicious_or_higher": {
+     "per_class_detection": {
+      "fraud": {
+       "flagged_as_threat": 0,
+       "n": 49,
+       "rate": 0.0
+      },
+      "impersonated": {
+       "flagged_as_threat": 0,
+       "n": 25,
+       "rate": 0.0
+      },
+      "legitimate": {
+       "flagged_as_threat": 71,
+       "n": 1125,
+       "rate": 0.0631
+      },
+      "phishing": {
+       "flagged_as_threat": 218,
+       "n": 482,
+       "rate": 0.4523
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.516,
+      "false_positives": 71,
+      "fpr_legitimate": 0.0631,
+      "precision": 0.7543,
+      "recall": 0.3921,
+      "support_legitimate": 1125,
+      "support_threat": 556
+     }
+    }
+   },
+   "real_only": {
+    "combined_high_or_higher": {
+     "per_class_detection": {
+      "legitimate": {
+       "flagged_as_threat": 8,
+       "n": 1125,
+       "rate": 0.0071
+      },
+      "phishing": {
+       "flagged_as_threat": 463,
+       "n": 482,
+       "rate": 0.9606
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.9717,
+      "false_positives": 8,
+      "fpr_legitimate": 0.0071,
+      "precision": 0.983,
+      "recall": 0.9606,
+      "support_legitimate": 1125,
+      "support_threat": 482
+     }
+    },
+    "combined_medium_or_higher": {
+     "per_class_detection": {
+      "legitimate": {
+       "flagged_as_threat": 20,
+       "n": 1125,
+       "rate": 0.0178
+      },
+      "phishing": {
+       "flagged_as_threat": 473,
+       "n": 482,
+       "rate": 0.9813
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.9703,
+      "false_positives": 20,
+      "fpr_legitimate": 0.0178,
+      "precision": 0.9594,
+      "recall": 0.9813,
+      "support_legitimate": 1125,
+      "support_threat": 482
+     }
+    },
+    "disagreement_examples": [
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "enron-2b3d1d8fd8f83ee2",
+      "ml_label": "impersonated",
+      "rule_verdict": "minimal",
+      "true_label": "legitimate"
+     },
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "enron-562e4ca9400a681e",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "legitimate"
+     },
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "enron-8482960ba6cf7394",
+      "ml_label": "legitimate",
+      "rule_verdict": "minimal",
+      "true_label": "legitimate"
+     },
+     {
+      "combined_level": "high",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "enron-c617088818b93395",
+      "ml_label": "fraud",
+      "rule_verdict": "minimal",
+      "true_label": "legitimate"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-00d15298bbb316cb",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-00d3f472041a2346",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-00e93e41debe8cc5",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-01235dedccf70bee",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-04f7b8f395f9b656",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-0521d375b2a84be8",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-063b1126c9dc4030",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     },
+     {
+      "combined_level": "critical",
+      "conflict": "ml_threat_rules_minimal",
+      "id": "nazario-08be0a7878e88a7a",
+      "ml_label": "phishing",
+      "rule_verdict": "minimal",
+      "true_label": "phishing"
+     }
+    ],
+    "flags": {
+     "confidence": {
+      "high": 1314,
+      "low": 267,
+      "medium": 26
+     },
+     "conflict_by_kind": {
+      "ml_threat_rules_minimal": 257,
+      "rules_high_ml_legitimate": 10
+     },
+     "conflict_rate": 0.1661,
+     "conflict_total": 267,
+     "conflict_true_label": {
+      "ml_threat_rules_minimal": {
+       "legitimate": 8,
+       "threat": 249
+      },
+      "rules_high_ml_legitimate": {
+       "legitimate": 8,
+       "threat": 2
+      }
+     },
+     "hard_floor_fired": {
+      "H3_payment_or_credential_with_identity": 8
+     }
+    },
+    "level_distribution": {
+     "legitimate": {
+      "critical": 1,
+      "high": 7,
+      "indeterminate": 0,
+      "low": 68,
+      "medium": 12,
+      "minimal": 1037
+     },
+     "threat": {
+      "critical": 424,
+      "high": 39,
+      "indeterminate": 0,
+      "low": 3,
+      "medium": 10,
+      "minimal": 6
+     }
+    },
+    "ml_argmax_threat": {
+     "multiclass": {
+      "accuracy": 0.9801,
+      "macro_f1": 0.9772,
+      "per_class": {
+       "fraud": {
+        "f1": null,
+        "precision": null,
+        "predicted": 1,
+        "recall": null,
+        "support": 0
+       },
+       "impersonated": {
+        "f1": null,
+        "precision": null,
+        "predicted": 2,
+        "recall": null,
+        "support": 0
+       },
+       "legitimate": {
+        "f1": 0.9863,
+        "precision": 0.979,
+        "predicted": 1142,
+        "recall": 0.9938,
+        "support": 1125
+       },
+       "phishing": {
+        "f1": 0.9682,
+        "precision": 0.9892,
+        "predicted": 462,
+        "recall": 0.9481,
+        "support": 482
+       },
+       "suspicious": {
+        "f1": null,
+        "precision": null,
+        "predicted": 0,
+        "recall": null,
+        "support": 0
+       }
+      }
+     },
+     "per_class_detection": {
+      "legitimate": {
+       "flagged_as_threat": 7,
+       "n": 1125,
+       "rate": 0.0062
+      },
+      "phishing": {
+       "flagged_as_threat": 458,
+       "n": 482,
+       "rate": 0.9502
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.9673,
+      "false_positives": 7,
+      "fpr_legitimate": 0.0062,
+      "precision": 0.9849,
+      "recall": 0.9502,
+      "support_legitimate": 1125,
+      "support_threat": 482
+     }
+    },
+    "rules_phishing_fraud_likely": {
+     "per_class_detection": {
+      "legitimate": {
+       "flagged_as_threat": 8,
+       "n": 1125,
+       "rate": 0.0071
+      },
+      "phishing": {
+       "flagged_as_threat": 53,
+       "n": 482,
+       "rate": 0.11
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.1952,
+      "false_positives": 8,
+      "fpr_legitimate": 0.0071,
+      "precision": 0.8689,
+      "recall": 0.11,
+      "support_legitimate": 1125,
+      "support_threat": 482
+     }
+    },
+    "rules_suspicious_or_higher": {
+     "per_class_detection": {
+      "legitimate": {
+       "flagged_as_threat": 71,
+       "n": 1125,
+       "rate": 0.0631
+      },
+      "phishing": {
+       "flagged_as_threat": 218,
+       "n": 482,
+       "rate": 0.4523
+      }
+     },
+     "threat_vs_legitimate": {
+      "f1": 0.5655,
+      "false_positives": 71,
+      "fpr_legitimate": 0.0631,
+      "precision": 0.7543,
+      "recall": 0.4523,
+      "support_legitimate": 1125,
+      "support_threat": 482
+     }
+    }
+   }
+  }
+ }
+}

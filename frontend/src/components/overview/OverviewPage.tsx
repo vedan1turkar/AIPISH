@@ -13,6 +13,7 @@ import {
 } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { useSystemStatus } from '../shell/StatusBar'
+import { RiskLevelTag } from '../risk/level'
 import {
   Button, DataTable, EmptyLine, KV, LED, Panel, SkeletonRows, StatCell, StatusTag, formatDate, verdictTone, type Tone,
 } from '../ui'
@@ -180,11 +181,13 @@ export default function OverviewPage({ onOpenAnalysis }: { onOpenAnalysis: (id: 
                 { key: 'verdict', header: 'Verdict', render: (a) => (
                   <StatusTag tone={verdictTone(a.detection_verdict)}>{(a.detection_verdict ?? 'unknown').replace(/_/g, ' ')}</StatusTag>) },
                 { key: 'score', header: 'Score', align: 'right', mono: true, render: (a) => a.detection_score },
+                { key: 'combined', header: 'Combined risk', className: 'whitespace-nowrap',
+                  render: (a) => <RiskLevelTag level={a.combined_level} score={a.combined_score} /> },
                 { key: 'subject', header: 'Subject', className: 'max-w-0 w-full', render: (a) => (
                   <button onClick={() => onOpenAnalysis(a.id)} className="block w-full truncate text-left text-accent hover:underline">
                     {a.subject || '(no subject)'}
                   </button>) },
-                { key: 'from', header: 'From domain', mono: true, className: 'whitespace-nowrap', render: (a) => a.sender?.domain || '—' },
+                { key: 'from', header: 'From domain', hideBelow: '2xl', mono: true, className: 'whitespace-nowrap', render: (a) => a.sender?.domain || '—' },
                 { key: 'time', header: 'Received', mono: true, className: 'whitespace-nowrap text-muted', render: (a) => formatDate(a.created_at) },
               ]}
             />

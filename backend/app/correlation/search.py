@@ -67,7 +67,14 @@ def search(db: Session, q: str = "", kind: str = "all", *, verdict: str | None =
             qa = qa.filter(Analysis.created_at <= hi)
         total = qa.count()
         rows = qa.order_by(Analysis.created_at.desc(), Analysis.id).offset(offset).limit(limit).all()
-        out["results"]["analysis"] = {"total": total, "items": [analysis_brief(r) for r in rows]}
+        from app.risk.service import latest_summaries
+        risk = latest_summaries(db, [r.id for r in rows])
+        items = []
+        for r in rows:
+            b = analysis_brief(r)
+            k = risk.get(r.id) or {}
+            items.append({**b, "combined_level": k.get("level"), "combined_score": k.get("combined_score")})
+        out["results"]["analysis"] = {"total": total, "items": items}
 
     if "case" in kinds:
         qc = db.query(Case)

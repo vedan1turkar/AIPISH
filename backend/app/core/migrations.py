@@ -92,6 +92,7 @@ STEPS: list[tuple[int, str, Callable[[Engine], None]]] = [
     (5, "audit_and_retention_columns", _audit_and_retention_columns),   # P5e
     (6, "audit_chain_genesis", _audit_genesis),                         # P5e (before triggers)
     (7, "audit_append_only_triggers", _audit_triggers),                 # P5e
+    (8, "risk_assessment_tables", _baseline),      # P5h: ml_classification + risk_assessment (create_all)
 ]
 
 

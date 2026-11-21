@@ -243,6 +243,9 @@ export interface AnalysisSummary {
   retention_state?: RetentionState         // P5e
   legal_hold?: boolean
   pii_masked?: boolean
+  combined_level?: RiskLevel | null        // P5h: latest combined risk (additional result)
+  combined_score?: number | null
+  combined_confidence?: RiskConfidence | null
 }
 
 /** P5e retention state of an analysis. */
@@ -377,11 +380,13 @@ export async function downloadReport(
   assessmentId?: string | null,
   intelRunId?: string | null,
   attackId?: string | null,
+  riskId?: string | null,
 ): Promise<void> {
   const params = new URLSearchParams()
   if (assessmentId) params.set('assessment_id', assessmentId)
   if (intelRunId) params.set('intel_run_id', intelRunId)
   if (attackId) params.set('attack_id', attackId)
+  if (riskId) params.set('risk_id', riskId)
   const q = params.toString() ? `?${params.toString()}` : ''
   // Authenticated fetch → blob → download (a bare link could not carry the bearer token).
   const res = await authedFetch(
@@ -834,6 +839,8 @@ export interface AnalysisBrief {
   detection_score: number
   detection_verdict: string | null
   sha256: string
+  combined_level?: RiskLevel | null        // P5h (search results)
+  combined_score?: number | null
 }
 
 export interface EvidenceRef {
@@ -1202,6 +1209,7 @@ export interface AnalyticsSummary {
     asns: { asn: string; count: number }[]
   }
   attack_techniques: { technique_id: string; name: string; count: number }[]
+  combined_levels?: { level: RiskLevel | 'not_computed'; count: number }[]   // P5h
   campaigns: { by_status: Record<string, number>; candidate_size_distribution: { bucket: string; count: number }[]; candidates: number }
   intel_coverage: { analyses_with_consented_lookups: number; analyses_considered: number; runs_total: number; simulated_runs: number }
 }
@@ -1309,4 +1317,86 @@ export async function clearLegalHold(holdId: string, reason: string): Promise<Le
   return request<LegalHoldRow>(`/api/v1/admin/holds/${encodeURIComponent(holdId)}/clear`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }),
   })
+}
+
+// ── Explainable combined risk assessment (P5h) ──────────────────────────────
+// An ADDITIONAL, separately labelled risk index (0-100): never replaces the rule verdict or the ML class.
+export type RiskLevel = 'minimal' | 'low' | 'medium' | 'high' | 'critical' | 'indeterminate'
+export type RiskConfidence = 'low' | 'medium' | 'high'
+export type RiskComponentStatus = 'available' | 'unavailable' | 'not_run' | 'declined' | 'error'
+export type RiskRole = 'primary' | 'floor' | 'corroboration' | 'context' | 'unavailable'
+
+export interface RiskComponent {
+  name: 'rules' | 'ml' | 'hard_evidence' | 'threat_intel' | 'campaign' | 'attack'
+  label: string
+  status: RiskComponentStatus
+  value: unknown
+  role: RiskRole
+  effect: string | null
+  evidence_ids: string[]
+  reason: string
+  cues?: { rule_id: string; fired: boolean; evidence_id: string | null }[]
+  floors?: { id: string; rules: string[]; evidence_ids: string[]; floor: number; reason: string }[]
+}
+
+export interface RiskEvidence { id: string; source: string; ref: string; statement: string }
+
+export interface RiskAssessment {
+  risk_id: string
+  analysis_id: string
+  version: number
+  source: string
+  created_at: string | null
+  engine_version: string
+  config_version: string
+  combined_score: number | null
+  level: RiskLevel
+  confidence: RiskConfidence
+  agreement: 'agree' | 'partial' | 'conflict' | 'not_applicable'
+  conflict: string | null
+  flags: string[]
+  components: RiskComponent[]
+  evidence: RiskEvidence[]
+  explanation: string[]
+  bands: { edges: Record<string, number>; ml_thresholds: Record<string, number> }
+  inputs: {
+    detection_score: number | null
+    detection_verdict: string | null
+    ml_source: { kind: string | null; id: string | null; model_version: string | null; status: string }
+    intel_run_id: string | null
+    intel_simulated: boolean
+    attack_mapping_id: string | null
+    campaign_ids: string[]
+  }
+  disclaimers: string[]
+  new_version?: boolean
+}
+
+export interface RiskHistoryItem {
+  risk_id: string
+  version: number
+  source: string
+  level: RiskLevel
+  combined_score: number | null
+  confidence: RiskConfidence
+  engine_version: string
+  created_at: string | null
+}
+
+export async function getRisk(id: string, version?: number | null, signal?: AbortSignal): Promise<RiskAssessment | null> {
+  const q = version ? `?version=${encodeURIComponent(String(version))}` : ''
+  try {
+    return await request<RiskAssessment>(`/api/v1/analyses/${encodeURIComponent(id)}/risk${q}`, { signal })
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404 && err.code === 'RISK_NOT_COMPUTED') return null
+    throw err
+  }
+}
+
+export async function getRiskHistory(id: string, signal?: AbortSignal): Promise<RiskHistoryItem[]> {
+  return request<RiskHistoryItem[]>(`/api/v1/analyses/${encodeURIComponent(id)}/risk/history`, { signal })
+}
+
+export async function recomputeRisk(id: string): Promise<RiskAssessment> {
+  return request<RiskAssessment>(`/api/v1/analyses/${encodeURIComponent(id)}/risk/recompute`, { method: 'POST' })
 }

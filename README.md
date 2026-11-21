@@ -107,6 +107,8 @@ limitations). Invocations are audited (`report_generated`).
 | `AIPISH_AUDIT_KEY` | generated into `.env` in dev; required in production | HMAC key for the audit hash chain (≥ 32 random characters; keep it) |
 | `RETENTION_ANALYSIS_DAYS` / `RETENTION_EVIDENCE_DAYS` | `0` / `0` (disabled) | Retention periods; nothing is purged unless a run is applied |
 | `RETENTION_MODE` / `RETENTION_GRACE_DAYS` | `redact` / `0` | `redact` or `delete`; extra days before eligibility |
+| `AIPISH_ML_AT_UPLOAD` | `1` | Run the cheap ML classification at upload and store it (P5h; `0` disables) |
+| `AIPISH_ML_UPLOAD_TIMEOUT_SECONDS` | `20` | Upper bound for the upload-time classification; a timeout is stored as an error |
 
 ## Test Commands
 
@@ -161,6 +163,9 @@ role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route perm
 | GET | `/analyses/{id}/attack[?version=]` | MITRE ATT&CK mapping + source-type hypotheses (P5d) |
 | GET | `/analyses/{id}/attack/history` | ATT&CK mapping versions (P5d) |
 | POST | `/analyses/{id}/attack/recompute` | Analyst: recompute with latest intel run / ML (P5d) |
+| GET | `/analyses/{id}/risk[?version=]` | Combined risk index (additional result; not a probability) with components and evidence (P5h) |
+| GET | `/analyses/{id}/risk/history` | Combined risk versions (P5h) |
+| POST | `/analyses/{id}/risk/recompute` | Analyst: recompute from stored inputs; appends a version only on change (P5h) |
 | GET | `/audit/events`, `/audit/export` | Admin: filtered, paginated audit log; CSV/JSON export (capped, audited) (P5e) |
 | GET | `/audit/verify` | Admin: verify the HMAC hash chain; first broken seq and reason (P5e) |
 | GET/POST | `/audit/checkpoint` | Admin: latest / record a chain checkpoint to keep outside the system (P5e) |
@@ -170,6 +175,7 @@ role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route perm
 | DELETE | `/admin/analyses/{id}` | Admin: erase an analysis (reason required; refused under legal hold) (P5e) |
 
 Audit chain, retention and masking: [docs/audit/README.md](docs/audit/README.md).
+Combined risk design, bands and evaluation: [docs/risk/README.md](docs/risk/README.md).
 
 Correlation model, link strengths, stoplist and limits: [docs/correlation/README.md](docs/correlation/README.md).
 ATT&CK catalog, mapping rules and source-type hypotheses: [docs/attack/README.md](docs/attack/README.md).

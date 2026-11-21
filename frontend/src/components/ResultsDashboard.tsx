@@ -53,12 +53,15 @@ import ThreatIntelPanel from './intel/ThreatIntelPanel'
 import RelatedPanel from './correlation/RelatedPanel'
 import AttackPanel from './attack/AttackPanel'
 import { getAttack, getAttackHistory, recomputeAttack, type AttackHistoryItem, type AttackMappingResult } from '../api/client'
+import { getRisk, getRiskHistory, recomputeRisk, type RiskAssessment, type RiskHistoryItem } from '../api/client'
+import RiskPanel from './risk/RiskPanel'
 import { useAuth } from '../auth/AuthContext'
 
-type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'attack' | 'trace' | 'geo' | 'ai' | 'custody'
+type Tab = 'overview' | 'risk' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'attack' | 'trace' | 'geo' | 'ai' | 'custody'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
+  { id: 'risk', label: 'Risk' },              // P5h combined risk (additional result)
   { id: 'findings', label: 'Findings' },
   { id: 'auth', label: 'Authentication' },
   { id: 'headers', label: 'Headers & relay' },
@@ -200,6 +203,45 @@ export default function ResultsDashboard({
     void loadAttack(undefined, ctl.signal)
     return () => ctl.abort()
   }, [loadAttack])
+  // Combined risk (P5h): stored versions; the backend recomputes after uploads, intel runs and assessments.
+  const [risk, setRisk] = useState<RiskAssessment | null>(null)
+  const [riskHistory, setRiskHistory] = useState<RiskHistoryItem[]>([])
+  const [riskLoading, setRiskLoading] = useState(true)
+  const [riskError, setRiskError] = useState<string | null>(null)
+  const [riskBusy, setRiskBusy] = useState(false)
+  const [riskRecomputeError, setRiskRecomputeError] = useState<string | null>(null)
+  const loadRisk = useCallback(async (version?: number, signal?: AbortSignal) => {
+    setRiskError(null)
+    try {
+      setRisk(await getRisk(analysis.id, version ?? null, signal))
+      setRiskHistory(await getRiskHistory(analysis.id, signal).catch(() => []))
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === 'AbortError'))
+        setRiskError(err instanceof Error ? err.message : 'request failed')
+    } finally {
+      setRiskLoading(false)
+    }
+  }, [analysis.id])
+  useEffect(() => {
+    const ctl = new AbortController()
+    setRisk(null)
+    setRiskLoading(true)
+    void loadRisk(undefined, ctl.signal)
+    return () => ctl.abort()
+  }, [loadRisk])
+  async function handleRecomputeRisk() {
+    setRiskBusy(true)
+    setRiskRecomputeError(null)
+    try {
+      setRisk(await recomputeRisk(analysis.id))
+      setRiskHistory(await getRiskHistory(analysis.id).catch(() => []))
+    } catch (err) {
+      setRiskRecomputeError(err instanceof Error ? err.message : 'Recompute failed.')
+    } finally {
+      setRiskBusy(false)
+    }
+  }
+
   async function handleRecomputeAttack() {
     setAttackBusy(true)
     setAttackRecomputeError(null)
@@ -223,6 +265,7 @@ export default function ResultsDashboard({
       try {
         setIntelRun(await runThreatIntel(analysis.id, { consent, source: 'on_demand' }))
         setIntelError(null)
+        void loadRisk()   // P5h: the backend refreshed the combined risk with this run
       } catch (err) {
         if (err instanceof ApiError && err.code === 'INTEL_IN_PROGRESS')
           setIntelRunError('A threat-intel lookup for this analysis is already running. Wait for it to finish.')
@@ -234,7 +277,7 @@ export default function ResultsDashboard({
         setIntelRunning(false)
       }
     },
-    [analysis.id],
+    [analysis.id, loadRisk],
   )
 
   // Synchronous guard: React state is not updated between clicks fired in the same
@@ -248,6 +291,7 @@ export default function ResultsDashboard({
     try {
       setAssessment(await generateAssessment(analysis.id))
       setAssessmentError(null)
+      void loadRisk()   // P5h: the backend refreshed the combined risk with this ML result
     } catch (err) {
       if (err instanceof ApiError && err.code === 'ASSESSMENT_IN_PROGRESS')
         setGenerateError('An assessment for this analysis is already being generated. Wait for it to finish, then reload this tab.')
@@ -259,7 +303,7 @@ export default function ResultsDashboard({
       setGenerating(false)
       void refreshHistory()
     }
-  }, [analysis.id, refreshHistory])
+  }, [analysis.id, refreshHistory, loadRisk])
 
   const handleSelectVersion = useCallback(
     async (assessmentId: string) => {
@@ -310,7 +354,9 @@ export default function ResultsDashboard({
       // the PDF prints exactly the assessment version shown in the AI tab
       // ...and the threat-intel run shown in the Threat intel tab, when one exists
       // ...and the ATT&CK mapping version shown in the ATT&CK tab (P5d), when one exists
-      if (attack) await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null, intelRun?.run_id ?? null, attack.mapping_id)
+      // ...and the combined-risk version shown in the Risk tab (P5h), when one exists
+      if (risk) await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null, intelRun?.run_id ?? null, attack?.mapping_id ?? null, risk.risk_id)
+      else if (attack) await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null, intelRun?.run_id ?? null, attack.mapping_id)
       else if (intelRun) await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null, intelRun.run_id)
       else await downloadReport(c.id, analysis.id, assessment?.assessment_id ?? null)
     } catch (err) {
@@ -376,7 +422,7 @@ export default function ResultsDashboard({
           )}
         </div>
       )}
-      <VerdictStrip analysis={analysis} assessment={assessment} attack={attack} intelRun={intelRun}
+      <VerdictStrip analysis={analysis} assessment={assessment} attack={attack} intelRun={intelRun} risk={risk} riskLoading={riskLoading}
                     caseInfo={caseInfo} integrity={integrity} />
 
       {(pdfError || caseError) && (
@@ -404,6 +450,19 @@ export default function ResultsDashboard({
               onOpen={() => setTab('ai')}
             />
           }
+        />
+      )}
+      {tab === 'risk' && (
+        <RiskPanel
+          data={risk}
+          loading={riskLoading}
+          error={riskError}
+          history={riskHistory}
+          canRecompute={can('risk:recompute')}
+          recomputing={riskBusy}
+          recomputeError={riskRecomputeError}
+          onRecompute={handleRecomputeRisk}
+          onSelectVersion={(v) => void loadRisk(v)}
         />
       )}
       {tab === 'findings' && <FindingsTab analysis={analysis} />}

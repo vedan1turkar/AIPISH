@@ -277,6 +277,11 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
     # P5d: ATT&CK mapping + source-type hypotheses, equally failure-isolated and informational only.
     from app.attack.service import compute_safely as attack_safely
     attack_safely(db, detail.id, "auto")
+    # P5h: cheap upload-time ML classification (stored; hash_only analyses cannot be re-classified later)
+    # and the combined risk assessment. Both failure-isolated: the response above is already built.
+    from app.risk.service import classify_at_upload, compute_safely as risk_safely
+    classify_at_upload(db, detail.id, raw)
+    risk_safely(db, detail.id, "upload")
     return detail
 
 
@@ -285,6 +290,8 @@ def list_analyses(db: Session = Depends(get_db)) -> list[AnalysisSummary]:
     recs = db.query(Analysis).order_by(Analysis.created_at.desc()).limit(100).all()
     from app.retention.service import held_analysis_ids
     held = held_analysis_ids(db)
+    from app.risk.service import latest_summaries
+    risk = latest_summaries(db, [r.id for r in recs])
     return [
         AnalysisSummary(
             id=r.id,
@@ -307,6 +314,9 @@ def list_analyses(db: Session = Depends(get_db)) -> list[AnalysisSummary]:
             has_defects=bool(r.parse_defects),
             retention_state=r.retention_state,
             legal_hold=r.id in held,
+            combined_level=(risk.get(r.id) or {}).get("level"),
+            combined_score=(risk.get(r.id) or {}).get("combined_score"),
+            combined_confidence=(risk.get(r.id) or {}).get("confidence"),
         )
         for r in recs
     ]

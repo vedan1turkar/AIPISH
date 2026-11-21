@@ -11,6 +11,7 @@ import {
   DataTable, ErrorAlert, Mono, Panel, SkeletonRows, Spinner, StatusTag, Tabs, formatBytes, formatDate, verdictTone,
 } from './ui'
 import { RetentionTags } from './audit/badges'
+import { RiskLevelTag } from './risk/level'
 
 type View = 'analyses' | 'cases'
 
@@ -93,6 +94,8 @@ export default function HistoryPage({ onOpenAnalysis }: { onOpenAnalysis: (id: s
                 { key: 'verdict', header: 'Verdict', sortValue: (a) => a.detection_score,
                   render: (a) => <StatusTag tone={verdictTone(a.detection_verdict)}>{(a.detection_verdict ?? 'unknown').replace(/_/g, ' ')}</StatusTag> },
                 { key: 'score', header: 'Score', align: 'right', mono: true, sortValue: (a) => a.detection_score, render: (a) => a.detection_score },
+                { key: 'combined', header: 'Combined risk', className: 'whitespace-nowrap', sortValue: (a) => a.combined_score ?? -1,
+                  render: (a) => <RiskLevelTag level={a.combined_level} score={a.combined_score} /> },
                 { key: 'subject', header: 'Subject', className: 'max-w-0 w-full', sortValue: (a) => (a.subject ?? '').toLowerCase(),
                   render: (a) => (
                     <button onClick={() => void open(a.id)} disabled={opening !== null}
@@ -108,7 +111,7 @@ export default function HistoryPage({ onOpenAnalysis }: { onOpenAnalysis: (id: s
                 { key: 'flags', header: 'Flags', hideBelow: '2xl', render: (a) => a.has_defects ? <StatusTag tone="warn">parse defects</StatusTag> : <span className="text-muted">—</span> },
                 { key: 'retention', header: 'Retention', className: 'whitespace-nowrap', render: (a) => (a.retention_state || a.legal_hold)
                   ? <RetentionTags state={a.retention_state} held={a.legal_hold} /> : <span className="text-muted">active</span> },
-                { key: 'time', header: 'Received', mono: true, className: 'whitespace-nowrap text-muted', sortValue: (a) => a.created_at,
+                { key: 'time', header: 'Received', hideBelow: 'xl', mono: true, className: 'whitespace-nowrap text-muted', sortValue: (a) => a.created_at,
                   render: (a) => formatDate(a.created_at) },
               ]}
             />

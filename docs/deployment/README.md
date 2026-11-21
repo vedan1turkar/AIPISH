@@ -201,6 +201,7 @@ Anonymous `GET /api/v1/health` now returns only `{"status"}`. Container health c
 | `RETENTION_ANALYSIS_DAYS` / `RETENTION_EVIDENCE_DAYS` | `0` / `0` | Retention periods (0 = disabled). Nothing is purged unless a run is applied. |
 | `RETENTION_MODE` / `RETENTION_GRACE_DAYS` | `redact` / `0` | `redact` or `delete`; extra days before eligibility. Audit events are never purged. |
 | `RETENTION_INTERVAL_SECONDS` | `86400` | Loop interval of the optional `retention` profile service. |
+| `AIPISH_ML_AT_UPLOAD` / `AIPISH_ML_UPLOAD_TIMEOUT_SECONDS` | `1` / `20` | P5h upload-time ML classification (cheap ensemble only) and its time bound. Without mounted models it is stored as `unavailable`. |
 | `CASE_EVIDENCE_STORE` etc. | see `.env.example` | Evidence policy, auth throttling, intel keys: as in development. |
 
 ### Retention scheduling (P5e)

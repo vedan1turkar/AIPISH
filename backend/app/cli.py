@@ -8,6 +8,7 @@
         Disable an account locally (revokes its tokens; refuses the last active admin; audited).
 
     python -m app.cli backfill-attack
+    python -m app.cli backfill-risk
         Compute ATT&CK mappings for every stored analysis (latest intel run and ML assessment).
         Idempotent: a version is appended only when the results change.
 
@@ -291,6 +292,20 @@ def backfill_attack_cmd(args) -> int:
     return 0
 
 
+def backfill_risk_cmd(args) -> int:
+    """P5h: compute the combined risk assessment for every analysis (idempotent: a version is added only
+    when the result changes). Back up a real database before running this on it."""
+    from app.cases.service import record_audit
+    from app.risk.service import backfill
+    with _session() as db:
+        result = backfill(db)
+        record_audit(db, "risk_backfilled", detail={**result, "source": "cli"})
+        db.commit()
+    for k, v in result.items():
+        print(f"{k}: {v}")
+    return 0
+
+
 def rebuild_correlation_cmd(args) -> int:
     from app.correlation.engine import rebuild_all
     from app.cases.service import record_audit
@@ -410,6 +425,8 @@ def main(argv: list[str] | None = None) -> int:
     du.set_defaults(func=disable_user_cmd)
     ba = sub.add_parser("backfill-attack", help="compute ATT&CK mappings for all analyses (idempotent)")
     ba.set_defaults(func=backfill_attack_cmd)
+    br = sub.add_parser("backfill-risk", help="compute combined risk assessments for all analyses (idempotent)")
+    br.set_defaults(func=backfill_risk_cmd)
     r = sub.add_parser("rebuild-correlation", help="backfill observations and recompute campaigns")
     r.set_defaults(func=rebuild_correlation_cmd)
     d = sub.add_parser("seed-demo-campaign", help="LOCAL DEV ONLY: synthetic campaign demo data")

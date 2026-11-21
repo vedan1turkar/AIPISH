@@ -119,6 +119,7 @@ def build_report_pdf(
     correlation: dict | None = None,
     attack: dict | None = None,
     view_notes: list[str] | None = None,
+    risk: dict | None = None,
 ) -> bytes:
     """Builds the full PDF. Returns bytes; raises nothing — caller handles."""
     generated_at = generated_at or datetime.now(timezone.utc).isoformat()
@@ -354,6 +355,9 @@ def build_report_pdf(
 
     # ── 8. ML, SHAP and AI-assisted interpretation (P4) ──────────────────
     _assessment_section(story, assessment)
+
+    # ── 8A. Combined risk assessment (P5h, version-pinned, additional result) ──
+    _risk_section(story, risk)
 
     # ── 9. Confidence + limitations ───────────────────────────────────────
     story.append(Paragraph("9. Confidence & Limitations", H2))
@@ -873,3 +877,75 @@ def _attack_section(story: list, att: dict | None) -> None:
     story.append(Spacer(1, 3))
     story.append(Paragraph(esc(att.get("note") or ""), CAVEAT))
     story.append(Paragraph(esc(att.get("disclaimer") or ""), CAVEAT))
+
+
+# ── 8A. Combined risk assessment (P5h) ────────────────────────────────────
+RISK_STATUS_TEXT = {"available": "available", "unavailable": "UNAVAILABLE", "not_run": "NOT RUN",
+                    "declined": "DECLINED (no consent)", "error": "ERROR"}
+
+
+def _risk_value(c: dict) -> str:
+    v = c.get("value")
+    if v is None:
+        return "—"
+    if c.get("name") == "rules" and isinstance(v, dict):
+        return f"{v.get('score')}/100 {v.get('verdict')}"
+    if c.get("name") == "ml" and isinstance(v, dict):
+        return f"threat index {_num(v.get('threat_index'))}; class {v.get('label')}"
+    if c.get("name") == "threat_intel" and isinstance(v, dict):
+        flagged = ", ".join(v.get("flagged_providers") or []) or "no flags"
+        return f"run v{v.get('version')}: {flagged}" + (" (SIMULATED)" if v.get("simulated") else "")
+    if isinstance(v, list):
+        return ", ".join(str(x) for x in v) or "none"
+    if isinstance(v, dict):
+        return ", ".join(f"{k}: {x}" for k, x in v.items() if not isinstance(x, (dict, list)))
+    return str(v)
+
+
+def _risk_section(story: list, r: dict | None) -> None:
+    story.append(Paragraph("8A. Combined Risk Assessment (additional result, not a probability)", H2))
+    story.append(Paragraph(
+        "An additional, separately labelled risk index that combines the rule engine, the ML ensemble, "
+        "hard-evidence floors and consented threat intelligence by documented rules. It does not replace or "
+        "change the rule verdict (above) or the ML classification (section 8).", CAVEAT))
+    if not r:
+        story.append(Paragraph("<b>Combined risk: NOT COMPUTED</b> for this analysis.", BODY))
+        return
+    score = r.get("combined_score")
+    inputs = r.get("inputs") or {}
+    ml_src = inputs.get("ml_source") or {}
+    rows = [
+        ("Result", esc(f"{str(r.get('level', '?')).upper()} — "
+                       + (f"{score}/100" if score is not None else "no score (indeterminate)")
+                       + f"; confidence {r.get('confidence')}; agreement {r.get('agreement')}")),
+        ("Version", esc(f"{r.get('risk_id', '?')} (version {r.get('version', '?')}, {short_time(r.get('created_at'))}); "
+                        f"{r.get('engine_version')} / {r.get('config_version')}")),
+        ("Inputs", esc(f"rules {inputs.get('detection_score')}/{inputs.get('detection_verdict')}; "
+                       f"ML {ml_src.get('status')} (source {ml_src.get('kind') or 'none'}, "
+                       f"model {ml_src.get('model_version') or 'n/a'}); "
+                       f"intel run {inputs.get('intel_run_id') or 'none'}"
+                       + (" (SIMULATED)" if inputs.get("intel_simulated") else "")
+                       + f"; ATT&CK mapping {inputs.get('attack_mapping_id') or 'none'}")),
+        ("Flags", esc(", ".join(r.get("flags") or []) or "none")),
+    ]
+    story.append(_kv_table(rows))
+    story.append(Spacer(1, 4))
+    head = [Paragraph(f"<b>{h}</b>", CELL) for h in ("Component", "Status", "Value", "Role / effect", "Evidence")]
+    body = [head]
+    for c in r.get("components") or []:
+        body.append([Paragraph(esc(c.get("label") or c.get("name")), CELL),
+                     Paragraph(esc(RISK_STATUS_TEXT.get(c.get("status"), str(c.get("status")))), CELL),
+                     Paragraph(esc(_risk_value(c)), CELL),
+                     Paragraph(esc(f"{c.get('role')} · {c.get('effect') or 'none'}"), CELL),
+                     Paragraph(esc(", ".join(c.get("evidence_ids") or []) or "—"), CELL_MONO)])
+    story.append(_grid(body, [38 * mm, 24 * mm, 46 * mm, 40 * mm, 34 * mm]))
+    story.append(Spacer(1, 3))
+    for line in r.get("explanation") or []:
+        story.append(Paragraph("• " + esc(line), BODY))
+    ev = r.get("evidence") or []
+    if ev:
+        story.append(Paragraph("<b>Evidence</b>", BODY))
+        for e in ev[:40]:
+            story.append(Paragraph(f"{esc(e.get('id'))} [{esc(e.get('source'))}] {esc(e.get('statement'))}", CAVEAT))
+    for d in r.get("disclaimers") or []:
+        story.append(Paragraph("• " + esc(d), CAVEAT))

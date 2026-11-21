@@ -47,6 +47,10 @@ class AnalysisSummary(BaseModel):
     has_defects: bool
     retention_state: str | None = None      # P5e: None | evidence_purged | redacted
     legal_hold: bool = False
+    # P5h: latest combined risk assessment (additional, separately labelled; None until computed)
+    combined_level: str | None = None
+    combined_score: int | None = None
+    combined_confidence: str | None = None
 
 
 class FindingOut(BaseModel):

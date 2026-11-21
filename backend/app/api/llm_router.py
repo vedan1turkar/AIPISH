@@ -50,6 +50,9 @@ def _store(db: Session, analysis_id: str, source: str, ml: dict, explanation: di
         "ml_status": (ml or {}).get("status"), "shap_status": (explanation or {}).get("status"),
         "llm_status": (summary or {}).get("status") or ("ok" if (summary or {}).get("summary") else None)})
     db.commit()
+    # P5h: refresh the combined risk assessment with this ML result (failure-isolated; not fed to the LLM).
+    from app.risk.service import compute_safely as risk_safely
+    risk_safely(db, analysis_id, "assessment_run")
     return assessment_dict(row)
 
 

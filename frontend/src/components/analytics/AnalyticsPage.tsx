@@ -5,6 +5,7 @@ import { getAnalyticsSummary, type AnalyticsSummary } from '../../api/client'
 import { ErrorAlert, Field, Panel, Select, SkeletonRows, StatCell, StatusTag, verdictTone } from '../ui'
 import { CHART_THEME } from '../graph/style'
 import Chart from './Chart'
+import { LEVEL_TONE } from '../risk/level'
 
 const WINDOWS = [7, 30, 90, 180]
 const TONE_COLOR = { danger: CHART_THEME.danger, warn: CHART_THEME.warn, ok: CHART_THEME.ok, neutral: CHART_THEME.neutral, accent: CHART_THEME.bar }
@@ -44,6 +45,11 @@ export default function AnalyticsPage() {
       asns: list(data.geo.asns, (a) => a.asn, (a) => a.count),
       attack: list(data.attack_techniques, (t) => `${t.technique_id} ${t.name}`, (t) => t.count),
       sizes: list(data.campaigns.candidate_size_distribution, (b) => `${b.bucket} members`, (b) => b.count),
+      // P5h: combined risk levels (latest version per analysis); "not computed" = analyses stored before P5h
+      combined: {
+        ...list(data.combined_levels ?? [], (l) => human(l.level), (l) => l.count),
+        colors: (data.combined_levels ?? []).map((l) => l.level === 'not_computed' ? CHART_THEME.neutral : TONE_COLOR[LEVEL_TONE[l.level]]),
+      },
     }
   }, [data])
 
@@ -95,12 +101,15 @@ export default function AnalyticsPage() {
 
       {/* rows share their height (panels stretch), so notes under some charts never leave ragged edges */}
       <div className="grid items-stretch gap-4 xl:grid-cols-12">
-        <Chart className="xl:col-span-8" title={`Analyses per day (last ${w.days} days)`} kind="line" series={charts.perDay}
+        <Chart className="xl:col-span-4" title={`Analyses per day (last ${w.days} days)`} kind="line" series={charts.perDay}
                summary={`Analyses per day over the last ${w.days} days: ${charts.perDay.y.reduce((a, b) => a + b, 0)} in total, peak ${Math.max(0, ...charts.perDay.y)} on one day.`}
                table={t(['Day', 'Analyses'], charts.perDay)} />
         <Chart className="xl:col-span-4" title="Rule verdicts" kind="hbar" series={charts.verdicts}
                summary={`Rule-engine verdicts: ${data.verdicts.map((v) => `${human(v.verdict)} ${v.count}`).join(', ')}.`}
                table={t(['Verdict', 'Analyses'], charts.verdicts)} />
+        <Chart className="xl:col-span-4" title="Combined risk levels (index, not a probability)" kind="hbar" series={charts.combined}
+               summary={`Combined risk level per analysis (latest version): ${(data.combined_levels ?? []).map((l) => `${human(l.level)} ${l.count}`).join(', ') || 'none'}. Shown beside, never instead of, the rule verdict.`}
+               table={t(['Level', 'Analyses'], charts.combined)} empty="No combined risk assessments stored yet." />
 
         <Chart className="xl:col-span-4" title="Rule score distribution" kind="bar" series={charts.hist}
                summary={`Rule-score histogram in buckets of ten: ${data.score_histogram.map((h) => `${h.bucket}: ${h.count}`).join(', ')}.`}
