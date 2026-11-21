@@ -19,8 +19,11 @@ _VIEWER_PERMS = {
 _ANALYST_PERMS = _VIEWER_PERMS | {
     "analysis:create", "case:write", "evidence:verify", "intel:run", "assessment:run", "ml:run",
     "attack:recompute",
+    "pii:view",        # P5e: unmasked sender/recipient addresses, display names and body text
+    "custody:read",    # P5e: per-analysis audit timeline
 }
-_ADMIN_PERMS = _ANALYST_PERMS | {"users:manage", "config:status", "docs:read", "correlation:rebuild"}
+_ADMIN_PERMS = _ANALYST_PERMS | {"users:manage", "config:status", "docs:read", "correlation:rebuild",
+                                 "audit:read", "audit:manage", "retention:manage"}   # P5e
 
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     VIEWER: frozenset(_VIEWER_PERMS),
@@ -84,6 +87,19 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], str] = {
     ("GET", f"{V1}/analyses/{{analysis_id}}/geo"): "analysis:read",
     ("GET", f"{V1}/campaigns/{{campaign_id}}/geo"): "correlation:read",
     ("GET", f"{V1}/analytics/summary"): "analysis:read",
+    # P5e: tamper-evident audit log, custody, retention, legal holds, erasure
+    ("GET", f"{V1}/audit/events"): "audit:read",
+    ("GET", f"{V1}/audit/export"): "audit:read",
+    ("GET", f"{V1}/audit/verify"): "audit:read",
+    ("GET", f"{V1}/audit/checkpoint"): "audit:read",
+    ("POST", f"{V1}/audit/checkpoint"): "audit:manage",
+    ("GET", f"{V1}/analyses/{{analysis_id}}/custody"): "custody:read",
+    ("GET", f"{V1}/admin/retention/status"): "retention:manage",
+    ("POST", f"{V1}/admin/retention/run"): "retention:manage",
+    ("GET", f"{V1}/admin/holds"): "retention:manage",
+    ("POST", f"{V1}/admin/holds"): "retention:manage",
+    ("POST", f"{V1}/admin/holds/{{hold_id}}/clear"): "retention:manage",
+    ("DELETE", f"{V1}/admin/analyses/{{analysis_id}}"): "retention:manage",
     ("GET", f"{V1}/system/info"): "analysis:read",
     ("GET", f"{V1}/analyses/{{analysis_id}}/attack/history"): "attack:read",
     ("POST", f"{V1}/analyses/{{analysis_id}}/attack/recompute"): "attack:recompute",

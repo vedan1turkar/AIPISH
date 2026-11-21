@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import platform
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import Request, APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -236,6 +236,11 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
         evidence_blob=raw if case_service.CASE_EVIDENCE_STORE == "raw" else None,
     )
     db.add(rec)
+    db.flush()
+    from app.cases.service import record_audit
+    record_audit(db, "analysis_uploaded", analysis_id=rec.id,
+                 detail={"sha256": rec.raw_sha256, "size_bytes": rec.raw_size_bytes,
+                         "verdict": rec.detection_verdict, "score": rec.detection_score})
     db.commit()
 
     detail = AnalysisDetail(
@@ -278,6 +283,8 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
 @router.get("/analyses", response_model=list[AnalysisSummary])
 def list_analyses(db: Session = Depends(get_db)) -> list[AnalysisSummary]:
     recs = db.query(Analysis).order_by(Analysis.created_at.desc()).limit(100).all()
+    from app.retention.service import held_analysis_ids
+    held = held_analysis_ids(db)
     return [
         AnalysisSummary(
             id=r.id,
@@ -298,16 +305,45 @@ def list_analyses(db: Session = Depends(get_db)) -> list[AnalysisSummary]:
             detection_score=r.detection_score,
             detection_verdict=r.detection_verdict,
             has_defects=bool(r.parse_defects),
+            retention_state=r.retention_state,
+            legal_hold=r.id in held,
         )
         for r in recs
     ]
 
 
+VIEW_DEDUPE_MINUTES = 15
+
+
+def audit_view(db: Session, request: Request, analysis_id: str) -> None:
+    """P5e: at most one analysis_viewed event per user per analysis per 15 minutes."""
+    from datetime import datetime, timedelta, timezone
+    from app.cases.service import record_audit
+    from app.core.models import AuditEvent
+    from app.privacy.masking import role_sees_pii
+    user = getattr(request.state, "user", None)
+    if user is None:
+        return
+    user_id = getattr(request.state, "user_id", None) or user.id
+    since = datetime.now(timezone.utc) - timedelta(minutes=VIEW_DEDUPE_MINUTES)
+    recent = (db.query(AuditEvent.id).filter(AuditEvent.event_type == "analysis_viewed",
+                                             AuditEvent.analysis_id == analysis_id,
+                                             AuditEvent.actor_user_id == user_id,
+                                             AuditEvent.created_at >= since).first())
+    if recent is not None:
+        return
+    record_audit(db, "analysis_viewed", analysis_id=analysis_id,
+                 detail={"masked": not role_sees_pii(getattr(request.state, "user_role", None))})
+    db.commit()
+
+
 @router.get("/analyses/{analysis_id}", response_model=AnalysisDetail)
-def get_analysis(analysis_id: str, db: Session = Depends(get_db)) -> AnalysisDetail:
+def get_analysis(analysis_id: str, request: Request, db: Session = Depends(get_db)) -> AnalysisDetail:
     rec = db.get(Analysis, analysis_id)
     if rec is None:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Analysis not found."})
+    audit_view(db, request, analysis_id)
+    from app.retention.service import held_analysis_ids
     return AnalysisDetail(
         id=rec.id,
         created_at=rec.created_at.isoformat(),
@@ -338,4 +374,8 @@ def get_analysis(analysis_id: str, db: Session = Depends(get_db)) -> AnalysisDet
         authentication=AuthOut(**(rec.auth_json or {})),
         enrichment=EnrichmentOut(**(rec.enrichment_json or {})),
         parse_defects=rec.parse_defects or [],
+        retention_state=rec.retention_state,
+        redacted_at=rec.redacted_at.isoformat() if rec.redacted_at else None,
+        legal_hold=rec.id in held_analysis_ids(db),
+        redaction_note=("content redacted per retention policy" if rec.retention_state == "redacted" else None),
     )

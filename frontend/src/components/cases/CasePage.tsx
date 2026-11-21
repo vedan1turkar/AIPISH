@@ -13,6 +13,7 @@ import {
   type InvestigationCase,
 } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { RetentionTags, REDACTED_TEXT } from '../audit/badges'
 import { Button, EmptyLine, ErrorAlert, Panel, Select, Spinner, StatusTag, formatDate } from '../ui'
 import { CampaignBadge, Disclaimer, TierChip } from '../correlation/RelatedPanel'
 import { typeLabel } from '../correlation/model'
@@ -70,6 +71,7 @@ export default function CasePage({ id }: { id: string }) {
   }
 
   if (error && !info) return <ErrorAlert message={error} />
+  const rowState = (id: string) => info?.analyses.find((a) => a.analysis_id === id)
   if (!info || !members) return <Spinner label="Loading case…" />
   const memberIds = new Set(members.map((m) => m.analysis.id))
   const candidates = recent.filter((a) => !memberIds.has(a.id))
@@ -87,6 +89,7 @@ export default function CasePage({ id }: { id: string }) {
         </div>
         <span className="flex items-center gap-3 text-sm text-muted">
           <StatusTag tone={info.status === 'open' ? 'accent' : 'neutral'}>{info.status}</StatusTag>
+          <RetentionTags held={info.legal_hold} />
           opened <span className="font-mono">{formatDate(info.created_at)}</span>
         </span>
       </div>
@@ -102,8 +105,9 @@ export default function CasePage({ id }: { id: string }) {
                 <li key={m.analysis.id} className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0" data-testid="case-member">
                   <div className="min-w-0">
                     <a href={`#analysis/${m.analysis.id}`} className="text-sm text-accent hover:underline">
-                      {m.analysis.subject || '(no subject)'}
+                      {m.analysis.subject || (rowState(m.analysis.id)?.retention_state === 'redacted' ? REDACTED_TEXT : '(no subject)')}
                     </a>
+                    <span className="ml-2"><RetentionTags state={rowState(m.analysis.id)?.retention_state} held={rowState(m.analysis.id)?.legal_hold} /></span>
                     <span className="ml-2 font-mono text-sm text-muted">{m.analysis.id.slice(0, 8)}</span>
                     <span className="ml-2 font-mono text-sm text-muted">score {m.analysis.detection_score}</span>
                     {m.campaigns.length > 0 && (

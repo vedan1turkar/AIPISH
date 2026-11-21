@@ -52,6 +52,8 @@ services:
       APP_ENV: ${APP_ENV:-production}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-aipish}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}@postgres:5432/${POSTGRES_DB:-aipish}
       AIPISH_JWT_SECRET: ${AIPISH_JWT_SECRET:?Set AIPISH_JWT_SECRET in deploy/.env (python -c 'import secrets; print(secrets.token_urlsafe(48))')}
+      # P5e: HMAC key of the tamper-evident audit hash chain (fail closed when missing/weak)
+      AIPISH_AUDIT_KEY: ${AIPISH_AUDIT_KEY:?Set AIPISH_AUDIT_KEY in deploy/.env (python -c 'import secrets; print(secrets.token_urlsafe(48))')}
       APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-}
       APP_UPLOAD_MAX_MB: ${APP_UPLOAD_MAX_MB:-10}
       # Only the web container may set X-Forwarded-For (see docs/deployment/README.md#client-ip-and-proxy-trust).
@@ -101,6 +103,33 @@ services:
     networks:
       aipish:
         ipv4_address: ${AIPISH_PROXY_IP:-172.30.89.10}
+    logging: *logging
+
+  # Opt-in retention scheduler (P5e). There is no built-in scheduler: this loop applies the RETENTION_*
+  # policy once a day. Nothing is purged unless RETENTION_ANALYSIS_DAYS / RETENTION_EVIDENCE_DAYS are set.
+  #   docker compose -f deploy/docker-compose.yml --profile retention up -d retention
+  retention:
+    profiles: [retention]
+    image: aipish-backend:${AIPISH_IMAGE_TAG:-local}
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-aipish}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}@postgres:5432/${POSTGRES_DB:-aipish}
+      AIPISH_JWT_SECRET: ${AIPISH_JWT_SECRET:?Set AIPISH_JWT_SECRET in deploy/.env}
+      AIPISH_AUDIT_KEY: ${AIPISH_AUDIT_KEY:?Set AIPISH_AUDIT_KEY in deploy/.env}
+    entrypoint: ["sh", "-c", "while true; do python -m app.cli retention-run --apply; sleep ${RETENTION_INTERVAL_SECONDS:-86400}; done"]
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [aipish]
     logging: *logging
 
   # Opt-in throwaway PostgreSQL for the backend test suite (never the application database):

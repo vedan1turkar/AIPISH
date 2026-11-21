@@ -240,7 +240,13 @@ export interface AnalysisSummary {
   detection_score: number
   detection_verdict: string | null
   has_defects: boolean
+  retention_state?: RetentionState         // P5e
+  legal_hold?: boolean
+  pii_masked?: boolean
 }
+
+/** P5e retention state of an analysis. */
+export type RetentionState = null | 'evidence_purged' | 'redacted'
 
 export interface AnalysisDetail {
   id: string
@@ -268,6 +274,13 @@ export interface AnalysisDetail {
   authentication: Authentication
   enrichment: Enrichment
   parse_defects: string[]
+  // P5e: retention + masking flags (masking is applied server-side for roles without pii:view)
+  retention_state?: RetentionState
+  redacted_at?: string | null
+  legal_hold?: boolean
+  redaction_note?: string | null
+  pii_masked?: boolean
+  body_restricted?: boolean
 }
 
 export async function uploadEml(
@@ -293,6 +306,8 @@ export async function getAnalysis(id: string, signal?: AbortSignal): Promise<Ana
 
 // ── Investigations (cases) ─────────────────────────────────────────────────
 export interface CaseAnalysisRow {
+  retention_state?: RetentionState         // P5e
+  legal_hold?: boolean
   analysis_id: string
   sha256: string
   size_bytes: number
@@ -319,6 +334,7 @@ export interface InvestigationCase {
   created_at: string
   evidence_policy: { store_mode: string; key_required: boolean; retention_days: number; note: string }
   analyses: CaseAnalysisRow[]
+  legal_hold?: boolean                     // P5e
 }
 
 export async function createInvestigation(analysisId: string): Promise<InvestigationCase> {
@@ -1192,4 +1208,105 @@ export interface AnalyticsSummary {
 
 export async function getAnalyticsSummary(days = 30, signal?: AbortSignal): Promise<AnalyticsSummary> {
   return request<AnalyticsSummary>(`/api/v1/analytics/summary?days=${encodeURIComponent(String(days))}`, { signal })
+}
+
+// ── Tamper-evident audit log, custody, retention (P5e) ──────────────────────
+export interface AuditEventRow {
+  seq: number | null
+  id: string
+  at: string | null
+  action: string
+  actor_id: string | null
+  actor: string | null
+  target_type: string | null
+  target_id: string | null
+  analysis_id: string | null
+  case_id: string | null
+  outcome: string | null
+  source_ip: string | null
+  detail: Record<string, unknown>
+  hash_prefix: string
+}
+
+export interface AuditPage { items: AuditEventRow[]; total: number; page: number; page_size: number; actions: string[]; guarantee: string }
+export interface AuditFilters { actor?: string; action?: string; target_type?: string; target_id?: string; outcome?: string; date_from?: string; date_to?: string }
+
+function qs(params: Record<string, string | number | undefined | null>): string {
+  const p = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') p.set(k, String(v))
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}
+
+export async function getAuditEvents(f: AuditFilters, page = 1, pageSize = 50, signal?: AbortSignal): Promise<AuditPage> {
+  return request<AuditPage>(`/api/v1/audit/events${qs({ ...f, page, page_size: pageSize })}`, { signal })
+}
+
+export interface AuditVerify { ok: boolean; checked: number; last_seq: number; last_hash: string; first_broken_seq: number | null; reason: string | null; guarantee: string }
+export async function verifyAudit(signal?: AbortSignal): Promise<AuditVerify> {
+  return request<AuditVerify>('/api/v1/audit/verify', { signal })
+}
+
+export interface AuditCheckpoint { seq: number; event_hash: string; created_at: string | null; by?: string | null; checkpoint_event_seq?: number }
+export async function getAuditCheckpoint(signal?: AbortSignal): Promise<{ latest: AuditCheckpoint | null; guarantee: string; advice: string }> {
+  return request('/api/v1/audit/checkpoint', { signal })
+}
+export async function createAuditCheckpoint(): Promise<{ checkpoint: AuditCheckpoint & { chain_ok: boolean }; latest: AuditCheckpoint | null }> {
+  return request('/api/v1/audit/checkpoint', { method: 'POST' })
+}
+
+/** Authenticated export download (capped server-side and audited). */
+export async function exportAudit(format: 'csv' | 'json', f: AuditFilters): Promise<void> {
+  const res = await authedFetch(`/api/v1/audit/export${qs({ ...f, format })}`)
+  if (!res.ok) throw new ApiError(res.status, `HTTP_${res.status}`, `Export failed (HTTP ${res.status})`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `aipish-audit.${format}`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export interface CustodyEntry { at: string | null; action: string; actor: string | null; outcome: string | null; case_id: string | null; detail: Record<string, unknown> }
+export interface Custody {
+  analysis_id: string; sha256: string; size_bytes: number; evidence_bytes_stored: boolean
+  retention_state: RetentionState; redacted_at: string | null; legal_hold: boolean
+  timeline: CustodyEntry[]; integrity_note: string; audit_guarantee: string
+}
+export async function getCustody(id: string, signal?: AbortSignal): Promise<Custody> {
+  return request<Custody>(`/api/v1/analyses/${encodeURIComponent(id)}/custody`, { signal })
+}
+
+export interface RetentionPolicy { analysis_days: number; evidence_days: number; mode: 'redact' | 'delete'; grace_days: number; enabled: boolean; audit_events_purged: false; note: string }
+export interface LegalHoldRow { id: string; target_type: 'analysis' | 'case'; target_id: string; reason: string; created_by: string | null; created_at: string; cleared_at: string | null; clear_reason: string | null; active: boolean }
+export interface RetentionStatus {
+  policy: RetentionPolicy; eligible_analyses: number; eligible_evidence_only: number; held_skipped: number
+  eligible_ids: string[]; holds: LegalHoldRow[]; redacted_total: number
+  last_run: { at: string; seq: number | null; detail: Record<string, unknown> } | null
+  scheduler: string
+}
+export interface RetentionRunResult {
+  dry_run: boolean; mode: string; policy: RetentionPolicy
+  eligible_analyses: string[]; eligible_evidence_only: string[]; held_skipped: string[]
+  redacted: string[]; deleted: string[]; evidence_purged: string[]; errors: { analysis_id: string; error: string }[]
+}
+export async function getRetentionStatus(signal?: AbortSignal): Promise<RetentionStatus> {
+  return request<RetentionStatus>('/api/v1/admin/retention/status', { signal })
+}
+export async function runRetention(dryRun: boolean): Promise<RetentionRunResult> {
+  return request<RetentionRunResult>('/api/v1/admin/retention/run', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dry_run: dryRun }),
+  })
+}
+export async function setLegalHold(targetType: 'analysis' | 'case', targetId: string, reason: string): Promise<LegalHoldRow> {
+  return request<LegalHoldRow>('/api/v1/admin/holds', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_type: targetType, target_id: targetId, reason }),
+  })
+}
+export async function clearLegalHold(holdId: string, reason: string): Promise<LegalHoldRow> {
+  return request<LegalHoldRow>(`/api/v1/admin/holds/${encodeURIComponent(holdId)}/clear`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }),
+  })
 }

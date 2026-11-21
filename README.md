@@ -72,11 +72,14 @@ added later) must be set as environment variables and never committed.
   report downloads). Retention defaults to 90 days (`CASE_EVIDENCE_RETENTION_DAYS`).
   The raw-bytes path is opt-in and access-restricted; the integrity endpoint
   recomputes SHA-256 over the preserved bytes when retained.
-- Audit events (`analysis_created`, `evidence_accessed`, `integrity_verified`,
-  `report_generated`) are recorded in SQLite. This is **application-level
-  integrity and audit logging — NOT a tamper-resistant cryptographic chain of
-  custody.** True immutability would require hash-chained or WORM storage,
-  which is not implemented in this MVP.
+- Audit events (P5e) carry actor, target, outcome, source IP and timestamp and are
+  appended to an HMAC-SHA256 hash chain keyed by `AIPISH_AUDIT_KEY`. The log is
+  **tamper-evident (HMAC hash chain), not tamper-proof**: an attacker with both
+  database write access and the audit key could forge a chain; external
+  checkpoints reduce that risk. SHA-256 detects change to the stored file; it
+  does not make storage tamper-proof. Retention (redact/delete, legal holds) and
+  personal-data masking for viewers are described in
+  [docs/audit/README.md](docs/audit/README.md).
 
 ## Forensic PDF Reports
 
@@ -101,6 +104,9 @@ limitations). Invocations are audited (`report_generated`).
 | `AIPISH_JWT_TTL_MINUTES` | `60` | Access-token lifetime (no refresh tokens) |
 | `AIPISH_LOGIN_MAX_FAILURES_USER` / `_IP` | `5` / `20` | Failed logins before a lockout (in-memory) |
 | `AIPISH_LOGIN_WINDOW_SECONDS` / `AIPISH_LOGIN_LOCKOUT_SECONDS` | `900` / `900` | Throttle window and lockout length |
+| `AIPISH_AUDIT_KEY` | generated into `.env` in dev; required in production | HMAC key for the audit hash chain (≥ 32 random characters; keep it) |
+| `RETENTION_ANALYSIS_DAYS` / `RETENTION_EVIDENCE_DAYS` | `0` / `0` (disabled) | Retention periods; nothing is purged unless a run is applied |
+| `RETENTION_MODE` / `RETENTION_GRACE_DAYS` | `redact` / `0` | `redact` or `delete`; extra days before eligibility |
 
 ## Test Commands
 
@@ -155,6 +161,15 @@ role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route perm
 | GET | `/analyses/{id}/attack[?version=]` | MITRE ATT&CK mapping + source-type hypotheses (P5d) |
 | GET | `/analyses/{id}/attack/history` | ATT&CK mapping versions (P5d) |
 | POST | `/analyses/{id}/attack/recompute` | Analyst: recompute with latest intel run / ML (P5d) |
+| GET | `/audit/events`, `/audit/export` | Admin: filtered, paginated audit log; CSV/JSON export (capped, audited) (P5e) |
+| GET | `/audit/verify` | Admin: verify the HMAC hash chain; first broken seq and reason (P5e) |
+| GET/POST | `/audit/checkpoint` | Admin: latest / record a chain checkpoint to keep outside the system (P5e) |
+| GET | `/analyses/{id}/custody` | Analyst: custody timeline and evidence-integrity facts (P5e) |
+| GET | `/admin/retention/status`, POST `/admin/retention/run` | Admin: retention policy and runs (dry run by default) (P5e) |
+| GET/POST | `/admin/holds`, POST `/admin/holds/{id}/clear` | Admin: legal holds (P5e) |
+| DELETE | `/admin/analyses/{id}` | Admin: erase an analysis (reason required; refused under legal hold) (P5e) |
+
+Audit chain, retention and masking: [docs/audit/README.md](docs/audit/README.md).
 
 Correlation model, link strengths, stoplist and limits: [docs/correlation/README.md](docs/correlation/README.md).
 ATT&CK catalog, mapping rules and source-type hypotheses: [docs/attack/README.md](docs/attack/README.md).
@@ -231,8 +246,9 @@ versioned, idempotent migration runner (`python -m app.cli migrate`), see
 
 - Local password auth + JWT with global roles (viewer/analyst/admin): no OAuth/SSO/MFA, no refresh
   tokens, no per-case ownership; login throttling is in-memory (see docs/auth/README.md).
-- Audit log is application-level; not a tamper-resistant chain of custody.
-- Raw-evidence retention cleanup is manual (config-documented, no daemon).
+- Audit log is tamper-evident (HMAC hash chain), not tamper-proof; no WORM storage or external timestamping.
+- Retention is enforced by `retention-run`, but there is no built-in scheduler (use cron or the Compose `retention` profile).
+- Personal-data masking is role-based presentation only; data is stored in clear.
 - IP geolocation resolves *network infrastructure*, never a person; skip it
   entirely for privacy-sensitive demos.
 - Heuristic detection: scores are investigative indicators, not proof; absent

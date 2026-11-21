@@ -12,6 +12,7 @@ ENV_FILE="deploy/.env"
 
 # Interpolation needs values even for `down`; these dummies are never used to start anything.
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-unused}" AIPISH_JWT_SECRET="${AIPISH_JWT_SECRET:-unused}" \
+  AIPISH_AUDIT_KEY="${AIPISH_AUDIT_KEY:-unused}" \
   docker compose -p "$PROJECT" -f deploy/docker-compose.yml --env-file "$ENV_FILE" down -v --remove-orphans
 rm -f .demo/credentials
 echo "demo stack stopped and its volumes removed"

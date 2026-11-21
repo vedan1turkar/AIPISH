@@ -3,7 +3,8 @@
 This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 audit set its baseline at
 `b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`), **P5b:
 authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns** (`9213bbf`) and **P5d: MITRE ATT&CK mapping and source-type
-classification** and **P5i: PostgreSQL, Docker Compose, Nginx and CI** and **P5g: infrastructure geolocation map and analytics**.
+classification** and **P5i: PostgreSQL, Docker Compose, Nginx and CI** and **P5g: infrastructure geolocation map and analytics** and **P5e: tamper-evident audit log, retention
+enforcement and personal-data masking**.
 
 **ID provenance:**
 - R1–R40 come from the original project matrix.
@@ -25,15 +26,25 @@ Recommended technologies are listed for traceability. They are not functional sc
 
 ## Counts
 
-| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 |
-| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 |
-| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 |
-| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
-| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 |
-| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
-| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g | After P5e |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 | 30 |
+| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 | 12 |
+| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 | 8 |
+| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 | 7 |
+| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+
+## Changes made in P5e
+
+| ID | Before | After | Why |
+|---|---|---|---|
+| R30 | PART | VER | Chain-of-custody support: per-analysis custody timeline (`/analyses/{id}/custody`, Custody tab) from a **tamper-evident** HMAC-SHA256 audit chain, plus the SHA-256 evidence facts with the honest note "SHA-256 detects change to the stored file; it does not make storage tamper-proof." Verified by tests (tamper modify/delete/reorder/insert/tail/wrong key) and a real Docker/PostgreSQL run in which a row edited with the trigger disabled was flagged at the exact seq in the UI, API and CLI. **Not** tamper-proof or WORM: a superuser can bypass the triggers, and someone holding both DB write access and the key could re-forge the chain; external checkpoints are manual. |
+| R31 | PART | VER | Retention is enforced (`retention-run`, admin page, Compose profile; redact or delete; grace; legal holds; audit never purged), masking for roles without `pii:view` (API serializer, UI, PDF "MASKED VIEW") and redaction. Verified on SQLite and PostgreSQL and in a real Docker run (UI redact with confirmation, CLI delete with zero dependent or orphan rows, held erasure 409). Gaps: no built-in scheduler (cron or profile required); subjects are not masked for viewers; data is stored in clear. |
+| R59 | PART | VER | Every listed action is audited with actor, target, outcome, source IP and timestamp (including AI assessment and ML runs, uploads, de-duplicated views, searches truncated to 64 characters, retention and holds); admin read API, filters, pagination, capped audited export, verify and checkpoint; Audit page. Tamper-evident, not tamper-proof (see R30). |
+| R60 | PART | PART | Viewers now get masked personal data (addresses, display names, body) in the API, UI and PDF; retention redaction and erasure. Still no per-case ACLs and no at-rest encryption (stored in clear), and subjects are not masked. |
+| R33 | VER | VER | Counts updated: backend 662 / 7 skipped (SQLite), 663 / 6 skipped (PostgreSQL); frontend 179. |
 
 ## Changes made in P5g
 
@@ -143,10 +154,10 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R27 | Structured forensic reports | VER | `reports/pdf.py` (incl. §7A) · `test_assessment_report.py`, `test_p41.py`, `test_intel.py` | — |
 | R28 | Searchable case management / campaigns | VER | `/investigations` plus add/remove/indicators, `/search`, `/campaigns` (P5c) · `test_investigations.py`, `test_correlation.py`, `Correlation.test.tsx` | No full-text index (R52); no case-to-campaign link |
 | R29 | PDF tests incl. injection | VER | PDF escaping tests (also for provider strings in §7A) | — |
-| R30 | Evidence preservation / chain-of-custody support | PART | SHA-256, optional raw retention, versioned assessments and intel runs | Not tamper-resistant |
-| R31 | Retention, masking, redaction | PART | `CASE_EVIDENCE_RETENTION_DAYS`, `llm/redact.py` | Retention not enforced; body stored in clear |
+| R30 | Evidence preservation / chain-of-custody support | VER | SHA-256, optional raw retention, versioned assessments and intel runs; P5e HMAC hash-chained audit log, custody timeline and tab, checkpoints · `test_audit.py`, `Audit.test.tsx`, Docker tamper demo | Tamper-evident, not tamper-proof: no WORM or external timestamping; triggers bypassable by a superuser (detected by the chain); manual checkpoints |
+| R31 | Retention, masking, redaction | VER | P5e `retention/service.py` (redact or delete, grace, legal holds, `retention-run`), `privacy/masking.py` (`pii:view`), masked PDF; `llm/redact.py` · `test_audit.py`, `Audit.test.tsx`, Docker run | No built-in scheduler (cron or Compose profile); subjects not masked; stored in clear |
 | R32 | RBAC | VER | `security/permissions.py`, `security/deps.py` (app-wide `enforce_access`), `api/admin_router.py` · `test_access_control.py` (route inventory + role matrix), `Auth.test.tsx` | Roles are global: no per-case ownership/ACLs |
-| R33 | Tests | VER | Backend 614 passed / 6 skipped on SQLite and on PostgreSQL (6 opt-in live tests); frontend 167 passed; all in CI (P5i, P5g) | No browser E2E suite |
+| R33 | Tests | VER | Backend 662 passed / 7 skipped on SQLite (6 opt-in live tests + 1 PostgreSQL-only trigger test) and 663 passed / 6 skipped on PostgreSQL; frontend 179 passed; all in CI (P5i, P5g, P5e) | No browser E2E suite |
 | R34 | Main database (PostgreSQL) | VER | `core/db.py` (`DATABASE_URL`, psycopg 3), `core/migrations.py` (versioned, idempotent) · full suite on PostgreSQL 17, `test_deploy.py`, Compose run (P5i) | No SQLite→PostgreSQL data copy (re-seed path documented) |
 | R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; intel lookups and correlation recompute run synchronously |
 | R36 | Email integration (IMAP/SMTP/Graph) | MISS | — | Test mailbox or Azure tenant |
@@ -172,5 +183,5 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R56* | Plotly analytics | VER | `geo/analytics.py`, `/analytics/summary`, `AnalyticsPage.tsx` (lazy Plotly) · `test_geo.py` (SQLite + PostgreSQL), `Geo.test.tsx`, browser run | Bounded window (2,000 latest analyses for derived charts) |
 | R57* | Leaflet geolocation map | IMP-U | `components/geo/GeoMap.tsx` (no tiles; Natural Earth outline) · `Geo.test.tsx`, browser run | Verified with SIMULATED points only; live geo data unverified |
 | R58* | Local LLM forensic summaries | VER | `llm/*` · `test_llm.py`, `test_p41.py`, `test_p42.py` | — |
-| R59* | Audit trails | PART | `audit_event`; P5a `threat_intel_lookup`; P5b login/lockout/logout/password/user-admin events and `actor_user_id` on every write · `test_access_control.py` | No read API/UI (P5e); assessment runs not audited; not tamper-resistant |
-| R60* | Controlled personal-data handling | PART | LLM redaction, local-only Ollama; P5a consent, bare-indicator-only outbound requests, offline mode; P5b authentication + RBAC on all stored data, `no-store` caching | No per-case ACLs; body stored in clear |
+| R59* | Audit trails | VER | `audit_event` with actor, target, outcome and source IP on every event, an HMAC chain, `/audit/*` API, Audit page, CLI `audit-verify` and `audit-checkpoint` (P5e) · `test_audit.py`, `test_access_control.py`, `Audit.test.tsx` | Tamper-evident, not tamper-proof; no audit-key rotation; views de-duplicated per 15 minutes |
+| R60* | Controlled personal-data handling | PART | LLM redaction, local-only Ollama; P5a consent, bare-indicator-only outbound requests, offline mode; P5b authentication + RBAC on all stored data, `no-store` caching; P5e viewer masking (API, UI, PDF), retention redaction and erasure | No per-case ACLs; stored in clear (no at-rest encryption); subjects not masked |

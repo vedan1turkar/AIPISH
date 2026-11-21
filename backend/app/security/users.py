@@ -45,9 +45,15 @@ def normalize_username(name: str | None) -> str:
     return (name or "").strip().lower()
 
 
+_FAILURE_EVENTS = {"login_failed", "login_throttled", "login_lockout", "password_change_failed"}
+
+
 def _audit(db: Session, event: str, detail: dict, actor: str | None = None) -> None:
     from app.cases.service import record_audit
-    record_audit(db, event, detail=detail, actor_user_id=actor)
+    record_audit(db, event, detail=detail, actor_user_id=actor, target_type="user",
+                 target_id=detail.get("user_id"),
+                 outcome="failure" if event in _FAILURE_EVENTS else "success",
+                 source_ip=detail.get("source_ip"))
 
 
 def _aware(dt: datetime | None) -> datetime | None:

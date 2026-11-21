@@ -10,6 +10,7 @@ import {
 import {
   DataTable, ErrorAlert, Mono, Panel, SkeletonRows, Spinner, StatusTag, Tabs, formatBytes, formatDate, verdictTone,
 } from './ui'
+import { RetentionTags } from './audit/badges'
 
 type View = 'analyses' | 'cases'
 
@@ -99,12 +100,14 @@ export default function HistoryPage({ onOpenAnalysis }: { onOpenAnalysis: (id: s
                       {a.subject || '(no subject)'}
                     </button>) },
                 { key: 'sender', header: 'Sender', mono: true, className: 'whitespace-nowrap', sortValue: (a) => a.sender?.email ?? '',
-                  render: (a) => a.sender?.email ?? 'sender unknown' },
-                { key: 'hops', header: 'Hops', hideBelow: 'xl', align: 'right', mono: true, render: (a) => a.received_count },
-                { key: 'urls', header: 'URLs', hideBelow: 'xl', align: 'right', mono: true, render: (a) => a.url_count },
-                { key: 'size', header: 'Size', hideBelow: 'xl', align: 'right', mono: true, className: 'whitespace-nowrap', render: (a) => formatBytes(a.size_bytes) },
-                { key: 'sha', header: 'SHA-256', render: (a) => <Mono display={`${a.sha256.slice(0, 12)}…`}>{a.sha256}</Mono> },
-                { key: 'flags', header: 'Flags', hideBelow: 'xl', render: (a) => a.has_defects ? <StatusTag tone="warn">parse defects</StatusTag> : <span className="text-muted">—</span> },
+                  render: (a) => a.sender?.email ?? (a.retention_state === 'redacted' ? 'redacted' : 'sender unknown') },
+                { key: 'hops', header: 'Hops', hideBelow: '2xl', align: 'right', mono: true, render: (a) => a.received_count },
+                { key: 'urls', header: 'URLs', hideBelow: '2xl', align: 'right', mono: true, render: (a) => a.url_count },
+                { key: 'size', header: 'Size', hideBelow: '2xl', align: 'right', mono: true, className: 'whitespace-nowrap', render: (a) => formatBytes(a.size_bytes) },
+                { key: 'sha', header: 'SHA-256', hideBelow: 'xl', render: (a) => <Mono display={`${a.sha256.slice(0, 12)}…`}>{a.sha256}</Mono> },
+                { key: 'flags', header: 'Flags', hideBelow: '2xl', render: (a) => a.has_defects ? <StatusTag tone="warn">parse defects</StatusTag> : <span className="text-muted">—</span> },
+                { key: 'retention', header: 'Retention', className: 'whitespace-nowrap', render: (a) => (a.retention_state || a.legal_hold)
+                  ? <RetentionTags state={a.retention_state} held={a.legal_hold} /> : <span className="text-muted">active</span> },
                 { key: 'time', header: 'Received', mono: true, className: 'whitespace-nowrap text-muted', sortValue: (a) => a.created_at,
                   render: (a) => formatDate(a.created_at) },
               ]}

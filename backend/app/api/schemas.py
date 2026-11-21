@@ -45,6 +45,8 @@ class AnalysisSummary(BaseModel):
     detection_score: int
     detection_verdict: str | None
     has_defects: bool
+    retention_state: str | None = None      # P5e: None | evidence_purged | redacted
+    legal_hold: bool = False
 
 
 class FindingOut(BaseModel):
@@ -163,6 +165,10 @@ class AnalysisDetail(BaseModel):
     authentication: AuthOut
     enrichment: EnrichmentOut
     parse_defects: list[str]
+    retention_state: str | None = None      # P5e
+    redacted_at: str | None = None
+    legal_hold: bool = False
+    redaction_note: str | None = None
 
     model_config = {"populate_by_name": True}
 

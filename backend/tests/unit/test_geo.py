@@ -260,7 +260,13 @@ def test_demo_seed_writes_simulated_geo_only_for_fixtures(monkeypatch, capsys):
         rows = s.query(GeoObservation).all()
         assert rows and all(r.simulated and r.source == "simulated-demo" for r in rows)
         assert all(r.asn is None or 64496 <= int(r.asn[2:]) <= 64511 for r in rows)   # RFC 5398 documentation ASNs
-        camp = s.query(Campaign).filter(Campaign.label == "Candidate campaign C-0001").first()
+        # the campaign that contains the seeded fixture (labels depend on which tests ran first)
+        import hashlib
+        sha = hashlib.sha256(open("tests/fixtures/demo/campaign/campaign_member_1.eml", "rb").read()).hexdigest()
+        member = s.query(Analysis).filter_by(raw_sha256=sha).first()
+        link = s.query(CampaignMember).filter_by(analysis_id=member.id).first() if member else None
+        camp = s.get(Campaign, link.campaign_id) if link else None
+        assert camp is not None
         if camp is not None:
             g = campaign_geo(s, camp)
             assert g["points"] and g["provenance"]["simulated_present"] is True

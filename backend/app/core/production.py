@@ -46,6 +46,12 @@ def check_production(app_env: str | None) -> None:
         raise ProductionConfigError(
             f"Refusing to start: {problem}. Set a random POSTGRES_PASSWORD of at least "
             f"{MIN_DB_PASSWORD_LEN} characters (e.g. python -c 'import secrets; print(secrets.token_urlsafe(32))').")
+    from app.audit.keys import key_problem
+    audit_problem = key_problem(env("AIPISH_AUDIT_KEY"))
+    if audit_problem:
+        raise ProductionConfigError(
+            f"Refusing to start: {audit_problem}. Production requires a random audit hash-chain key of at "
+            "least 32 characters (python -c 'import secrets; print(secrets.token_urlsafe(48))').")
 
 
 def allowed_origins(app_env: str | None, configured: list[str]) -> list[str]:

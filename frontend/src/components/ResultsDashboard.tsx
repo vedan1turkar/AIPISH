@@ -26,6 +26,7 @@ import {
 } from '../api/client'
 import {
   Button,
+  LED,
   ErrorAlert,
   MetaRow,
   EmptyLine,
@@ -44,6 +45,8 @@ import {
 import { HeaderForensicsPanel, AnomaliesPanel, IntelligenceDetailsPanel } from './ForensicsPanels'
 import TraceView from './trace/TraceView'
 import GeoPanel from './geo/GeoPanel'
+import CustodyPanel from './audit/CustodyPanel'
+import { REDACTED_TEXT, Restricted, RetentionTags } from './audit/badges'
 import VerdictStrip from './VerdictStrip'
 import { AssessmentOverviewCard, AssessmentView } from './assessment/AssessmentPanels'
 import ThreatIntelPanel from './intel/ThreatIntelPanel'
@@ -52,7 +55,7 @@ import AttackPanel from './attack/AttackPanel'
 import { getAttack, getAttackHistory, recomputeAttack, type AttackHistoryItem, type AttackMappingResult } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
-type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'attack' | 'trace' | 'geo' | 'ai'
+type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'attack' | 'trace' | 'geo' | 'ai' | 'custody'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -66,6 +69,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'trace', label: 'Trace view' },
   { id: 'geo', label: 'Geo' },
   { id: 'ai', label: 'AI assessment' },
+  { id: 'custody', label: 'Custody' },        // P5e, analyst+ (custody:read)
 ]
 
 export default function ResultsDashboard({
@@ -335,11 +339,14 @@ export default function ResultsDashboard({
       {/* header: subject + identifiers + actions */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold text-fg">{analysis.subject || '(no subject)'}</h1>
+          <h1 className="truncate text-xl font-semibold text-fg">
+            {analysis.subject || (analysis.retention_state === 'redacted' ? REDACTED_TEXT : '(no subject)')}
+          </h1>
           <p className="mt-0.5 flex flex-wrap gap-x-3 font-mono text-sm text-muted">
             <span>analysis <Mono>{analysis.id}</Mono></span>
             <span>sha256 <Mono display={`${analysis.sha256.slice(0, 16)}…`}>{analysis.sha256}</Mono></span>
             <span>{formatDate(analysis.created_at)}</span>
+            <RetentionTags state={analysis.retention_state} held={analysis.legal_hold} />
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -355,6 +362,20 @@ export default function ResultsDashboard({
         </div>
       </div>
 
+      {(analysis.retention_state === 'redacted' || analysis.pii_masked) && (
+        <div className="space-y-1" data-testid="privacy-banners">
+          {analysis.retention_state === 'redacted' && (
+            <p className="flex items-center gap-2 border border-warn-line bg-warn-weak px-3 py-1.5 text-sm text-warn">
+              <LED tone="warn" />Content redacted per retention policy: subject, addresses, display names, body and AI summaries were removed; hashes, indicators, findings and scores are kept.
+            </p>
+          )}
+          {analysis.pii_masked && (
+            <p className="flex items-center gap-2 border border-line bg-surface px-3 py-1.5 text-sm text-muted">
+              <LED tone="neutral" />Personal data is restricted for your role: addresses are partially masked, display names and the message body are hidden. Domains, IPs, hashes and verdicts are shown.
+            </p>
+          )}
+        </div>
+      )}
       <VerdictStrip analysis={analysis} assessment={assessment} attack={attack} intelRun={intelRun}
                     caseInfo={caseInfo} integrity={integrity} />
 
@@ -362,7 +383,7 @@ export default function ResultsDashboard({
         <ErrorAlert message={pdfError ?? caseError ?? ''} onDismiss={() => { setPdfError(null); setCaseError(null) }} />
       )}
 
-      <Tabs items={TABS} active={tab} onChange={setTab} label="Result sections" />
+      <Tabs items={TABS.filter((t) => t.id !== 'custody' || can('custody:read'))} active={tab} onChange={setTab} label="Result sections" />
 
       {tab === 'overview' && (
         <OverviewTab
@@ -419,6 +440,7 @@ export default function ResultsDashboard({
       )}
       {tab === 'trace' && <TraceView analysis={analysis} />}
       {tab === 'geo' && <GeoPanel kind="analysis" id={analysis.id} />}
+      {tab === 'custody' && can('custody:read') && <CustodyPanel analysisId={analysis.id} />}
       {tab === 'ai' && (
         <AssessmentView
           assessment={assessment}
@@ -521,11 +543,12 @@ function OverviewTab({
           <MetaRow label="From">
             {analysis.from ? (
               <>
-                {analysis.from.display_name && <span className="font-medium">{analysis.from.display_name} </span>}
+                {analysis.from.display_name === 'restricted' ? <><Restricted /> </>
+                  : analysis.from.display_name && <span className="font-medium">{analysis.from.display_name} </span>}
                 <span className="font-mono">&lt;{analysis.from.email}&gt;</span>
               </>
             ) : (
-              <span className="text-muted">not present</span>
+              analysis.retention_state === 'redacted' ? <Restricted reason="retention" /> : <span className="text-muted">not present</span>
             )}
           </MetaRow>
           <MetaRow label="To">

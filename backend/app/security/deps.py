@@ -73,7 +73,11 @@ def _load_user(db: Session, claims: dict) -> User | None:
 
 async def enforce_access(request: Request, db: Session = Depends(get_db)) -> None:
     set_actor(None)
+    from app.security.client_ip import client_ip
+    from app.security.context import set_client_ip
+    set_client_ip(client_ip(request))
     request.state.user = None
+    request.state.user_role = None
     path, perm = route_index(request.app).get((request.method.upper(), _endpoint(request)), (None, None))
     if perm == PUBLIC:
         return
@@ -93,6 +97,8 @@ async def enforce_access(request: Request, db: Session = Depends(get_db)) -> Non
         raise _unauthorized("SESSION_REVOKED", "Your session is no longer valid. Sign in again.", "invalid_token")
 
     request.state.user = user
+    request.state.user_role = user.role          # plain strings: safe to read after the session closes
+    request.state.user_id = user.id
     set_actor(user.id)
     if perm is None:
         logger.warning("denied request to unmapped route %s %s", request.method, path or "?")

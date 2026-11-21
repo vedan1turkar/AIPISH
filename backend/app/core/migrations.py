@@ -44,11 +44,54 @@ def _analysis_search_indexes(engine: Engine) -> None:
     migrate_correlation_indexes(engine)
 
 
+def _add_columns(engine: Engine, table: str, cols: dict[str, tuple[str, str]]) -> None:
+    """ALTER TABLE ADD COLUMN for missing columns. cols: name -> (sqlite type, postgresql type)."""
+    have = {c["name"] for c in inspect(engine).get_columns(table)}
+    pg = engine.dialect.name == "postgresql"
+    with engine.begin() as conn:
+        for name, (lite, pgtype) in cols.items():
+            if name not in have:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {pgtype if pg else lite}"))
+
+
+def _audit_and_retention_columns(engine: Engine) -> None:
+    """P5e: structured audit fields + hash-chain columns; retention state on analyses."""
+    _add_columns(engine, "audit_event", {
+        "target_type": ("VARCHAR(32)", "VARCHAR(32)"), "target_id": ("VARCHAR(64)", "VARCHAR(64)"),
+        "outcome": ("VARCHAR(16)", "VARCHAR(16)"), "source_ip": ("VARCHAR(64)", "VARCHAR(64)"),
+        "seq": ("INTEGER", "INTEGER"), "prev_hash": ("VARCHAR(64)", "VARCHAR(64)"),
+        "event_hash": ("VARCHAR(64)", "VARCHAR(64)"),
+    })
+    _add_columns(engine, "analysis", {
+        "retention_state": ("VARCHAR(16)", "VARCHAR(16)"),
+        "redacted_at": ("DATETIME", "TIMESTAMP WITH TIME ZONE"),
+        "evidence_purged_at": ("DATETIME", "TIMESTAMP WITH TIME ZONE"),
+    })
+    with engine.begin() as conn:
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ux_audit_event_seq ON audit_event (seq)"))
+        for col in ("target_type", "target_id"):
+            conn.execute(text(f"CREATE INDEX IF NOT EXISTS ix_audit_event_{col} ON audit_event ({col})"))
+
+
+def _audit_genesis(engine: Engine) -> None:
+    """P5e: chain pre-existing events once and record a chain_genesis marker (content never rewritten)."""
+    from app.audit.chain import genesis_backfill
+    genesis_backfill(engine)
+
+
+def _audit_triggers(engine: Engine) -> None:
+    from app.audit.chain import ensure_triggers
+    ensure_triggers(engine)
+
+
 STEPS: list[tuple[int, str, Callable[[Engine], None]]] = [
     (1, "baseline_tables", _baseline),
     (2, "audit_event_actor_user_id", _audit_actor),
     (3, "analysis_search_indexes", _analysis_search_indexes),
     (4, "geo_observation_table", _baseline),       # P5g: new table, created by create_all
+    (5, "audit_and_retention_columns", _audit_and_retention_columns),   # P5e
+    (6, "audit_chain_genesis", _audit_genesis),                         # P5e (before triggers)
+    (7, "audit_append_only_triggers", _audit_triggers),                 # P5e
 ]
 
 
@@ -91,6 +134,8 @@ def upgrade(engine: Engine) -> list[str]:
                 conn.execute(SchemaMigration.__table__.insert().values(
                     version=version, name=name, applied_at=utcnow()))
             applied_now.append(name)
+        if 7 in done or "audit_append_only_triggers" in applied_now:
+            _audit_triggers(engine)              # re-ensure on every start (idempotent)
     return applied_now
 
 

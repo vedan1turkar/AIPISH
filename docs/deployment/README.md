@@ -72,7 +72,7 @@ Open **http://localhost:8080** and sign in with an account from `.demo/credentia
 username, role, password; mode 0600, gitignored). The script prints only the file path.
 
 `scripts/demo-up.sh`:
-1. Generates `POSTGRES_PASSWORD` and `AIPISH_JWT_SECRET` in `deploy/.env` if they are empty, without
+1. Generates `POSTGRES_PASSWORD`, `AIPISH_JWT_SECRET` and `AIPISH_AUDIT_KEY` in `deploy/.env` if they are empty, without
    printing them.
 2. Starts the stack as Compose project `aipish-demo` with `APP_ENV=demo`. This is production hardening
    plus permitted synthetic seeding, with no live DNS or threat-intel lookups.
@@ -99,7 +99,7 @@ is refused when `APP_ENV=production`.
 
 ```bash
 cp deploy/env.example deploy/.env && chmod 600 deploy/.env
-# set POSTGRES_PASSWORD (≥16 random chars) and AIPISH_JWT_SECRET (≥32 random chars)
+# set POSTGRES_PASSWORD (≥16 random chars), AIPISH_JWT_SECRET (≥32) and AIPISH_AUDIT_KEY (≥32; keep it)
 docker compose -f deploy/docker-compose.yml up -d --build --wait
 docker compose -f deploy/docker-compose.yml exec backend python -m app.cli create-user --username admin --role admin
 #   (interactive password prompt; or set AIPISH_NEW_USER_PASSWORD in that command's environment)
@@ -107,8 +107,8 @@ docker compose -f deploy/docker-compose.yml exec backend python -m app.cli creat
 
 `APP_ENV=production` (the default in the image and the compose file) **fails closed**. The containers
 refuse to start with a clear message, without printing values, when:
-- `POSTGRES_PASSWORD` or `AIPISH_JWT_SECRET` is missing. Compose itself stops before starting anything.
-- the JWT secret is weak or a placeholder.
+- `POSTGRES_PASSWORD`, `AIPISH_JWT_SECRET` or `AIPISH_AUDIT_KEY` is missing. Compose itself stops before starting anything.
+- the JWT secret or the audit key is weak or a placeholder (P5e).
 - the database is not PostgreSQL, or its password is shorter than 16 characters or a placeholder.
 - demo seeding is requested.
 
@@ -197,7 +197,25 @@ Anonymous `GET /api/v1/health` now returns only `{"status"}`. Container health c
 | `AIPISH_WITH_ML` | `1` | Build the backend with the CPU ML stack (`0` = rules only). |
 | `OLLAMA_BASE_URL` / `OLLAMA_ALLOWED_HOSTS` / `OLLAMA_MODEL` | host.docker.internal / same / `mistral` | Local LLM. |
 | `AIPISH_SEED_DEMO` | `0` | `1` runs `init-demo` at start (refused in production). |
+| `AIPISH_AUDIT_KEY` | — (required) | HMAC key of the tamper-evident audit chain (P5e), ≥32 random characters. Keep it with your backups: without it the existing chain cannot be verified. `demo-up.sh` generates it. |
+| `RETENTION_ANALYSIS_DAYS` / `RETENTION_EVIDENCE_DAYS` | `0` / `0` | Retention periods (0 = disabled). Nothing is purged unless a run is applied. |
+| `RETENTION_MODE` / `RETENTION_GRACE_DAYS` | `redact` / `0` | `redact` or `delete`; extra days before eligibility. Audit events are never purged. |
+| `RETENTION_INTERVAL_SECONDS` | `86400` | Loop interval of the optional `retention` profile service. |
 | `CASE_EVIDENCE_STORE` etc. | see `.env.example` | Evidence policy, auth throttling, intel keys: as in development. |
+
+### Retention scheduling (P5e)
+
+There is **no built-in scheduler**. Retention runs only when something calls it:
+
+- `scripts/retention-run.sh` (dry run by default; `--apply` to purge; contains a cron example), or
+  `make retention-dry-run`;
+- the optional Compose profile `retention`, a loop container running `python -m app.cli retention-run --apply`
+  every `RETENTION_INTERVAL_SECONDS`: `docker compose -f deploy/docker-compose.yml --profile retention up -d`.
+  With the retention periods at 0 it does nothing;
+- by hand from the admin Retention page (preview, then type `APPLY` to confirm).
+
+Audit verification from the host: `docker compose -f deploy/docker-compose.yml exec backend python -m app.cli audit-verify`
+(exit 1 when the chain is broken). Details: [docs/audit/README.md](../audit/README.md).
 
 ## Database: PostgreSQL, migrations, backup
 

@@ -31,6 +31,18 @@
         printed), seed the SYNTHETIC campaign, and analyse the synthetic BEC sample (with the ML/SHAP/LLM
         assessment when models are present). Idempotent: existing users and emails are kept.
 
+    python -m app.cli audit-verify
+        Verify the tamper-evident audit hash chain (HMAC-SHA256 with AIPISH_AUDIT_KEY). Exit 0 = intact,
+        1 = broken (prints the first broken seq and the reason).
+
+    python -m app.cli audit-checkpoint
+        Record the chain tip (seq + hash + time) as an audit event and print it, so it can be kept
+        OUTSIDE this system (ticket, signed e-mail, notebook).
+
+    python -m app.cli retention-run [--apply]
+        Retention enforcement (RETENTION_* settings). DRY RUN by default: prints counts and ids only.
+        --apply redacts or deletes eligible analyses (legal holds are skipped). Audit events are never purged.
+
     python -m app.cli seed-dev-users
         LOCAL DEV ONLY (APP_ENV=dev). (Re)creates demo-admin / demo-analyst / demo-viewer with
         random strong passwords written to backend/.dev_credentials (mode 0600, gitignored).
@@ -147,10 +159,12 @@ def _preflight() -> int:
     from app.core.production import ProductionConfigError, check_production
     from app.security.tokens import AuthConfigError, load_auth_config
     env_name = get_settings().env
+    from app.audit.keys import AuditKeyError, audit_key
     try:
         check_production(env_name)
         load_auth_config(env_name)
-    except (ProductionConfigError, AuthConfigError) as exc:
+        audit_key()
+    except (ProductionConfigError, AuthConfigError, AuditKeyError) as exc:
         print(str(exc), file=sys.stderr)
         return 3
     return 0
@@ -339,6 +353,50 @@ def seed_demo_campaign_cmd(args) -> int:
     return 0
 
 
+def audit_verify_cmd(args) -> int:
+    from app.audit import GUARANTEE
+    from app.audit.chain import verify
+    from app.cases.service import record_audit
+    with _session() as db:
+        res = verify(db)
+        record_audit(db, "audit_verified", target_type="audit", outcome="success" if res["ok"] else "failure",
+                     detail={**{k: res[k] for k in ("ok", "checked", "first_broken_seq", "reason")}, "source": "cli"})
+        db.commit()
+    print(f"chain: {'OK' if res['ok'] else 'BROKEN'}  events checked: {res['checked']}")
+    if not res["ok"]:
+        print(f"first broken seq: {res['first_broken_seq']}  reason: {res['reason']}")
+    print(GUARANTEE)
+    return 0 if res["ok"] else 1
+
+
+def audit_checkpoint_cmd(args) -> int:
+    from app.audit.chain import checkpoint
+    with _session() as db:
+        tip = checkpoint(db)
+    print(f"checkpoint: seq={tip['seq']} hash={tip['event_hash']} at={tip['created_at']} chain_ok={tip['chain_ok']}")
+    print("Record these values outside this system; a later verification can be compared against them.")
+    return 0
+
+
+def retention_run_cmd(args) -> int:
+    from app.retention.service import run
+    with _session() as db:
+        res = run(db, apply=bool(args.apply), source="cli")
+    p = res["policy"]
+    print(f"retention policy: enabled={p['enabled']} mode={p['mode']} analysis_days={p['analysis_days']} "
+          f"evidence_days={p['evidence_days']} grace_days={p['grace_days']}")
+    print(f"{'DRY RUN (nothing changed; use --apply)' if res['dry_run'] else 'APPLIED'}: "
+          f"eligible={len(res['eligible_analyses'])} evidence_only={len(res['eligible_evidence_only'])} "
+          f"held_skipped={len(res['held_skipped'])}")
+    if not res["dry_run"]:
+        print(f"redacted={len(res['redacted'])} deleted={len(res['deleted'])} "
+              f"evidence_purged={len(res['evidence_purged'])} errors={len(res['errors'])}")
+    for label in ("eligible_analyses", "held_skipped", "redacted", "deleted"):
+        if res[label]:
+            print(f"{label}: {', '.join(res[label][:50])}")
+    return 0 if not res["errors"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m app.cli")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -361,6 +419,13 @@ def main(argv: list[str] | None = None) -> int:
     i = sub.add_parser("init-demo", help="DEMO ONLY: demo users, synthetic campaign and BEC sample")
     i.add_argument("--no-assessment", action="store_true", help="skip the ML/SHAP/LLM assessment of the BEC sample")
     i.set_defaults(func=init_demo_cmd)
+    av = sub.add_parser("audit-verify", help="verify the tamper-evident audit hash chain")
+    av.set_defaults(func=audit_verify_cmd)
+    ac = sub.add_parser("audit-checkpoint", help="record and print the audit chain tip for external keeping")
+    ac.set_defaults(func=audit_checkpoint_cmd)
+    rr = sub.add_parser("retention-run", help="retention enforcement (dry run unless --apply)")
+    rr.add_argument("--apply", action="store_true", help="actually redact/delete eligible analyses")
+    rr.set_defaults(func=retention_run_cmd)
     s = sub.add_parser("seed-dev-users", help="LOCAL DEV ONLY: demo users with random passwords")
     s.set_defaults(func=seed_dev_users_cmd)
     args = p.parse_args(argv)

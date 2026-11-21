@@ -118,6 +118,7 @@ def build_report_pdf(
     intel: dict | None = None,
     correlation: dict | None = None,
     attack: dict | None = None,
+    view_notes: list[str] | None = None,
 ) -> bytes:
     """Builds the full PDF. Returns bytes; raises nothing — caller handles."""
     generated_at = generated_at or datetime.now(timezone.utc).isoformat()
@@ -134,6 +135,9 @@ def build_report_pdf(
     # ── 1. Header/headerline ────────────────────────────────────────────────
     story.append(Paragraph("Email Forensic Report", H1))
     story.append(HRFlowable(width="100%", thickness=0.8, color=colors.HexColor("#333")))
+    for note in view_notes or []:          # P5e: MASKED VIEW / retention redaction notices
+        story.append(Paragraph(f"<b>{esc(note)}</b>", CELL))
+        story.append(Spacer(1, 3))
     verdict = detection.get("verdict", "unknown")
     score = detection.get("score", 0)
     verdict_color = VERDICT_COLORS.get(verdict, colors.black)

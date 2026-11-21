@@ -23,6 +23,7 @@ from app.api.admin_router import router as admin_router
 from app.api.correlation_router import router as correlation_router
 from app.api.attack_router import router as attack_router
 from app.api.geo_router import router as geo_router
+from app.api.audit_router import router as audit_router
 from app.api.router import router
 from app.core.config import get_settings
 from app.core.db import engine
@@ -45,6 +46,9 @@ def create_app() -> FastAPI:
     set_auth_config(load_auth_config(settings.env))
     # P5i: APP_ENV=production also requires PostgreSQL with a strong password (fails closed).
     check_production(settings.env)
+    # P5e: the audit hash-chain key must resolve (dev/offline generate one locally; others fail closed).
+    from app.audit.keys import audit_key
+    audit_key()
 
     app = FastAPI(
         title="Email Forensics Platform",
@@ -74,6 +78,30 @@ def create_app() -> FastAPI:
             response.headers["Pragma"] = "no-cache"
         return response
 
+    @app.middleware("http")
+    async def pii_masking(request: Request, call_next):
+        """P5e: the single masking point. Every JSON response under /api/v1 for a signed-in role without
+        pii:view goes through app.privacy.masking.mask_payload (new endpoints are covered automatically)."""
+        response = await call_next(request)
+        if not request.url.path.startswith("/api/v1/"):
+            return response
+        role = getattr(request.state, "user_role", None)
+        if role is None or not (response.headers.get("content-type") or "").startswith("application/json"):
+            return response
+        from app.privacy.masking import mask_payload, role_sees_pii
+        if role_sees_pii(role):
+            return response
+        import json as _json
+        from starlette.responses import Response as _Response
+        body = b"".join([chunk async for chunk in response.body_iterator])
+        try:
+            data = _json.loads(body)
+        except ValueError:
+            return _Response(content=body, status_code=response.status_code, headers=dict(response.headers))
+        headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+        return _Response(content=_json.dumps(mask_payload(data), ensure_ascii=False).encode(),
+                         status_code=response.status_code, headers=headers, media_type="application/json")
+
     # Create tables + additive, idempotent migrations (shared with the CLI).
     from app.core.db import SessionLocal
     from app.core.models import migrate_assessments, run_additive_migrations
@@ -97,6 +125,7 @@ def create_app() -> FastAPI:
     app.include_router(correlation_router, prefix="/api/v1")
     app.include_router(attack_router, prefix="/api/v1")
     app.include_router(geo_router, prefix="/api/v1")
+    app.include_router(audit_router, prefix="/api/v1")
 
     if (settings.env or "").lower() in DOCS_ENVS:
         @app.get("/openapi.json", include_in_schema=False)

@@ -80,6 +80,10 @@ class Analysis(Base):
     parse_defects: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    # P5e retention: None | "evidence_purged" | "redacted"
+    retention_state: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    redacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    evidence_purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Case(Base):
@@ -105,11 +109,14 @@ class CaseAnalysisLink(Base):
 
 
 class AuditEvent(Base):
-    """Application-level audit log — NOT a tamper-resistant record.
+    """Application audit log, tamper-EVIDENT since P5e (HMAC hash chain), not tamper-PROOF.
 
-    This is append-only at the application layer: the API never exposes
-    mutation of audit rows. It is NOT cryptographic chain-of-custody; a DB
-    administrator or raw file access can alter it. Stated plainly in README.
+    Each row carries ``seq`` / ``prev_hash`` / ``event_hash`` (HMAC-SHA256 with AIPISH_AUDIT_KEY over a
+    canonical serialisation + the previous hash), so changes, deletions, re-orderings and insertions are
+    detected by ``app.audit.chain.verify``. Database triggers reject UPDATE/DELETE; the API has no
+    mutation path. A database superuser can still bypass triggers, and an attacker holding both database
+    write access and the audit key could forge a consistent chain: external checkpoints reduce that risk.
+    Pre-chain rows were chained once at migration ("chain_genesis") without changing their content.
     """
     __tablename__ = "audit_event"
 
@@ -122,6 +129,38 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     # P5b: authenticated user who caused the event (None for anonymous/failed logins and pre-P5b rows)
     actor_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    # P5e: structured fields + hash chain (nullable only for databases mid-migration)
+    target_type: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    outcome: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    source_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    seq: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True)
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class AuditChainHead(Base):
+    """Single row (id=1): the last chained seq and hash. Its row lock serialises appends (P5e)."""
+    __tablename__ = "audit_chain_head"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    seq: Mapped[int] = mapped_column(Integer, default=0)
+    last_hash: Mapped[str] = mapped_column(String(64))
+
+
+class LegalHold(Base):
+    """Legal hold on an analysis or a case (P5e): held items are skipped by retention and cannot be erased."""
+    __tablename__ = "legal_hold"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    target_type: Mapped[str] = mapped_column(String(16), index=True)        # analysis | case
+    target_id: Mapped[str] = mapped_column(String(32), index=True)
+    reason: Mapped[str] = mapped_column(Text)
+    created_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cleared_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    clear_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class AnalysisAssessment(Base):

@@ -1,5 +1,46 @@
 # Changelog
 
+## P5e — Tamper-evident audit log, retention enforcement and personal-data masking
+
+- **Audit chain:**
+  - `audit_event` gains `seq`, `prev_hash` and `event_hash` (an HMAC-SHA256 chain keyed by
+    `AIPISH_AUDIT_KEY`), plus `target_type`, `target_id`, `outcome` and `source_ip`.
+  - Appends are serialised through the `audit_chain_head` row.
+  - Legacy events are chained once, without changing their content, behind a `chain_genesis` marker.
+  - `UPDATE`, `DELETE` and `TRUNCATE` triggers on SQLite and PostgreSQL. A database superuser can bypass
+    them, and the chain then detects the change.
+  - The guarantee is stated as "tamper-evident (HMAC hash chain), not tamper-proof".
+- **Key handling:** production fails closed on a missing or weak key, and so do Compose and the
+  pre-flight. In dev the key is generated into the gitignored `.env` without being printed.
+  `demo-up.sh` generates it.
+- **Coverage:**
+  - Uploads, views (de-duplicated per 15 minutes), searches (query truncated to 64 characters).
+  - Case membership, AI assessment runs, ML runs.
+  - Audit verify, checkpoint and export; retention, holds and erasure.
+  - Details are sanitised: no bodies, subjects, recipients, passwords, tokens or keys.
+- **API and CLI:**
+  - `GET /audit/events`, `/audit/export` (CSV or JSON, capped at 10,000, audited), `/audit/verify` and
+    `/audit/checkpoint`;
+  - `GET /analyses/{id}/custody`;
+  - admin retention, legal-hold and erasure endpoints;
+  - CLI `audit-verify` (exit 1 when broken), `audit-checkpoint` and `retention-run [--apply]`.
+- **Retention:**
+  - Configured with `RETENTION_ANALYSIS_DAYS`, `RETENTION_EVIDENCE_DAYS`, `RETENTION_MODE`
+    (redact | delete) and `RETENTION_GRACE_DAYS`. It is disabled by default, and runs are dry runs
+    unless applied.
+  - Legal holds exempt analyses from retention and erasure. Audit events are never purged.
+  - There is no built-in scheduler: use `scripts/retention-run.sh` (cron) or the Compose `retention`
+    profile.
+- **Masking:** the new `pii:view` permission (analyst, admin). Viewers get masked addresses, restricted
+  display names and no body through one response serializer. Their PDF is built from masked data and
+  labelled "MASKED VIEW".
+- **Frontend:** admin Audit and Retention pages, an analysis Custody tab, redacted, legal-hold and
+  restricted tags, privacy banners, and a retention column in History and Case.
+- **Schema:** migration steps 5 (`audit_and_retention_columns`), 6 (`audit_chain_genesis`) and 7
+  (`audit_append_only_triggers`), and new tables `audit_chain_head` and `legal_hold`.
+- **Unchanged:** detection, ML, rules, intel providers and scores. BEC is still 100 /
+  `phishing_fraud_likely` and ML `impersonated` 0.4355.
+
 ## P5g — Infrastructure geolocation map and analytics
 
 - **Geo endpoints:**

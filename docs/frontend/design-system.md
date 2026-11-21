@@ -1,4 +1,4 @@
-# AIPISH design system (P5u-1, P5u-2, P5g)
+# AIPISH design system (P5u-1, P5u-2, P5g, P5e)
 
 The goal is a calm, dense security-engineering console: information-rich, organised and easy to scan.
 Hierarchy comes from type weight and tonal surface steps, not from boxes, shadows or colour.
@@ -208,6 +208,45 @@ Cytoscape cannot read CSS variables, so it mirrors the token hex values.
   (`aria-pressed`). Empty data is one `EmptyLine`. If Plotly cannot load, the table is shown.
 - **Layout:** a 12-column grid whose rows stretch to equal height (no ragged edges), led by a four-cell
   stat strip. Coverage notes and SIMULATED tags appear under the relevant charts.
+
+## Audit, retention, custody and masking (P5e)
+
+**Audit page** (`components/admin/AuditPage.tsx`, admin):
+- Row 1 is a stretched 6 + 6 grid: **Chain integrity** (KV rows, `Verify now`) beside **External
+  checkpoint** (latest tip, create, CSV / JSON export).
+- The chain state is one `StatusTag`: ok "chain OK" or danger "chain BROKEN". A broken chain always
+  shows the first broken seq and the reason in text.
+- Below is the events panel: a filter form (7 columns at xl), then a `DataTable` with server pagination
+  (Newer / Older). Seq and hash prefixes are mono, outcome is a `StatusTag`, and details are truncated to
+  one line with the full text in `title`.
+- The guarantee sentence sits under the `h1` in `muted`. Never use "immutable", "WORM" or
+  "tamper-proof" as a claim.
+
+**Retention page** (`components/admin/RetentionPage.tsx`, admin):
+- A four-cell stat strip, then **Policy** (5 columns; an enabled or disabled tag) beside **Run**
+  (7 columns).
+- **Run** always previews first (dry run). Apply opens a dialog that names the mode and counts and is
+  enabled only when `APPLY` is typed. The button is the `danger` variant.
+- Legal holds: a 12-column inline form (target, id, reason of 3 characters or more), then a table with a
+  per-row clear that requires a reason.
+- The page states that there is no built-in scheduler.
+
+**Custody tab** (analysis page, `custody:read`): a stretched 8 + 4 grid. The timeline `DataTable` has the
+audit guarantee as its footer. The **Evidence integrity** KV panel (`h-full`) ends with the SHA-256
+integrity note.
+
+**Retention and masking states** (`components/audit/badges.tsx`):
+
+| State | Treatment |
+|---|---|
+| redacted | warn `StatusTag` "redacted" |
+| evidence purged | neutral "evidence purged" |
+| legal hold | accent "legal hold" |
+| masked field | neutral "restricted" tag (title explains role restriction vs redaction) in place of the value |
+
+- Tags appear in the analysis header, the History "Retention" column and Case member rows.
+- Redacted (warn LED) and masked (neutral LED) analyses get a one-line banner strip above the tabs.
+- Colour is always paired with text.
 
 ## Accessibility
 

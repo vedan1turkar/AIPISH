@@ -54,6 +54,7 @@ ensure_secret() {   # ensure_secret NAME LENGTH: set NAME in $ENV_FILE if it is 
 }
 ensure_secret POSTGRES_PASSWORD 32
 ensure_secret AIPISH_JWT_SECRET 48
+ensure_secret AIPISH_AUDIT_KEY 48        # P5e: audit hash-chain key
 
 # The demo runs as its own Compose project with its own network so it can coexist with a deployment.
 export APP_ENV=demo

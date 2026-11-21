@@ -43,6 +43,12 @@ def _store(db: Session, analysis_id: str, source: str, ml: dict, explanation: di
     row = AssessmentVersion(analysis_id=analysis_id, version=(last.version + 1) if last else 1, source=source,
                             ml_json=ml, explanation_json=explanation, summary_json=summary, created_at=utcnow())
     db.add(row)
+    db.flush()
+    from app.cases.service import record_audit
+    record_audit(db, "assessment_run", analysis_id=analysis_id, detail={
+        "assessment_id": row.id, "version": row.version, "source": source,
+        "ml_status": (ml or {}).get("status"), "shap_status": (explanation or {}).get("status"),
+        "llm_status": (summary or {}).get("status") or ("ok" if (summary or {}).get("summary") else None)})
     db.commit()
     return assessment_dict(row)
 

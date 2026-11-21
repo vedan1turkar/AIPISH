@@ -188,6 +188,10 @@ def test_production_refuses_sqlite_and_weak_postgres_password(monkeypatch):
     assert "password" in str(exc.value) and "password@" not in str(exc.value)
     strong = dbmod._make_engine(dbmod.make_url(f"postgresql+psycopg://aipish:{_RANDOM_DB_PW}@db/aipish"))
     monkeypatch.setattr(dbmod, "engine", strong)
+    monkeypatch.setenv("AIPISH_AUDIT_KEY", "")                      # P5e: the audit key is also required
+    with pytest.raises(ProductionConfigError, match="AIPISH_AUDIT_KEY"):
+        check_production("production")
+    monkeypatch.setenv("AIPISH_AUDIT_KEY", _RANDOM_SECRET)
     check_production("production")
 
 

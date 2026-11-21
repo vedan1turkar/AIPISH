@@ -12,3 +12,15 @@ def set_actor(user_id: str | None) -> None:
 
 def current_actor_id() -> str | None:
     return _actor.get()
+
+
+# P5e: client IP for audit events (trusted-proxy aware; see app/security/client_ip.py)
+_client_ip: ContextVar[str | None] = ContextVar("aipish_client_ip", default=None)
+
+
+def set_client_ip(ip: str | None) -> None:
+    _client_ip.set(ip)
+
+
+def current_client_ip() -> str | None:
+    return _client_ip.get()

@@ -15,9 +15,9 @@ role.
 
 | Role | Can do |
 |---|---|
-| **viewer** | Read analyses, cases, results, threat-intel results and assessment history; download PDFs; see ML model status; read correlation, campaigns and search (P5c). |
-| **analyst** | Everything a viewer can, plus: upload and analyse emails; run ML / SHAP / Mistral assessments; run threat-intel lookups; create cases and add analyses to them; verify evidence integrity. |
-| **admin** | Everything an analyst can, plus: user management (create, list, change role, disable / enable, reset password); view `/intel/status` and `/llm/status`; read the API docs (dev and test only); rebuild correlation (P5c). |
+| **viewer** | Read analyses, cases, results, threat-intel results and assessment history; download PDFs; see ML model status; read correlation, campaigns and search (P5c). P5e: sees personal data **masked** (addresses `x***@domain`, display names "restricted", no body; PDF labelled "MASKED VIEW"). |
+| **analyst** | Everything a viewer can, plus: upload and analyse emails; run ML / SHAP / Mistral assessments; run threat-intel lookups; create cases and add analyses to them; verify evidence integrity. P5e: `pii:view` (unmasked personal data) and `custody:read` (custody timeline). |
+| **admin** | Everything an analyst can, plus: user management (create, list, change role, disable / enable, reset password); view `/intel/status` and `/llm/status`; read the API docs (dev and test only); rebuild correlation (P5c). P5e: `audit:read` / `audit:manage` (audit log, verify, export, checkpoint) and `retention:manage` (retention runs, legal holds, erasure). |
 
 The role → permission map is in `backend/app/security/permissions.py` (`ROLE_PERMISSIONS`).
 
@@ -75,6 +75,18 @@ fails if any route is missing from `ROUTE_PERMISSIONS`.
 | `POST` | `/api/v1/admin/users` | `users:manage` | admin |
 | `PATCH` | `/api/v1/admin/users/{user_id}` | `users:manage` | admin |
 | `POST` | `/api/v1/admin/users/{user_id}/reset-password` | `users:manage` | admin |
+| `GET` | `/api/v1/audit/events` | `audit:read` | admin (P5e) |
+| `GET` | `/api/v1/audit/export` | `audit:read` | admin (P5e; capped, audited) |
+| `GET` | `/api/v1/audit/verify` | `audit:read` | admin (P5e) |
+| `GET` | `/api/v1/audit/checkpoint` | `audit:read` | admin (P5e) |
+| `POST` | `/api/v1/audit/checkpoint` | `audit:manage` | admin (P5e) |
+| `GET` | `/api/v1/analyses/{analysis_id}/custody` | `custody:read` | analyst, admin (P5e) |
+| `GET` | `/api/v1/admin/retention/status` | `retention:manage` | admin (P5e) |
+| `POST` | `/api/v1/admin/retention/run` | `retention:manage` | admin (P5e; dry run unless `dry_run: false`) |
+| `GET` | `/api/v1/admin/holds` | `retention:manage` | admin (P5e) |
+| `POST` | `/api/v1/admin/holds` | `retention:manage` | admin (P5e) |
+| `POST` | `/api/v1/admin/holds/{hold_id}/clear` | `retention:manage` | admin (P5e) |
+| `DELETE` | `/api/v1/admin/analyses/{analysis_id}` | `retention:manage` | admin (P5e; reason required, 409 on legal hold) |
 | `GET` | `/openapi.json` | `docs:read` | admin (`APP_ENV` dev / test only; 404 otherwise) |
 | `GET` | `/docs` | `docs:read` | admin (dev / test only) |
 | `GET` | `/redoc` | `docs:read` | admin (dev / test only) |
@@ -224,8 +236,10 @@ New event types:
 | `user_role_changed` | user id, from, to |
 | `user_disabled`, `user_enabled`, `user_password_reset` | user id, username |
 
-- **Not yet audited:** running an AI assessment writes an assessment version but no audit row.
-- **Not built in P5b:** an audit read API or UI (planned for P5e).
+- **P5e:** every event now also carries `target_type`, `target_id`, `outcome` and `source_ip`, and is
+  appended to an HMAC-SHA256 hash chain. AI assessment runs, ML runs, uploads, views, searches, case
+  membership changes, audit and retention actions are audited too, and there is an admin read API and
+  UI. Full list, chain design and guarantees: [docs/audit/README.md](../audit/README.md).
 
 ## Bootstrap and local dev users
 
@@ -303,6 +317,6 @@ No default or hard-coded password exists anywhere in the source.
 | 5 | No per-case ownership or ACLs | Every viewer can read every analysis and case. |
 | 6 | sessionStorage token | Readable by injected script (XSS trade-off above). |
 | 7 | Secret rotation | Changing `AIPISH_JWT_SECRET` invalidates all tokens. There is no key-id rotation. |
-| 8 | Audit log | Application-level only, not tamper-resistant. No read API or UI yet (P5e). AI-assessment runs are not audited yet. |
+| 8 | Audit log | P5e: tamper-evident (HMAC hash chain), not tamper-proof. Append-only triggers can be bypassed by a database superuser; the chain then detects the change. See docs/audit/README.md. |
 | 9 | API docs | Admin-only and only in dev/test. A browser cannot send the bearer header to `/docs`, so use an API client with the token or `GET /openapi.json`. |
 | 10 | Evidence key | The optional `X-Evidence-Key` raw-evidence gate is unchanged and is in addition to RBAC. |

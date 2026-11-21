@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import os
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -222,6 +222,7 @@ def report_pdf(
     assessment_id: str | None = None,
     intel_run_id: str | None = None,
     attack_id: str | None = None,
+    request: Request = None,
     db: Session = Depends(get_db),
 ):
     """Download the forensic PDF for one analysis inside an investigation.
@@ -244,9 +245,21 @@ def report_pdf(
                                         "message": "Configured policy requires a valid X-Evidence-Key header."})
 
     report_id = f"RPT-{rec.id[:8]}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    # P5e: the same masking serializer as the API for roles without pii:view ("MASKED VIEW"); pinned
+    # versions are identical for every role. Redacted analyses print the retention notice.
+    from app.privacy.masking import mask_payload, role_sees_pii
+    masked = not role_sees_pii(getattr(getattr(request, "state", None), "user_role", None)) if request else False
+    view_notes = []
+    if masked:
+        view_notes.append("MASKED VIEW: personal data (addresses, display names, body) masked for the requesting role.")
+    if rec.retention_state == "redacted":
+        view_notes.append("Content redacted per retention policy: personal content was removed; hashes, "
+                          "indicators, findings and scores are retained.")
+    _m = mask_payload if masked else (lambda x: x)
     pdf = build_report_pdf(
-        case_dict=case_to_dict(db, case),
-        analysis_row={
+        view_notes=view_notes,
+        case_dict=_m(case_to_dict(db, case)),
+        analysis_row=_m({
             "id": rec.id,
             "sha256": rec.raw_sha256,
             "size_bytes": rec.raw_size_bytes,
@@ -262,17 +275,17 @@ def report_pdf(
                 "email": rec.from_email,
                 "domain": rec.from_domain,
             },
-        },
-        detection=rec.detection_json or {},
-        forensics=rec.forensics_json or {},
-        auth=rec.auth_json or {},
-        enrichment=rec.enrichment_json or {},
+        }),
+        detection=_m(rec.detection_json or {}),
+        forensics=_m(rec.forensics_json or {}),
+        auth=_m(rec.auth_json or {}),
+        enrichment=_m(rec.enrichment_json or {}),
         integrity=integrity,
         report_id=report_id,
-        assessment=(assessment := _assessment_for(db, rec.id, assessment_id)),
-        intel=(intel := _intel_for(db, rec.id, intel_run_id)),
-        correlation=(corr := _correlation_snapshot(db, rec.id)),
-        attack=(attack := _attack_for(db, rec.id, attack_id)),
+        assessment=_m(assessment := _assessment_for(db, rec.id, assessment_id)),
+        intel=_m(intel := _intel_for(db, rec.id, intel_run_id)),
+        correlation=_m(corr := _correlation_snapshot(db, rec.id)),
+        attack=_m(attack := _attack_for(db, rec.id, attack_id)),
     )
     record_audit(db, "report_generated", analysis_id=rec.id, case_id=case.id,
                  detail={"report_id": report_id, "size_bytes": len(pdf),
@@ -285,7 +298,8 @@ def report_pdf(
                                        for c in (corr or {}).get("campaigns", [])],
                          # P5d: the exact ATT&CK mapping version printed in section 7C
                          "attack_mapping_id": (attack or {}).get("mapping_id"),
-                         "attack_mapping_version": (attack or {}).get("version")})
+                         "attack_mapping_version": (attack or {}).get("version"),
+                         "masked": masked, "redacted": rec.retention_state == "redacted"})
     db.commit()
     filename = f"forensic-report-{report_id}.pdf"
     return Response(

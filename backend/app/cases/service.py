@@ -47,7 +47,8 @@ def create_investigation_from_analysis(db: Session, analysis_id: str) -> Case | 
     db.add(case)
     db.flush()
     db.add(CaseAnalysisLink(case_id=case.id, analysis_id=analysis_id))
-    record_audit(db, "analysis_created", analysis_id=analysis_id, case_id=case.id,
+    record_audit(db, "analysis_created", analysis_id=analysis_id, case_id=case.id,   # = case created
+                 target_type="case", target_id=case.id,
                  detail={"case_number": case.case_number,
                          "evidence_store_policy": CASE_EVIDENCE_STORE})
     db.commit()
@@ -71,19 +72,35 @@ def add_analysis_to_case(db: Session, case_id: str, analysis_id: str) -> Case | 
 
 def record_audit(db: Session, event_type: str, analysis_id: str | None = None,
                  case_id: str | None = None, detail: dict | None = None,
-                 actor_user_id: str | None = None) -> None:
-    """Append an audit row. The actor defaults to the authenticated user of the
-    current request (P5b); never pass passwords or tokens in ``detail``."""
+                 actor_user_id: str | None = None, *, target_type: str | None = None,
+                 target_id: str | None = None, outcome: str = "success", source_ip: str | None = None) -> None:
+    """Append a chained audit event (P5e). The actor and source IP default to the current request.
+
+    ``detail`` is sanitised (no bodies, subjects, recipient addresses, passwords, tokens or keys) and the
+    event gets seq / prev_hash / event_hash from the HMAC chain. Never call ``db.add(AuditEvent(...))``
+    directly: unchained rows fail verification.
+    """
+    from app.audit.chain import append
+    from app.audit.sanitize import sanitize
+    from app.security.context import current_actor_id, current_client_ip
     if actor_user_id is None:
-        from app.security.context import current_actor_id
         actor_user_id = current_actor_id()
-    db.add(AuditEvent(
+    if source_ip is None:
+        source_ip = current_client_ip()
+    if target_type is None:
+        target_type, target_id = (("analysis", analysis_id) if analysis_id else
+                                  ("case", case_id) if case_id else (None, target_id))
+    append(db, AuditEvent(
         id=new_id(),
         event_type=event_type,
         analysis_id=analysis_id,
         case_id=case_id,
-        detail=detail or {},
+        detail=sanitize(detail or {}),
         actor_user_id=actor_user_id,
+        target_type=target_type,
+        target_id=target_id,
+        outcome=outcome,
+        source_ip=(source_ip or None) and str(source_ip)[:64],
     ))
 
 
@@ -131,7 +148,12 @@ def case_to_dict(db: Session, case: Case) -> dict:
             },
             "findings_count": len(((rec.detection_json or {}).get("findings") or [])),
             "added_at": link.added_at.isoformat(),
+            "retention_state": rec.retention_state,
         })
+    from app.retention.service import active_holds
+    holds = {(h.target_type, h.target_id) for h in active_holds(db)}
+    for a in analyses:
+        a["legal_hold"] = ("analysis", a["analysis_id"]) in holds or ("case", case.id) in holds
     return {
         "id": case.id,
         "case_number": case.case_number,
@@ -140,4 +162,5 @@ def case_to_dict(db: Session, case: Case) -> dict:
         "created_at": case.created_at.isoformat(),
         "evidence_policy": evidence_policy(),
         "analyses": analyses,
+        "legal_hold": ("case", case.id) in holds,
     }

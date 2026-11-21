@@ -69,8 +69,16 @@ def search_endpoint(
     db: Session = Depends(get_db),
 ) -> dict:
     assert type == "all" or type in KINDS
-    return search(db, q, type, verdict=verdict, entity_type=entity_type, date_from=date_from,
-                  date_to=date_to, limit=limit, offset=offset)
+    result = search(db, q, type, verdict=verdict, entity_type=entity_type, date_from=date_from,
+                    date_to=date_to, limit=limit, offset=offset)
+    from app.cases.service import record_audit
+    record_audit(db, "search_performed", target_type="search", detail={
+        "type": type, "query": (q or "")[:64], "query_truncated": len(q or "") > 64,
+        "filters": {k: v for k, v in {"verdict": verdict, "entity_type": entity_type,
+                                      "date_from": str(date_from or ""), "date_to": str(date_to or "")}.items() if v},
+        "offset": offset})
+    db.commit()
+    return result
 
 
 @router.post("/correlation/rebuild")

@@ -6,8 +6,9 @@ import type { Session } from '../auth/session'
 const VIEWER = ['self', 'analysis:read', 'case:read', 'report:download', 'intel:read', 'assessment:read', 'ml:status',
   'correlation:read', 'search:read', 'attack:read']
 const ANALYST = [...VIEWER, 'analysis:create', 'case:write', 'evidence:verify', 'intel:run', 'assessment:run', 'ml:run',
-  'attack:recompute']
-const ADMIN = [...ANALYST, 'users:manage', 'config:status', 'docs:read', 'correlation:rebuild']
+  'attack:recompute', 'pii:view', 'custody:read']
+const ADMIN = [...ANALYST, 'users:manage', 'config:status', 'docs:read', 'correlation:rebuild', 'audit:read', 'audit:manage',
+  'retention:manage']
 export const PERMS: Record<string, string[]> = { viewer: VIEWER, analyst: ANALYST, admin: ADMIN }
 
 export function sessionFor(role: 'viewer' | 'analyst' | 'admin', extra: Partial<Session['user']> = {}): Session {
