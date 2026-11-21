@@ -6,10 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
-    status: str
-    version: str
-    env: str
-    db_connected: bool
+    status: str                 # "ok" | "degraded" — nothing else is disclosed anonymously (P5g)
 
 
 class AddressOut(BaseModel):

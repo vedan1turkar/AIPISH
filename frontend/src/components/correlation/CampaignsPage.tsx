@@ -8,6 +8,7 @@ import { DataTable, ErrorAlert, KV, Mono, Panel, SkeletonRows, Spinner, StatusTa
 import { G, GraphControls, ShapeLegend, baseStyle, fitCapped } from '../graph/style'
 import { buildCampaignElements, CONFIDENCE_TONE, typeLabel } from './model'
 import { Disclaimer, TierChip } from './RelatedPanel'
+import GeoPanel from '../geo/GeoPanel'
 
 export function CampaignList() {
   const [items, setItems] = useState<CampaignBrief[] | null>(null)
@@ -200,6 +201,10 @@ export function CampaignDetailView({ id }: { id: string }) {
           {d.reasons.rule && <dl className="mt-2"><KV label="Rule">{d.reasons.rule}</KV></dl>}
         </Panel>
       </div>
+      <section aria-label="Campaign infrastructure locations" className="space-y-2">
+        <h2 className="font-mono text-xs uppercase tracking-wider text-muted">Infrastructure locations (all members)</h2>
+        <GeoPanel kind="campaign" id={d.id} />
+      </section>
       <Panel title="Member analyses" bodyClassName="p-0" status={<span className="font-mono text-xs">{d.members.length}</span>}>
         <DataTable<AnalysisBrief>
           label="Member analyses"

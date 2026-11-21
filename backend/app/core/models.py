@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -380,3 +380,28 @@ class AttackMapping(Base):
     fingerprint: Mapped[str] = mapped_column(String(64))
     results_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class GeoObservation(Base):
+    """A stored infrastructure-location observation for one IP of one analysis (P5g).
+
+    Written only by explicit, offline seeding (today: ``init-demo`` / ``seed-demo-campaign`` with
+    ``source="simulated-demo"`` and ``simulated=True``). Real locations come from the stored enrichment and
+    consented threat-intel results; nothing here performs lookups. Always shown with its SIMULATED label.
+    """
+    __tablename__ = "geo_observation"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    analysis_id: Mapped[str] = mapped_column(String(32), index=True)
+    ip: Mapped[str] = mapped_column(String(45))
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    country: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    region: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    asn: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    org: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    anonymity_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    source: Mapped[str] = mapped_column(String(32))
+    simulated: Mapped[bool] = mapped_column(Boolean, default=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -3,7 +3,7 @@
 This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 audit set its baseline at
 `b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`), **P5b:
 authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns** (`9213bbf`) and **P5d: MITRE ATT&CK mapping and source-type
-classification** and **P5i: PostgreSQL, Docker Compose, Nginx and CI**.
+classification** and **P5i: PostgreSQL, Docker Compose, Nginx and CI** and **P5g: infrastructure geolocation map and analytics**.
 
 **ID provenance:**
 - R1–R40 come from the original project matrix.
@@ -25,15 +25,25 @@ Recommended technologies are listed for traceability. They are not functional sc
 
 ## Counts
 
-| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i |
-|---|---:|---:|---:|---:|---:|---:|
-| VER | 16 | 16 | 18 | 21 | 22 | 25 |
-| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 |
-| PART | 16 | 18 | 18 | 14 | 14 | 13 |
-| STUB | 1 | 0 | 0 | 0 | 0 | 0 |
-| MISS | 21 | 16 | 14 | 13 | 11 | 9 |
-| BLK | 3 | 3 | 3 | 3 | 3 | 3 |
-| **Total** | 60 | 60 | 60 | 60 | 60 | 60 |
+| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 |
+| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 |
+| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 |
+| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 |
+| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+
+## Changes made in P5g
+
+| ID | Before | After | Why |
+|---|---|---|---|
+| R14 | PART | IMP-U | Stored geolocation (upload ip-api enrichment, consented IPinfo results) now surfaced per IP with country/region/city, ASN/org/ISP, source, fetched_at, stale and SIMULATED flags (`/analyses/{id}/geo`, Geo tab). Verified with tests and a real browser/Docker run, but only on SIMULATED demo locations: real-data verification depends on live ip-api enrichment or consented live IPinfo results, which were not exercised (no live provider calls). MaxMind (R48) stays blocked. |
+| R15 | PART | PART | Anonymity-signals panel shows Tor/VPN/proxy/relay/hosting only when a stored provider result backs them ("not available" otherwise, never "no"). Still no open-relay or botnet source; live provider data unverified. |
+| R26 | PART | VER | Interactive Leaflet infrastructure map (analysis and campaign), synchronized IP table and side panel, keyboard-focusable markers, zoom/fit, optional relay-order line; plus the existing Cytoscape graphs. Verified by tests (Leaflet mocked), axe and a real browser run through nginx at 1920/1440/1280/1024. |
+| R56 | MISS | VER | Analytics page: server-side, bounded, dialect-safe aggregates (`/analytics/summary`, tested on SQLite and PostgreSQL) rendered with lazily loaded, token-themed Plotly charts with text summaries and table fallbacks. Verified in the browser through nginx (zero CSP violations, zero external requests). Geo-derived charts show SIMULATED data in the demo, labelled. |
+| R57 | MISS | IMP-U | Leaflet map with a bundled Natural Earth outline (no tiles, no external requests). The map itself is verified; points in every real run were SIMULATED demo data (see R14). |
 
 ## Changes made in P5i
 
@@ -117,7 +127,7 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R11 | Authorised vs suspicious infrastructure | IMP-U | SPF result plus relay trust | Depends on live SPF (R9) |
 | R12 | Relay-chain reconstruction | VER | `run_header_forensics` · `test_forensics.py` | Heuristic trust boundary |
 | R13 | Candidate IPs / earliest reliable node | VER | `forensics/headers.py` · `test_forensics.py` | — |
-| R14 | Geolocation: country, region, city, ISP, ASN, hosting | PART | `enrichment/engine.py:ipgeo_lookup`; P5a IPinfo geo/ASN/hosting flag · `test_intel.py` | MaxMind blocked (R48); live unverified |
+| R14 | Geolocation: country, region, city, ISP, ASN, hosting | IMP-U | `enrichment/engine.py:ipgeo_lookup`; P5a IPinfo geo/ASN/hosting flag; P5g `geo/service.py` + Geo tab · `test_intel.py`, `test_geo.py`, `Geo.test.tsx` | MaxMind blocked (R48); live ip-api/IPinfo data unverified (demo uses SIMULATED locations) |
 | R15 | VPN / Tor / proxy / hosting / botnet / open-relay flags | PART | `intel/providers.py`: TorExitList, IPinfo privacy, Shodan tags, AbuseIPDB usage type; P5d "anonymised infrastructure" hypothesis and T1090.003 · `test_intel.py`, `test_attack.py` | No open-relay or botnet source; IPinfo privacy may need a paid plan; live unverified |
 | R16 | WHOIS/RDAP, DNS, MX, registrar | PART | `dns_lookup`, `rdap_lookup`; VT domain registrar/creation (P5a) · `test_enrichment.py`, `test_intel.py` | Live unverified |
 | R17 | Origin vs infrastructure vs identity separation | VER | Disclaimers in UI, PDF, LLM evidence and the threat-intel disclaimer · `test_llm.py`, `test_p41.py`, `test_intel.py` | — |
@@ -129,14 +139,14 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R23 | MITRE ATT&CK mapping | VER | `attack/` (catalog pinned to Enterprise 20.1, verified), ATT&CK tab, PDF §7C · `test_attack.py`, `Attack.test.tsx` | Single-message view; heuristic confidence; no analyst overrides |
 | R24 | Real-time alerts | MISS | — | Needs ingestion (R36) |
 | R25 | Analyst dashboard | IMP-U | `ResultsDashboard.tsx` tabs, including Threat intel; P5b login, role-aware actions, admin users page · `ThreatIntelPanel.test.tsx`, `AssessmentInteractions.test.tsx`, `Auth.test.tsx` | Geo shown only from live enrichment or IPinfo |
-| R26 | Interactive trace map / graphs | PART | Cytoscape trace view; campaign graph (P5c) | No Leaflet map (R57) |
+| R26 | Interactive trace map / graphs | VER | Cytoscape trace and campaign graphs; P5g Leaflet infrastructure map (analysis + campaign) · `Geo.test.tsx`, browser run | Real-data map points depend on R14 |
 | R27 | Structured forensic reports | VER | `reports/pdf.py` (incl. §7A) · `test_assessment_report.py`, `test_p41.py`, `test_intel.py` | — |
 | R28 | Searchable case management / campaigns | VER | `/investigations` plus add/remove/indicators, `/search`, `/campaigns` (P5c) · `test_investigations.py`, `test_correlation.py`, `Correlation.test.tsx` | No full-text index (R52); no case-to-campaign link |
 | R29 | PDF tests incl. injection | VER | PDF escaping tests (also for provider strings in §7A) | — |
 | R30 | Evidence preservation / chain-of-custody support | PART | SHA-256, optional raw retention, versioned assessments and intel runs | Not tamper-resistant |
 | R31 | Retention, masking, redaction | PART | `CASE_EVIDENCE_RETENTION_DAYS`, `llm/redact.py` | Retention not enforced; body stored in clear |
 | R32 | RBAC | VER | `security/permissions.py`, `security/deps.py` (app-wide `enforce_access`), `api/admin_router.py` · `test_access_control.py` (route inventory + role matrix), `Auth.test.tsx` | Roles are global: no per-case ownership/ACLs |
-| R33 | Tests | VER | Backend 601 passed / 6 skipped on SQLite and on PostgreSQL (6 opt-in live tests); frontend 154 passed; all in CI (P5i) | No browser E2E suite |
+| R33 | Tests | VER | Backend 614 passed / 6 skipped on SQLite and on PostgreSQL (6 opt-in live tests); frontend 167 passed; all in CI (P5i, P5g) | No browser E2E suite |
 | R34 | Main database (PostgreSQL) | VER | `core/db.py` (`DATABASE_URL`, psycopg 3), `core/migrations.py` (versioned, idempotent) · full suite on PostgreSQL 17, `test_deploy.py`, Compose run (P5i) | No SQLite→PostgreSQL data copy (re-seed path documented) |
 | R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; intel lookups and correlation recompute run synchronously |
 | R36 | Email integration (IMAP/SMTP/Graph) | MISS | — | Test mailbox or Azure tenant |
@@ -159,8 +169,8 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R53* | OAuth 2.0 | BLK | — (P5b is local password auth + JWT, not OAuth 2.0) | Provider not chosen |
 | R54* | JWT authentication | VER | `security/tokens.py`, `api/auth_router.py` · `test_access_control.py` | No refresh tokens; no key rotation (key id) |
 | R55* | Jinja2 report templates | MISS | ReportLab only | Low value |
-| R56* | Plotly analytics | MISS | — | — |
-| R57* | Leaflet geolocation map | MISS | — | Needs geolocation data |
+| R56* | Plotly analytics | VER | `geo/analytics.py`, `/analytics/summary`, `AnalyticsPage.tsx` (lazy Plotly) · `test_geo.py` (SQLite + PostgreSQL), `Geo.test.tsx`, browser run | Bounded window (2,000 latest analyses for derived charts) |
+| R57* | Leaflet geolocation map | IMP-U | `components/geo/GeoMap.tsx` (no tiles; Natural Earth outline) · `Geo.test.tsx`, browser run | Verified with SIMULATED points only; live geo data unverified |
 | R58* | Local LLM forensic summaries | VER | `llm/*` · `test_llm.py`, `test_p41.py`, `test_p42.py` | — |
 | R59* | Audit trails | PART | `audit_event`; P5a `threat_intel_lookup`; P5b login/lockout/logout/password/user-admin events and `actor_user_id` on every write · `test_access_control.py` | No read API/UI (P5e); assessment runs not audited; not tamper-resistant |
 | R60* | Controlled personal-data handling | PART | LLM redaction, local-only Ollama; P5a consent, bare-indicator-only outbound requests, offline mode; P5b authentication + RBAC on all stored data, `no-store` caching | No per-case ACLs; body stored in clear |

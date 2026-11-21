@@ -89,15 +89,30 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 // ── Health ──────────────────────────────────────────────────────────────────
+// P5g: anonymous liveness carries only the status; version / environment come from /system/info.
 export interface HealthResponse {
   status: string
-  version: string
-  env: string
-  db_connected: boolean
 }
 
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
   return request<HealthResponse>(`/api/v1/health`, { signal })
+}
+
+/** Readiness: {"status":"ok"} (200) or {"status":"unavailable"} (503, surfaced as an ApiError). */
+export async function getReady(signal?: AbortSignal): Promise<HealthResponse> {
+  return request<HealthResponse>(`/api/v1/health/ready`, { signal })
+}
+
+export interface SystemInfo {
+  version: string
+  environment: string
+  database: string
+  schema_version: number
+  db_connected: boolean
+}
+
+export async function getSystemInfo(signal?: AbortSignal): Promise<SystemInfo> {
+  return request<SystemInfo>(`/api/v1/system/info`, { signal })
 }
 
 // ── Analyses ────────────────────────────────────────────────────────────────
@@ -1060,4 +1075,121 @@ export async function getAttackHistory(id: string, signal?: AbortSignal): Promis
 
 export async function recomputeAttack(id: string): Promise<AttackMappingResult> {
   return request<AttackMappingResult>(`/api/v1/analyses/${encodeURIComponent(id)}/attack/recompute`, { method: 'POST' })
+}
+
+// ── Infrastructure geolocation + analytics (P5g) ────────────────────────────
+export type GeoRole = 'origin_candidate' | 'untrusted_relay' | 'trusted_relay' | 'url_host_ip'
+export type AnonymitySignal = 'tor' | 'vpn' | 'proxy' | 'relay' | 'hosting'
+
+export interface GeoPoint {
+  ip: string
+  role: GeoRole
+  roles: GeoRole[]
+  hops?: number[]
+  hop?: number | null
+  via_host?: string | null
+  lat: number
+  lon: number
+  country: string | null
+  region: string | null
+  city: string | null
+  asn: string | null
+  org: string | null
+  isp: string | null
+  source: string
+  provider: string
+  fetched_at: string | null
+  stale: boolean
+  simulated: boolean
+  accuracy_note?: string
+  members?: string[]
+  member_count?: number
+}
+
+export interface GeoUnlocated {
+  ip: string
+  role: GeoRole
+  roles: GeoRole[]
+  hops?: number[]
+  hop?: number | null
+  via_host?: string | null
+  country?: string | null
+  asn?: string | null
+  org?: string | null
+  source?: string | null
+  reason?: string
+  members?: string[]
+  member_count?: number
+}
+
+export interface AnonymityRow {
+  ip: string
+  role: GeoRole
+  signals: Record<AnonymitySignal, { value: boolean | null; source: string | null }>
+  simulated: boolean
+  any_data: boolean
+}
+
+export interface GeoProvenance {
+  lookups_performed: false
+  intel_run?: { version: number; created_at: string | null; simulated: boolean; offline: boolean } | null
+  enrichment_geo?: boolean
+  simulated_present: boolean
+  stale_present: boolean
+  sources: string[]
+}
+
+export interface AnalysisGeo {
+  analysis_id: string
+  disclaimer: string
+  accuracy_note: string
+  relay_order_label: string
+  points: GeoPoint[]
+  unlocated: GeoUnlocated[]
+  anonymity: AnonymityRow[]
+  relay_order: string[]
+  counts: { ips: number; located: number; unlocated: number }
+  provenance: GeoProvenance
+}
+
+export interface CampaignGeo {
+  campaign_id: string
+  disclaimer: string
+  accuracy_note: string
+  points: GeoPoint[]
+  unlocated: GeoUnlocated[]
+  counts: { members: number; located: number; unlocated: number; truncated: boolean }
+  provenance: GeoProvenance
+}
+
+export async function getAnalysisGeo(id: string, signal?: AbortSignal): Promise<AnalysisGeo> {
+  return request<AnalysisGeo>(`/api/v1/analyses/${encodeURIComponent(id)}/geo`, { signal })
+}
+
+export async function getCampaignGeo(id: string, signal?: AbortSignal): Promise<CampaignGeo> {
+  return request<CampaignGeo>(`/api/v1/campaigns/${encodeURIComponent(id)}/geo`, { signal })
+}
+
+export interface AnalyticsSummary {
+  generated_at: string
+  window: { days: number; since: string; total_analyses: number; analyses_considered: number; capped: boolean; max_window: number }
+  verdicts: { verdict: string; count: number }[]
+  ml_classes: { label: string; count: number }[]
+  per_day: { date: string; count: number }[]
+  score_histogram: { bucket: string; count: number }[]
+  top_sender_domains: { domain: string; count: number; generic: boolean }[]
+  geo: {
+    coverage: { with_geo: number; analyses_considered: number }
+    basis: string
+    simulated_present: boolean
+    countries: { country: string; count: number }[]
+    asns: { asn: string; count: number }[]
+  }
+  attack_techniques: { technique_id: string; name: string; count: number }[]
+  campaigns: { by_status: Record<string, number>; candidate_size_distribution: { bucket: string; count: number }[]; candidates: number }
+  intel_coverage: { analyses_with_consented_lookups: number; analyses_considered: number; runs_total: number; simulated_runs: number }
+}
+
+export async function getAnalyticsSummary(days = 30, signal?: AbortSignal): Promise<AnalyticsSummary> {
+  return request<AnalyticsSummary>(`/api/v1/analytics/summary?days=${encodeURIComponent(String(days))}`, { signal })
 }

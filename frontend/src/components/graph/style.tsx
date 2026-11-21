@@ -103,3 +103,32 @@ export function ShapeLegend({ items, vertical = false }: { items: { kind: string
     </ul>
   )
 }
+
+// ── P5g: map + chart theme (token hex mirrored here; Leaflet/Plotly cannot read CSS variables) ──
+/** Marker colour per infrastructure role. Always paired with a text label (legend, table, side panel). */
+export const ROLE_COLOR: Record<string, string> = {
+  origin_candidate: G.accent,
+  untrusted_relay: G.warn,
+  trusted_relay: G.ok,
+  url_host_ip: G.fg,
+}
+
+export const MAP_THEME = {
+  sea: '#0a0e13',            // --bg
+  land: G.node,              // --surface-2
+  border: G.line,            // --line-strong
+  route: G.muted,
+}
+
+export const CHART_THEME = {
+  font: G.font,
+  text: G.muted,
+  strong: G.fg,
+  grid: G.lineWeak,
+  axis: G.line,
+  bar: G.accent,
+  ok: G.ok,
+  warn: G.warn,
+  danger: G.danger,
+  neutral: G.muted,
+}

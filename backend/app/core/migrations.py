@@ -48,6 +48,7 @@ STEPS: list[tuple[int, str, Callable[[Engine], None]]] = [
     (1, "baseline_tables", _baseline),
     (2, "audit_event_actor_user_id", _audit_actor),
     (3, "analysis_search_indexes", _analysis_search_indexes),
+    (4, "geo_observation_table", _baseline),       # P5g: new table, created by create_all
 ]
 
 

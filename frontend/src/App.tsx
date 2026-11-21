@@ -12,10 +12,11 @@ import HistoryPage from './components/HistoryPage'
 import { CampaignDetailView, CampaignList } from './components/correlation/CampaignsPage'
 import CasePage from './components/cases/CasePage'
 import SearchPage from './components/search/SearchPage'
+import AnalyticsPage from './components/analytics/AnalyticsPage'
 import StatusBar from './components/shell/StatusBar'
 import OverviewPage from './components/overview/OverviewPage'
 
-type View = 'overview' | 'upload' | 'results' | 'history' | 'users' | 'account' | 'campaigns' | 'campaign' | 'case' | 'search' | 'notfound'
+type View = 'overview' | 'upload' | 'results' | 'history' | 'users' | 'account' | 'campaigns' | 'campaign' | 'case' | 'search' | 'analytics' | 'notfound'
 
 // `perm`: shown only to roles holding it. The backend enforces the same permission on every call.
 const NAV: { id: View; label: string; perm?: string }[] = [
@@ -23,6 +24,7 @@ const NAV: { id: View; label: string; perm?: string }[] = [
   { id: 'upload', label: 'Analyse', perm: 'analysis:create' },
   { id: 'history', label: 'History', perm: 'analysis:read' },
   { id: 'campaigns', label: 'Campaigns', perm: 'correlation:read' },
+  { id: 'analytics', label: 'Analytics', perm: 'analysis:read' },
   { id: 'search', label: 'Search', perm: 'search:read' },
   { id: 'users', label: 'Users', perm: 'users:manage' },
 ]
@@ -127,6 +129,7 @@ function SignedInApp() {
       else if (h === '#account') setView('account')
       else if (h === '#campaigns') setView(allowed('campaigns') ? 'campaigns' : 'history')
       else if (h === '#search') setView(allowed('search') ? 'search' : 'history')
+      else if (h === '#analytics') setView(allowed('analytics') ? 'analytics' : 'history')
       else if (h.startsWith('#campaign/') && allowed('campaigns')) {
         setRouteId(h.slice('#campaign/'.length))
         setView('campaign')
@@ -238,6 +241,7 @@ function SignedInApp() {
         {view === 'campaign' && routeId && can('correlation:read') && <CampaignDetailView id={routeId} />}
         {view === 'case' && routeId && can('case:read') && <CasePage id={routeId} />}
         {view === 'search' && can('search:read') && <SearchPage />}
+        {view === 'analytics' && can('analysis:read') && <AnalyticsPage />}
         <p className="mt-6 border-t border-line pt-2 text-sm text-muted">
           All results come from the connected backend. Heuristic scores are investigative
           indicators — not proof of who sent a message or where they are located.

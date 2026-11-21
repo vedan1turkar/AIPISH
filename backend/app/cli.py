@@ -136,6 +136,7 @@ def seed_dev_users_cmd(args) -> int:
 
 DEMO_DIR = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "demo" / "campaign"
 BEC_SAMPLE = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "demo" / "bec_wire_change.eml"
+DEMO_EXTRA_FIXTURE = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "demo" / "attack" / "synthetic_tor_origin.eml"
 DEMO_CREDENTIALS = Path(__file__).resolve().parents[1] / ".demo_credentials"
 SEED_ENVS = {"dev", "demo"}          # synthetic seeding is never allowed in production
 
@@ -220,6 +221,22 @@ def init_demo_cmd(args) -> int:
     rc = seed_demo_campaign_cmd(args)
     if rc:
         return rc
+
+    # P5g: one more synthetic sample with a distinct (Tor-listed in the SIMULATED data) origin, so the demo map
+    # and analytics show several locations. Offline; skipped when already ingested.
+    extra = DEMO_EXTRA_FIXTURE.read_bytes()
+    with _session() as db:
+        if db.query(Analysis).filter_by(raw_sha256=hashlib.sha256(extra).hexdigest()).first() is None:
+            from starlette.datastructures import UploadFile
+            from app.api.router import upload_eml
+            original_env = settings.env
+            settings.env = "offline"
+            try:
+                upload_eml(UploadFile(file=io.BytesIO(extra), filename=DEMO_EXTRA_FIXTURE.name), db)
+            finally:
+                settings.env = original_env
+        from app.geo.demo import seed_simulated_geo
+        print(f"SIMULATED geo observations added: {seed_simulated_geo(db)}")
 
     raw = BEC_SAMPLE.read_bytes()
     with _session() as db:
@@ -310,10 +327,13 @@ def seed_demo_campaign_cmd(args) -> int:
                 db.commit()
             camps = campaigns_for(db, first) if first else []
             case_number = case.case_number if case else "-"
+            from app.geo.demo import seed_simulated_geo
+            geo_rows = seed_simulated_geo(db)      # P5g: SIMULATED, offline, synthetic fixtures only
     finally:
         settings.env = original_env
     print(f"synthetic emails ingested: {created}, already present: {skipped}")
     print(f"synthetic case: {case_number}")
+    print(f"SIMULATED geo observations added: {geo_rows}")
     print("campaign of campaign_member_1: " + (", ".join(f"{c['label']} ({c['member_count']} members, "
                                                          f"{c['confidence']})" for c in camps) or "none"))
     return 0

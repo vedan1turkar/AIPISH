@@ -1,4 +1,4 @@
-# AIPISH design system (P5u-1, P5u-2)
+# AIPISH design system (P5u-1, P5u-2, P5g)
 
 The goal is a calm, dense security-engineering console: information-rich, organised and easy to scan.
 Hierarchy comes from type weight and tonal surface steps, not from boxes, shadows or colour.
@@ -167,6 +167,47 @@ Cytoscape cannot read CSS variables, so it mirrors the token hex values.
 - **Legend:** an inline-SVG shape glyph plus a text label per kind, with evidence and edge keys.
 - **Sizing:** the canvas stretches to the height of its row (side column) and follows container resizes.
 - **Behaviour:** layouts, tap/hover handlers and navigation are unchanged.
+
+## Maps and charts (P5g)
+
+**Map** (`components/geo/GeoMap.tsx`, lazy chunk):
+- **Layers:** Leaflet with **no tile layer**. The only layer is the bundled Natural Earth outline: land
+  `surface-2`, borders `line-strong` at 0.6px, sea `bg`.
+- **Markers:** **diamonds**, 10px, with a 1px `bg` border; diamond means IP, matching the graph legend.
+  Colour by role is always paired with text (legend, table, side panel):
+
+  | Role | Colour |
+  |---|---|
+  | origin candidate | accent |
+  | untrusted relay | warn |
+  | trusted relay | ok |
+  | URL host IP | fg |
+
+  Hop numbers and campaign counts (`×4`) sit in small mono square labels. The selected marker gets a 2px
+  accent outline; focused markers get the 2px accent focus ring.
+- **Controls:** the shared square `+` / `−` / `fit` controls from `graph/style`. No Leaflet zoom or
+  attribution controls and no popups, so nothing rounded. Attribution is a mono line under the map.
+- **Relay order:** a dashed 1px `muted` line, **off by default**, labelled "relay order, not a physical
+  route".
+- **Layout:** map panel (8 columns, stretches to the row) beside a 4-column side column: a compact IP
+  table, including IPs without coordinates, and the selected IP's KV rows. The first IP is preselected so
+  the side column is never empty. The anonymity-signals table runs full width below.
+- **Required text:** the disclaimer strip (warn LED) is always first, in every state; SIMULATED and stale
+  are warn `StatusTag`s.
+
+**Charts** (`components/analytics/Chart.tsx`, Plotly basic, lazy chunk):
+- **Theme:**
+  - transparent paper and plot backgrounds;
+  - IBM Plex Mono 10–11px in `muted`; grid `line`, axes `line-strong`;
+  - square bars with no outline;
+  - accent for neutral counts; status colours only for verdict bars (danger, warn, muted);
+  - generic (stop-listed) domains in `muted` and labelled "(generic)".
+- **Behaviour:** integer ticks on count axes. No mode bar, logo, links, animation or legends; text labels
+  carry the meaning.
+- **Accessibility:** every chart has a `role="img"` text summary and a square "table / chart" toggle
+  (`aria-pressed`). Empty data is one `EmptyLine`. If Plotly cannot load, the table is shown.
+- **Layout:** a 12-column grid whose rows stretch to equal height (no ragged edges), led by a four-cell
+  stat strip. Coverage notes and SIMULATED tags appear under the relevant charts.
 
 ## Accessibility
 

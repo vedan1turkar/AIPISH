@@ -1,7 +1,7 @@
 // Persistent bottom status bar (P5u-1): API health, ML model, and — only for roles allowed to
 // read them — LLM and threat-intel configuration. Polls every 30 s; failures show as text.
 import { useEffect, useState } from 'react'
-import { getHealth, getIntelStatus, getLlmStatus, getMlStatus } from '../../api/client'
+import { ApiError, getIntelStatus, getLlmStatus, getMlStatus, getReady, getSystemInfo } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { LED, type Tone } from '../ui'
 
@@ -22,12 +22,19 @@ export function useSystemStatus(poll = POLL_MS) {
     let alive = true
     const run = async () => {
       const out: Cell[] = []
+      // P5g: liveness from the anonymous readiness probe; version from the authenticated /system/info.
       try {
-        const h = await getHealth()
-        out.push({ key: 'api', label: 'API', value: h.status === 'ok' && h.db_connected ? 'ok' : h.status, tone: h.status === 'ok' ? 'ok' : 'warn' })
-        if (alive) setBackend(h.version)
+        const h = await getReady()
+        out.push({ key: 'api', label: 'API', value: h.status === 'ok' ? 'ok' : h.status, tone: h.status === 'ok' ? 'ok' : 'warn' })
+      } catch (err) {
+        const answered = err instanceof ApiError && err.status > 0          // 503 = backend up, database not ready
+        out.push({ key: 'api', label: 'API', value: answered ? 'unavailable' : 'unreachable', tone: answered ? 'warn' : 'danger' })
+      }
+      try {
+        const info = await getSystemInfo()
+        if (alive) setBackend(info.version)
       } catch {
-        out.push({ key: 'api', label: 'API', value: 'unreachable', tone: 'danger' })
+        /* version cell keeps its last value */
       }
       if (can('ml:status')) {
         try {

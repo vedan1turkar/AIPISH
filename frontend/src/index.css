@@ -53,3 +53,17 @@
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
                            transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* ── P5g: infrastructure map (Leaflet, no tiles) ───────────────────────────── */
+@layer components {
+  .aipish-map.leaflet-container { background: var(--bg); font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .aipish-map.leaflet-container:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .aipish-map .leaflet-marker-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .geo-marker { background: transparent; border: 0; }
+  .geo-diamond { position: absolute; left: 2px; top: 2px; width: 10px; height: 10px; transform: rotate(45deg);
+                 border: 1px solid var(--bg); }
+  .geo-marker-selected .geo-diamond { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .geo-hop { position: absolute; left: 16px; top: -2px; padding: 0 3px; font-size: 10px; line-height: 14px;
+             white-space: nowrap; color: var(--fg); background: var(--bg); border: 1px solid var(--line); }
+  .aipish-chart .modebar, .aipish-chart .modebar-container { display: none !important; }
+}

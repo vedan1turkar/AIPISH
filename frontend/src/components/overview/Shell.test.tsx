@@ -16,7 +16,10 @@ const json = (status: number, body: unknown) =>
 beforeEach(() => {
   calls.length = 0
   routes = {
-    '/api/v1/health': () => json(200, { status: 'ok', version: '0.1.0', env: 'test', db_connected: true }),
+    // P5g: anonymous /health carries only the status; the bar reads /health/ready + authenticated /system/info
+    '/api/v1/health': () => json(200, { status: 'ok' }),
+    '/api/v1/health/ready': () => json(200, { status: 'ok' }),
+    '/api/v1/system/info': () => json(200, { version: '0.1.0', environment: 'test', database: 'sqlite', schema_version: 4, db_connected: true }),
     '/api/v1/ml/status': () => json(200, { status: 'ok', model_version: 'm1' }),
     '/api/v1/llm/status': () => json(200, { status: 'ok', model: 'mistral:latest' }),
     '/api/v1/intel/status': () => json(200, { offline: true, simulated: false, providers: {} }),
@@ -36,6 +39,15 @@ afterEach(() => {
 })
 
 describe('status bar', () => {
+  it('readiness 503 shows "unavailable" (backend answered, database not ready), not "unreachable"', async () => {
+    setSession(sessionFor('viewer'))
+    routes['/api/v1/health/ready'] = () => json(503, { status: 'unavailable' })
+    render(withRole(<StatusBar />, 'viewer'))
+    await waitFor(() => expect(screen.getByTestId('status-api').textContent).toContain('unavailable'))
+    expect(screen.getByTestId('status-api').textContent).not.toContain('unreachable')
+    expect(calls.some((c) => c.startsWith('/api/v1/system/info'))).toBe(true)
+  })
+
   it('viewer: API + ML cells only; LLM/intel endpoints are never called', async () => {
     setSession(sessionFor('viewer'))
     render(withRole(<StatusBar />, 'viewer'))
@@ -58,7 +70,7 @@ describe('status bar', () => {
 
   it('tolerates failures: unreachable API and failing status endpoints show as text, no crash', async () => {
     setSession(sessionFor('admin'))
-    routes['/api/v1/health'] = () => { throw new TypeError('network down') }
+    routes['/api/v1/health/ready'] = () => { throw new TypeError('network down') }
     routes['/api/v1/ml/status'] = () => json(500, { error: { code: 'X', message: 'boom' } })
     routes['/api/v1/llm/status'] = () => json(503, { error: { code: 'X', message: 'boom' } })
     render(withRole(<StatusBar />, 'admin'))

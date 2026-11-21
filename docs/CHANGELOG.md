@@ -1,5 +1,25 @@
 # Changelog
 
+## P5g — Infrastructure geolocation map and analytics
+
+- **Geo endpoints:**
+  - `GET /api/v1/analyses/{id}/geo` and `GET /api/v1/campaigns/{id}/geo` (viewer+) show only stored
+    data (consented IPinfo, upload ip-api enrichment, SIMULATED demo observations), with no lookups.
+  - Private IPs are never returned; IPs without coordinates are listed as "no location data".
+  - Anonymity signals are reported only when a stored provider result backs them; stale and SIMULATED
+    are flagged.
+- **Analytics:** `GET /api/v1/analytics/summary` (viewer+) gives bounded, dialect-safe aggregates.
+- **Health hardening:** anonymous `GET /api/v1/health` returns only `{"status"}`. Version and environment
+  moved to the authenticated `GET /api/v1/system/info`, and the status bar uses `/health/ready` plus
+  `/system/info`.
+- **Schema:** a new `geo_observation` table (migration step 4), written only by the opt-in, offline demo
+  seeding (`source="simulated-demo"`, RFC 5398 ASNs). `init-demo` also ingests the synthetic Tor-origin
+  sample.
+- **Frontend:** analysis "Geo" tab, campaign "Infrastructure locations" panel and an "Analytics" page.
+  Leaflet with a bundled Natural Earth outline (no tiles) and Plotly basic, both lazy-loaded.
+- **Unchanged:** detection, ML, rules, intel providers, scores and the PDF. BEC is still 100 /
+  `phishing_fraud_likely` and ML `impersonated` 0.4355.
+
 ## P5i — PostgreSQL, Docker Compose, Nginx and CI
 
 - **Database:**

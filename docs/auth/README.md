@@ -30,6 +30,10 @@ fails if any route is missing from `ROUTE_PERMISSIONS`.
 |---|---|---|---|
 | `GET` | `/api/v1/health` | `public` | anonymous (public) |
 | `GET` | `/api/v1/health/ready` | `public` | anonymous (public): container readiness probe; returns only `{"status"}` (P5i) |
+| `GET` | `/api/v1/system/info` | `analysis:read` | viewer (P5g: version/environment moved off anonymous `/health`) |
+| `GET` | `/api/v1/analyses/{analysis_id}/geo` | `analysis:read` | viewer (P5g, stored data only) |
+| `GET` | `/api/v1/campaigns/{campaign_id}/geo` | `correlation:read` | viewer (P5g) |
+| `GET` | `/api/v1/analytics/summary` | `analysis:read` | viewer (P5g) |
 | `POST` | `/api/v1/auth/login` | `public` | anonymous (public) |
 | `GET` | `/api/v1/auth/me` | `self` | any signed-in user |
 | `POST` | `/api/v1/auth/logout` | `self` | any signed-in user |

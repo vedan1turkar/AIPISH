@@ -67,13 +67,9 @@ def _db_connected(db: Session) -> bool:
 
 @router.get("/health", response_model=HealthResponse)
 def health(db: Session = Depends(get_db)) -> HealthResponse:
-    settings = get_settings()
-    return HealthResponse(
-        status="ok" if _db_connected(db) else "degraded",
-        version=APP_VERSION,
-        env=settings.env,
-        db_connected=_db_connected(db),
-    )
+    """Anonymous liveness (P5g hardening): status only. Version/environment moved to the authenticated
+    GET /api/v1/system/info."""
+    return HealthResponse(status="ok" if _db_connected(db) else "degraded")
 
 
 @router.get("/health/ready", include_in_schema=True)

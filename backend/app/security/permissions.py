@@ -80,6 +80,11 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], str] = {
     ("POST", f"{V1}/correlation/rebuild"): "correlation:rebuild",
     # MITRE ATT&CK mapping + source-type hypotheses (P5d)
     ("GET", f"{V1}/analyses/{{analysis_id}}/attack"): "attack:read",
+    # P5g: infrastructure geolocation (stored data only), analytics and system info (all signed-in roles)
+    ("GET", f"{V1}/analyses/{{analysis_id}}/geo"): "analysis:read",
+    ("GET", f"{V1}/campaigns/{{campaign_id}}/geo"): "correlation:read",
+    ("GET", f"{V1}/analytics/summary"): "analysis:read",
+    ("GET", f"{V1}/system/info"): "analysis:read",
     ("GET", f"{V1}/analyses/{{analysis_id}}/attack/history"): "attack:read",
     ("POST", f"{V1}/analyses/{{analysis_id}}/attack/recompute"): "attack:recompute",
     # user administration

@@ -47,7 +47,7 @@ beforeEach(() => {
       return jsonRes(404, { error: { code: 'NOT_FOUND', message: 'not found' } })
     }),
   )
-  on('GET', '/api/v1/health', () => jsonRes(200, { status: 'ok', version: '0.1.0', env: 'test', db_connected: true }))
+  on('GET', '/api/v1/health', () => jsonRes(200, { status: 'ok' }))
   on('GET', '/api/v1/analyses', () => jsonRes(200, []))
   on('GET', '/api/v1/investigations', () => jsonRes(200, []))
 })

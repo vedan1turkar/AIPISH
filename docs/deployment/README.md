@@ -165,6 +165,18 @@ Ollama is not containerised. The backend reaches it at `OLLAMA_BASE_URL`
 - **Ollama down:** the AI assessment reports the LLM as unavailable; the rule verdict, ML and SHAP are
   unaffected.
 
+### CSP and the P5g map/analytics
+
+P5g needed **no CSP change**:
+- the Leaflet map (vector outline, no tiles) and Plotly charts use neither `eval` nor external resources;
+- inline style attributes were already allowed (`style-src 'self' 'unsafe-inline'`).
+
+Verified through nginx: zero CSP violations and zero external requests on the Geo tab, the campaign
+geo panel and Analytics.
+
+Anonymous `GET /api/v1/health` now returns only `{"status"}`. Container health checks use
+`/api/v1/health/ready` and nginx `/healthz`, so they were unaffected.
+
 ## Environment variables (deployment)
 
 `deploy/env.example` lists every variable with placeholders. The main ones:

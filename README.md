@@ -41,7 +41,7 @@ python -m app.cli seed-dev-users
 uvicorn app.main:app --port 8000 --reload
 ```
 
-Health checks (the only public endpoints besides login): `curl http://127.0.0.1:8000/api/v1/health` (liveness)
+Health checks (the only public endpoints besides login): `curl http://127.0.0.1:8000/api/v1/health` (liveness, `{"status"}` only)
 and `/api/v1/health/ready` (readiness: only `{"status": "ok"|"unavailable"}`).
 
 Every other endpoint needs `Authorization: Bearer <token>` from `POST /api/v1/auth/login`. Roles,
@@ -131,8 +131,12 @@ role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route perm
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | Liveness + DB check (public) |
+| GET | `/health` | Liveness: `{"status"}` only (public; version moved to `/system/info` in P5g) |
 | GET | `/health/ready` | Readiness for container health checks: `{"status":"ok"}` or 503 `unavailable` only (public) |
+| GET | `/system/info` | Version, environment, database and schema version (viewer+; moved off the anonymous `/health` in P5g) |
+| GET | `/analyses/{id}/geo` | Infrastructure locations from stored data only, IPs without location, anonymity signals (viewer+) |
+| GET | `/campaigns/{id}/geo` | Campaign member IPs, deduplicated with member counts (viewer+) |
+| GET | `/analytics/summary?days=30` | Bounded aggregates for the Analytics page (viewer+) |
 | POST | `/auth/login` | JSON `{"username","password"}` → bearer token (public) |
 | GET | `/auth/me` | Current user and permissions |
 | POST | `/auth/logout` | Revoke all of the current user's tokens |

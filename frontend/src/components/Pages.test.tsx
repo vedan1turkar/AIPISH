@@ -227,6 +227,18 @@ describe('App routes and role visibility', () => {
     expect(within(notice).getByRole('button', { name: 'Go to overview' })).toBeTruthy()
   })
 
+  it('P5g: every role sees Analytics in the nav and can open #analytics', async () => {
+    on('GET', /\/api\/v1\/analytics\/summary/, () => json(200, {
+      generated_at: 'x', window: { days: 30, since: 'x', total_analyses: 0, analyses_considered: 0, capped: false, max_window: 2000 },
+      verdicts: [], ml_classes: [], per_day: [], score_histogram: [], top_sender_domains: [],
+      geo: { coverage: { with_geo: 0, analyses_considered: 0 }, basis: 'x', simulated_present: false, countries: [], asns: [] },
+      attack_techniques: [], campaigns: { by_status: {}, candidate_size_distribution: [], candidates: 0 },
+      intel_coverage: { analyses_with_consented_lookups: 0, analyses_considered: 0, runs_total: 0, simulated_runs: 0 } }))
+    boot('viewer', '#analytics')
+    await screen.findByTestId('analytics-page')
+    expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByText('Analytics')).toBeTruthy()
+  })
+
   it('viewer opening #users or #upload lands on history; admin sees Users', async () => {
     boot('viewer', '#users')
     await screen.findByText('Investigation history')

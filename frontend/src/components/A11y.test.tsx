@@ -54,7 +54,7 @@ beforeEach(() => {
   on(/\/api\/v1\/search\?/, () => json(200, { query: 'x', type: 'all', limit: 20, offset: 0, results: {
     analysis: { total: 1, items: [brief] }, entity: { total: 1, items: [{ id: 'e1', type: 'public_ip', value: '203.0.113.7', analyses: 2 }] },
     case: { total: 0, items: [] }, campaign: { total: 1, items: [camp] } } }))
-  on('/api/v1/health', () => json(200, { status: 'ok', version: '0.1.0', env: 'test', db_connected: true }))
+  on('/api/v1/health', () => json(200, { status: 'ok' }))
   on('/api/v1/ml/status', () => json(200, { status: 'ok', model_version: 'm1' }))
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     for (const [p, f] of routes) if (typeof p === 'string' ? url === p || url.startsWith(`${p}?`) : p.test(url)) return f()

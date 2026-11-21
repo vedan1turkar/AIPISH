@@ -43,6 +43,7 @@ import {
 } from './ui'
 import { HeaderForensicsPanel, AnomaliesPanel, IntelligenceDetailsPanel } from './ForensicsPanels'
 import TraceView from './trace/TraceView'
+import GeoPanel from './geo/GeoPanel'
 import VerdictStrip from './VerdictStrip'
 import { AssessmentOverviewCard, AssessmentView } from './assessment/AssessmentPanels'
 import ThreatIntelPanel from './intel/ThreatIntelPanel'
@@ -51,7 +52,7 @@ import AttackPanel from './attack/AttackPanel'
 import { getAttack, getAttackHistory, recomputeAttack, type AttackHistoryItem, type AttackMappingResult } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
-type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'attack' | 'trace' | 'ai'
+type Tab = 'overview' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'attack' | 'trace' | 'geo' | 'ai'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -63,6 +64,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'related', label: 'Related' },
   { id: 'attack', label: 'ATT&CK' },
   { id: 'trace', label: 'Trace view' },
+  { id: 'geo', label: 'Geo' },
   { id: 'ai', label: 'AI assessment' },
 ]
 
@@ -416,6 +418,7 @@ export default function ResultsDashboard({
         />
       )}
       {tab === 'trace' && <TraceView analysis={analysis} />}
+      {tab === 'geo' && <GeoPanel kind="analysis" id={analysis.id} />}
       {tab === 'ai' && (
         <AssessmentView
           assessment={assessment}
