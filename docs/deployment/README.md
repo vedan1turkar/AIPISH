@@ -278,6 +278,20 @@ needed.
 | `docker` | Build both images (not pushed, GHA cache); `nginx -t` inside the web image; `docker compose config` with placeholders, plus a check that compose refuses empty secrets. |
 | `security` | Forbidden-file check (`scripts/ci/check-forbidden-files.sh`); gitleaks over the full history (reviewed false positives pinned by fingerprint in `.gitleaksignore`); actionlint. |
 
+**Verified remotely:** run [44894449094](https://github.com/vedan1turkar/AIPISH/actions/runs/44894449094) on
+commit `0931334` passed every job on the first attempt:
+
+| Job | Result |
+|---|---|
+| `backend-sqlite` | 601 passed / 6 skipped |
+| `backend-postgres` | 566 passed / 8 skipped (no ML stack) |
+| `frontend` | 154 tests |
+| `docker` | amd64 images built, `nginx -t` OK, compose validated |
+| `security` | gitleaks clean, forbidden files OK, actionlint OK |
+
+The same counts were reproduced beforehand from a clean clone with fresh virtualenvs (601 / 6 with the ML
+stack, 566 / 8 without).
+
 No test needs the local-only models or dataset:
 - Tests that use models build tiny temporary bundles.
 - The 6 skips are opt-in live-provider and integration tests (`AIPISH_RUN_LIVE=1` /
