@@ -1,5 +1,33 @@
 # Changelog
 
+## P5i — PostgreSQL, Docker Compose, Nginx and CI
+
+- **Database:**
+  - PostgreSQL support via `DATABASE_URL` (psycopg 3.3.9); SQLite remains the dev/test default.
+  - Versioned, idempotent migrations (`app/core/migrations.py`, `schema_migrations`, advisory lock on
+    PostgreSQL), used by start-up and every CLI command.
+  - New commands: `python -m app.cli migrate` and `python -m app.cli init-demo`.
+- **Dialect fixes:**
+  - Search is now case-insensitive on PostgreSQL too (`ILIKE`; unchanged on SQLite).
+  - PostgreSQL connections are pinned to UTC; the API returns `+00:00` timestamps there. SQLite output is
+    unchanged.
+  - No other PostgreSQL-only failures: the full suite passes on both dialects.
+- **Security:**
+  - `GET /api/v1/health/ready` (anonymous, `{"status"}` only).
+  - `X-Forwarded-For` is honoured only from `AIPISH_TRUSTED_PROXIES`.
+  - `APP_ENV=production` fails closed on SQLite or a weak DB password.
+  - `APP_ENV=demo` runs without live DNS or intel lookups.
+- **Tests:**
+  - The suite runs on a fresh temporary SQLite file by default (it no longer defaults to
+    `backend/db/app.sqlite`).
+  - Opt-in PostgreSQL test database (`TEST_DATABASE_URL`, test-named databases only).
+- **Containers:** backend and web images, nginx reverse proxy, `deploy/docker-compose.yml`,
+  `scripts/demo-up.sh` / `demo-reset.sh`.
+- **CI:** GitHub Actions workflow, gitleaks allow-list of reviewed false positives, forbidden-file check.
+- **Unchanged:** detection logic, scores, ML outputs, PDF content and the frontend UI. BEC is still
+  100 / `phishing_fraud_likely` and ML `impersonated` 0.4355, verified through the container stack on
+  PostgreSQL.
+
 ## P5d.1 — Return-Path / sender domain comparison fix (header forensics)
 
 ### Root cause

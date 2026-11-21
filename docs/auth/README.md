@@ -29,6 +29,7 @@ fails if any route is missing from `ROUTE_PERMISSIONS`.
 | Method | Path | Permission | Allowed roles |
 |---|---|---|---|
 | `GET` | `/api/v1/health` | `public` | anonymous (public) |
+| `GET` | `/api/v1/health/ready` | `public` | anonymous (public): container readiness probe; returns only `{"status"}` (P5i) |
 | `POST` | `/api/v1/auth/login` | `public` | anonymous (public) |
 | `GET` | `/api/v1/auth/me` | `self` | any signed-in user |
 | `POST` | `/api/v1/auth/logout` | `self` | any signed-in user |
@@ -187,8 +188,11 @@ the route-inventory test fails.
 - **State:**
   - counters are **in memory**, bounded to 10,000 keys per limiter, and **reset on restart**;
   - per-user lockout is also written to `app_user.locked_until`, so that part survives a restart.
-- **Source IP** is the direct peer address (`request.client.host`). `X-Forwarded-For` is not trusted, so
-  behind a reverse proxy all clients would share one IP bucket.
+- **Source IP** (P5i): the direct peer address, unless that peer is listed in `AIPISH_TRUSTED_PROXIES`
+  (comma-separated IPs/CIDRs, empty by default). Only then is `X-Forwarded-For` read, right to left, and the
+  first address that is not a trusted proxy is used. In the Compose deployment only the nginx container is
+  trusted and nginx overwrites the header with the real peer, so clients cannot spoof their throttling
+  identity (`app/security/client_ip.py`; tests in `test_deploy.py`; see docs/deployment/README.md).
 
 ## Audit events
 

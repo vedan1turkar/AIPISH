@@ -48,15 +48,15 @@ def search(db: Session, q: str = "", kind: str = "all", *, verdict: str | None =
     if "analysis" in kinds:
         qa = db.query(Analysis)
         if q:
-            ent_ids = db.query(Entity.id).filter(Entity.normalized_value.like(_like(ql), escape="\\"))
+            ent_ids = db.query(Entity.id).filter(Entity.normalized_value.ilike(_like(ql), escape="\\"))
             via_entity = db.query(Observation.analysis_id).filter(Observation.entity_id.in_(ent_ids))
             qa = qa.filter(or_(
-                Analysis.id.like(_prefix(ql), escape="\\"),
-                Analysis.raw_sha256.like(_prefix(ql), escape="\\"),
-                Analysis.from_domain.like(_like(ql), escape="\\"),
-                Analysis.from_email.like(_like(ql), escape="\\"),
-                Analysis.subject.like(_like(q), escape="\\"),
-                Analysis.detection_verdict.like(_like(ql), escape="\\"),
+                Analysis.id.ilike(_prefix(ql), escape="\\"),
+                Analysis.raw_sha256.ilike(_prefix(ql), escape="\\"),
+                Analysis.from_domain.ilike(_like(ql), escape="\\"),
+                Analysis.from_email.ilike(_like(ql), escape="\\"),
+                Analysis.subject.ilike(_like(q), escape="\\"),
+                Analysis.detection_verdict.ilike(_like(ql), escape="\\"),
                 Analysis.id.in_(via_entity),
             ))
         if verdict:
@@ -72,9 +72,9 @@ def search(db: Session, q: str = "", kind: str = "all", *, verdict: str | None =
     if "case" in kinds:
         qc = db.query(Case)
         if q:
-            qc = qc.filter(or_(Case.id.like(_prefix(ql), escape="\\"),
-                               Case.case_number.like(_like(q.upper()), escape="\\"),
-                               Case.title.like(_like(q), escape="\\")))
+            qc = qc.filter(or_(Case.id.ilike(_prefix(ql), escape="\\"),
+                               Case.case_number.ilike(_like(q.upper()), escape="\\"),
+                               Case.title.ilike(_like(q), escape="\\")))
         if lo:
             qc = qc.filter(Case.created_at >= lo)
         if hi:
@@ -88,7 +88,7 @@ def search(db: Session, q: str = "", kind: str = "all", *, verdict: str | None =
     if "entity" in kinds:
         qe = db.query(Entity)
         if q:
-            qe = qe.filter(Entity.normalized_value.like(_like(ql), escape="\\"))
+            qe = qe.filter(Entity.normalized_value.ilike(_like(ql), escape="\\"))
         if entity_type:
             qe = qe.filter(Entity.type == entity_type)
         total = qe.count()
@@ -102,8 +102,8 @@ def search(db: Session, q: str = "", kind: str = "all", *, verdict: str | None =
     if "campaign" in kinds:
         qk = db.query(Campaign).filter(Campaign.status == "candidate")
         if q:
-            qk = qk.filter(or_(Campaign.id.like(_prefix(ql), escape="\\"),
-                               Campaign.label.like(_like(q), escape="\\")))
+            qk = qk.filter(or_(Campaign.id.ilike(_prefix(ql), escape="\\"),
+                               Campaign.label.ilike(_like(q), escape="\\")))
         total = qk.count()
         rows = qk.order_by(Campaign.number).offset(offset).limit(limit).all()
         out["results"]["campaign"] = {"total": total, "items": [campaign_brief(db, c) for c in rows]}

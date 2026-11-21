@@ -34,7 +34,9 @@ from tests.authutil import auth_headers, authed_client, make_user, token_for
 
 EML = Path(__file__).resolve().parents[1] / "fixtures" / "eml"
 STRONG_SECRET = "Tq7mW2pXv9LcR4nZb8KdF3hJs6YgE1uA0oQiN5"
-PUBLIC_ALLOWLIST = {("GET", "/api/v1/health"), ("POST", "/api/v1/auth/login")}
+# /health/ready (P5i): container readiness probe; anonymous by necessity (Docker/LB health checks carry
+# no token) and returns only {"status": "ok"|"unavailable"} — no version, host, path or DB error.
+PUBLIC_ALLOWLIST = {("GET", "/api/v1/health"), ("GET", "/api/v1/health/ready"), ("POST", "/api/v1/auth/login")}
 
 
 # ── fixtures ─────────────────────────────────────────────────────────────

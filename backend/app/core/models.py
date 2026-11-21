@@ -343,11 +343,22 @@ def migrate_correlation_indexes(engine) -> None:
             conn.execute(text(f"CREATE INDEX IF NOT EXISTS {name} ON analysis ({col})"))
 
 
-def run_additive_migrations(engine) -> None:
-    """Every additive schema step, shared by app startup and the CLI (P5b lesson)."""
-    Base.metadata.create_all(bind=engine)
-    migrate_audit_actor(engine)
-    migrate_correlation_indexes(engine)
+def run_additive_migrations(engine) -> list[str]:
+    """Every schema step, shared by app startup and the CLI (P5b lesson).
+
+    P5i: delegates to the versioned, dialect-safe runner in ``app.core.migrations``.
+    """
+    from app.core.migrations import upgrade
+    return upgrade(engine)
+
+
+class SchemaMigration(Base):
+    """One applied schema migration step (P5i). See ``app.core.migrations``."""
+    __tablename__ = "schema_migrations"
+
+    version: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    name: Mapped[str] = mapped_column(String(80))
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class AttackMapping(Base):

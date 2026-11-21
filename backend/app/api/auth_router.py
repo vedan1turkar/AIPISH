@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.security.client_ip import client_ip
 from app.security import users as svc
 from app.security.deps import current_user
 from app.security.tokens import create_access_token
@@ -49,7 +50,7 @@ def user_error(exc: svc.UserError) -> HTTPException:
 
 @router.post("/login")
 def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -> dict:
-    ip = request.client.host if request.client else "unknown"
+    ip = client_ip(request)          # P5i: X-Forwarded-For only from AIPISH_TRUSTED_PROXIES
     try:
         user = svc.authenticate(db, body.username, body.password, ip)
     except svc.Throttled as exc:

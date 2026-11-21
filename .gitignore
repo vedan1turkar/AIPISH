@@ -20,6 +20,9 @@ dist/
 
 # Local dev credentials (P5b seed-dev-users output; mode 0600)
 .dev_credentials
+# Demo credentials (P5i init-demo / scripts/demo-up.sh output; mode 0600)
+.demo_credentials
+.demo/
 
 # Local data
 db/

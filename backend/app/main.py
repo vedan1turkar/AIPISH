@@ -25,6 +25,7 @@ from app.api.attack_router import router as attack_router
 from app.api.router import router
 from app.core.config import get_settings
 from app.core.db import engine
+from app.core.production import allowed_origins, check_production
 from app.security.deps import enforce_access
 from app.security.tokens import set_auth_config, load_auth_config
 
@@ -41,6 +42,8 @@ def create_app() -> FastAPI:
     settings = get_settings()
     # Fail closed: raises AuthConfigError (app does not start) on a missing/weak secret outside test.
     set_auth_config(load_auth_config(settings.env))
+    # P5i: APP_ENV=production also requires PostgreSQL with a strong password (fails closed).
+    check_production(settings.env)
 
     app = FastAPI(
         title="Email Forensics Platform",
@@ -53,7 +56,7 @@ def create_app() -> FastAPI:
     # Bearer tokens only (no cookies), so credentials stay off; never a wildcard origin.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[o for o in settings.allowed_origins if o and o != "*"],
+        allow_origins=allowed_origins(settings.env, settings.allowed_origins),
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-Evidence-Key"],

@@ -3,7 +3,7 @@
 This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 audit set its baseline at
 `b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`), **P5b:
 authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns** (`9213bbf`) and **P5d: MITRE ATT&CK mapping and source-type
-classification**.
+classification** and **P5i: PostgreSQL, Docker Compose, Nginx and CI**.
 
 **ID provenance:**
 - R1–R40 come from the original project matrix.
@@ -25,15 +25,24 @@ Recommended technologies are listed for traceability. They are not functional sc
 
 ## Counts
 
-| Status | Before P5a | After P5a | After P5b | After P5c | After P5d |
-|---|---:|---:|---:|---:|---:|
-| VER | 16 | 16 | 18 | 21 | 22 |
-| IMP-U | 3 | 7 | 7 | 9 | 10 |
-| PART | 16 | 18 | 18 | 14 | 14 |
-| STUB | 1 | 0 | 0 | 0 | 0 |
-| MISS | 21 | 16 | 14 | 13 | 11 |
-| BLK | 3 | 3 | 3 | 3 | 3 |
-| **Total** | 60 | 60 | 60 | 60 | 60 |
+| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i |
+|---|---:|---:|---:|---:|---:|---:|
+| VER | 16 | 16 | 18 | 21 | 22 | 25 |
+| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 |
+| PART | 16 | 18 | 18 | 14 | 14 | 13 |
+| STUB | 1 | 0 | 0 | 0 | 0 | 0 |
+| MISS | 21 | 16 | 14 | 13 | 11 | 9 |
+| BLK | 3 | 3 | 3 | 3 | 3 | 3 |
+| **Total** | 60 | 60 | 60 | 60 | 60 | 60 |
+
+## Changes made in P5i
+
+| ID | Before | After | Why |
+|---|---|---|---|
+| R34 | PART | VER | PostgreSQL via `DATABASE_URL` (psycopg 3); versioned, idempotent migration runner (`schema_migrations`, advisory lock) used by app start-up and every CLI path; dialect fixes (case-insensitive search, UTC-pinned `timestamptz`). Full backend suite run on real PostgreSQL 17 (601 passed / 6 skipped, same as SQLite) and the Compose stack ran on it end to end. No SQLite→PostgreSQL data-migration tool (documented re-seed path). |
+| R37 | MISS | VER | Backend and web images (non-root, read-only rootfs, health checks), nginx reverse proxy (SPA fallback, 300 s API timeout, upload limit with JSON 413, security headers incl. a verified CSP, no version disclosure, docs blocked), Compose with PostgreSQL, fail-closed secrets, trusted-proxy client IP, one-command demo. Verified by a real `docker compose` run on arm64 (macOS): login, upload, dashboard, ATT&CK, campaigns, PDF, AI assessment with host Ollama, 401/413/429 behaviour, headers, restart persistence, idempotent migrations, models-absent and production-mode refusals. amd64 images are built only in CI. |
+| R38 | MISS | VER | GitHub Actions: backend on SQLite (with CPU ML stack) and on a PostgreSQL service, frontend typecheck/lint/tests/build, image builds + `nginx -t` + compose validation, gitleaks, forbidden-file check, actionlint. Pinned action SHAs, `contents: read`, no secrets. Clean-clone CI-equivalent run passed locally; remote run status is recorded in `docs/deployment/README.md` and the P5i commit notes. No CD (no image publishing or deployment target). |
+| R33 | VER | VER | Counts updated (backend 601 passed / 6 skipped on SQLite and on PostgreSQL; frontend 154) and now run in CI. |
 
 ## P5d.1 correction (no status changes)
 
@@ -127,12 +136,12 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R30 | Evidence preservation / chain-of-custody support | PART | SHA-256, optional raw retention, versioned assessments and intel runs | Not tamper-resistant |
 | R31 | Retention, masking, redaction | PART | `CASE_EVIDENCE_RETENTION_DAYS`, `llm/redact.py` | Retention not enforced; body stored in clear |
 | R32 | RBAC | VER | `security/permissions.py`, `security/deps.py` (app-wide `enforce_access`), `api/admin_router.py` · `test_access_control.py` (route inventory + role matrix), `Auth.test.tsx` | Roles are global: no per-case ownership/ACLs |
-| R33 | Tests | VER | Backend 564 passed / 6 skipped (5 opt-in live intel tests); frontend 104 passed | No CI; no browser E2E suite |
-| R34 | Main database (PostgreSQL) | PART | SQLAlchemy and SQLite | No PostgreSQL or migrations tool |
+| R33 | Tests | VER | Backend 601 passed / 6 skipped on SQLite and on PostgreSQL (6 opt-in live tests); frontend 154 passed; all in CI (P5i) | No browser E2E suite |
+| R34 | Main database (PostgreSQL) | VER | `core/db.py` (`DATABASE_URL`, psycopg 3), `core/migrations.py` (versioned, idempotent) · full suite on PostgreSQL 17, `test_deploy.py`, Compose run (P5i) | No SQLite→PostgreSQL data copy (re-seed path documented) |
 | R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; intel lookups and correlation recompute run synchronously |
 | R36 | Email integration (IMAP/SMTP/Graph) | MISS | — | Test mailbox or Azure tenant |
-| R37 | Deployment (Docker/Nginx) | MISS | — | — |
-| R38 | CI/CD | MISS | — | — |
+| R37 | Deployment (Docker/Nginx) | VER | `backend/Dockerfile`, `frontend/Dockerfile`, `frontend/nginx/`, `deploy/docker-compose.yml`, `scripts/demo-up.sh` · real Compose run, `test_deploy.py`, `nginx -t` (P5i) | No TLS certificates shipped (documented); single uvicorn worker; arm64 run verified, amd64 built in CI only |
+| R38 | CI/CD | VER | `.github/workflows/ci.yml` (SQLite + PostgreSQL backend, frontend, images, compose, gitleaks, forbidden files, actionlint) (P5i) | CI only: no CD / registry publishing |
 | R39 | Frontend (React + Tailwind) | VER | Vite + React + Tailwind; tsc, ESLint and build pass | — |
 | R40 | Attribution as investigative support | VER | Disclaimers in UI, PDF and evidence; correlation (P5c) and ATT&CK / source-type (P5d) disclaimers | — |
 | R41* | Preprocessing / normalisation | VER | `ingestion/parser.py`, `enrichment/iocs.py`, `intel/validate.py` · `test_parser.py`, `test_intel.py` | — |

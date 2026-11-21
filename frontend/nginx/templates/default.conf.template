@@ -1,0 +1,94 @@
+# AIPISH web (P5i): serves the built SPA and reverse-proxies /api to the backend.
+# Rendered at container start by the nginx image's envsubst step; only ${BACKEND_UPSTREAM},
+# ${CLIENT_MAX_BODY_SIZE} and ${API_READ_TIMEOUT} are substituted (NGINX_ENVSUBST_FILTER).
+# nginx runtime variables such as $remote_addr are untouched.
+
+upstream aipish_backend {
+    server ${BACKEND_UPSTREAM};
+    keepalive 16;
+}
+
+server {
+    listen 8080 default_server;
+    listen [::]:8080 default_server;
+    server_name _;
+
+    server_tokens off;                     # no nginx version in headers or error pages
+    root /usr/share/nginx/html;
+    charset utf-8;
+
+    # Matches the app's upload limit (APP_UPLOAD_MAX_MB, default 10 MB) plus multipart overhead.
+    client_max_body_size ${CLIENT_MAX_BODY_SIZE};
+
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+    # Container health check (no backend involved).
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # API docs are never served through the proxy (the backend also disables them outside dev/test).
+    location ~ ^/(docs|redoc|openapi\.json)(/|$) {
+        return 404;
+    }
+
+    location /api/ {
+        proxy_pass http://aipish_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        # This nginx is the edge: it REPLACES any client-supplied X-Forwarded-For with the real peer, so
+        # the backend (which trusts only this proxy, AIPISH_TRUSTED_PROXIES) sees an unspoofable address.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        # Local Mistral summaries (ML + SHAP + LLM) can take minutes: never cut them short.
+        proxy_connect_timeout 10s;
+        proxy_send_timeout ${API_READ_TIMEOUT};
+        proxy_read_timeout ${API_READ_TIMEOUT};
+        proxy_request_buffering on;
+        proxy_buffering on;
+        # The backend already sends nosniff / frame / referrer / CSP headers and no-store on /api.
+        proxy_hide_header Server;
+        proxy_intercept_errors off;
+        # error_page in a location replaces the server-level list, so 413 is repeated here
+        error_page 413 = @too_large;
+        error_page 502 503 504 = @api_unavailable;
+    }
+
+    location @api_unavailable {
+        default_type application/json;
+        add_header Cache-Control "no-store" always;
+        return 503 '{"error":{"code":"BACKEND_UNAVAILABLE","message":"The analysis backend is not reachable. Try again shortly."}}';
+    }
+
+    # Oversize uploads are rejected here with the same JSON envelope the API uses.
+    error_page 413 = @too_large;
+    location @too_large {
+        default_type application/json;
+        add_header Cache-Control "no-store" always;
+        return 413 '{"error":{"code":"PAYLOAD_TOO_LARGE","message":"File exceeds the upload limit."}}';
+    }
+
+    # Fingerprinted build assets (JS, CSS, self-hosted IBM Plex fonts): cache forever.
+    location /assets/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # SPA: every other path serves index.html (hash routing, but deep links still work).
+    location / {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri /index.html;
+    }
+}

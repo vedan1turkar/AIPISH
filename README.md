@@ -2,6 +2,23 @@
 
 AI-powered email threat detection, header forensics, and forensic reporting.
 
+## Quickstart: Docker demo (one command)
+
+Requires Docker Desktop (or Docker Engine + Compose v2). Optional: trained models in
+`models/aipish-email-v1/` and Ollama with `mistral` on the host for the AI assessment.
+
+```bash
+git clone https://github.com/vedan1turkar/AIPISH.git && cd AIPISH
+cp deploy/env.example deploy/.env    # optional: the script creates it and generates the secrets
+scripts/demo-up.sh                   # PostgreSQL + backend + nginx, seeded with SYNTHETIC data
+```
+
+Open http://localhost:8080 and sign in with an account from `.demo/credentials` (gitignored, mode 0600; the
+script prints only its path). `scripts/demo-reset.sh` deletes the demo database.
+
+For production deployment, TLS, backups, migrations, CI and the environment-variable reference, see
+[docs/deployment/README.md](docs/deployment/README.md).
+
 ## Quickstart (Local)
 
 ### Prerequisites
@@ -24,7 +41,8 @@ python -m app.cli seed-dev-users
 uvicorn app.main:app --port 8000 --reload
 ```
 
-Health check (the only public endpoint besides login): `curl http://127.0.0.1:8000/api/v1/health`
+Health checks (the only public endpoints besides login): `curl http://127.0.0.1:8000/api/v1/health` (liveness)
+and `/api/v1/health/ready` (readiness: only `{"status": "ok"|"unavailable"}`).
 
 Every other endpoint needs `Authorization: Bearer <token>` from `POST /api/v1/auth/login`. Roles,
 the per-route permission table and the threat model are in [docs/auth/README.md](docs/auth/README.md).
@@ -87,10 +105,13 @@ limitations). Invocations are audited (`report_generated`).
 ## Test Commands
 
 ```bash
-# Backend: full suite (101 tests)
+# Backend: full suite on a fresh temporary SQLite database (never the dev DB)
 cd backend
 source .venv/bin/activate
 python -m pytest tests -q
+
+# Backend against a throwaway PostgreSQL (Docker; dedicated aipish_test database)
+make test-pg
 
 # Frontend: typecheck, lint, production build
 cd frontend
@@ -105,12 +126,13 @@ python3 /tmp/e2e_verify.py
 
 ## API Endpoints
 
-All routes are under `/api/v1`. All except `/health` and `/auth/login` require a bearer token and a
+All routes are under `/api/v1`. All except `/health`, `/health/ready` and `/auth/login` require a bearer token and a
 role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route permission table.
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | Liveness + DB check (public) |
+| GET | `/health/ready` | Readiness for container health checks: `{"status":"ok"}` or 503 `unavailable` only (public) |
 | POST | `/auth/login` | JSON `{"username","password"}` → bearer token (public) |
 | GET | `/auth/me` | Current user and permissions |
 | POST | `/auth/logout` | Revoke all of the current user's tokens |
@@ -196,9 +218,10 @@ personal data, no real bank details, reserved/documentation domains only:
 
 ## Persistence
 
-SQLite via SQLAlchemy at `backend/db/app.sqlite` (created on first boot).
-Configured by `APP_DB_PATH`; override with an absolute path if you want it
-elsewhere. Sensitive data stays out of git via `.gitignore`.
+SQLAlchemy. Local development uses SQLite at `backend/db/app.sqlite` (created on first boot, configured
+by `APP_DB_PATH`). Deployments use PostgreSQL via `DATABASE_URL` (psycopg 3). The schema is managed by a
+versioned, idempotent migration runner (`python -m app.cli migrate`), see
+[docs/deployment/README.md](docs/deployment/README.md). Sensitive data stays out of git via `.gitignore`.
 
 ## Known Limitations
 

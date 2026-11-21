@@ -1,0 +1,27 @@
+# Build context = backend/. Only app/, tests/fixtures/demo, requirements*, constraints and the
+# entrypoint are copied; everything else is excluded so it can never leak into an image layer.
+**
+!app/**
+!tests/fixtures/demo/**
+!requirements.txt
+!requirements-ml.txt
+!constraints.txt
+!docker-entrypoint.sh
+!Dockerfile
+
+# defence in depth (re-excluded even inside the allow-listed paths)
+**/__pycache__
+**/*.py[cod]
+**/.env
+**/.env.*
+**/*.sqlite
+**/*.sqlite3
+**/*.db
+**/*.pdf
+**/.dev_credentials
+**/.demo_credentials
+**/approval.json
+**/ctf-operator
+**/.pytest_cache
+**/.venv
+**/.git

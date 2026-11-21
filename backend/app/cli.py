@@ -20,6 +20,17 @@
         analysis pipeline (external lookups off) and creates a case marked SYNTHETIC. Skips emails
         already ingested (same SHA-256), so re-running adds nothing.
 
+    python -m app.cli migrate
+        Create/upgrade the schema (versioned, idempotent; SQLite or PostgreSQL via DATABASE_URL) and
+        print the schema version. Every command below runs the same upgrade first.
+
+    python -m app.cli init-demo [--no-assessment]
+        DEMO ONLY (refused when APP_ENV=production). On the configured (fresh) database: migrate,
+        create demo-admin / demo-analyst / demo-viewer with random passwords written to
+        $AIPISH_DEMO_CREDENTIALS_FILE (default backend/.demo_credentials, mode 0600; only the path is
+        printed), seed the SYNTHETIC campaign, and analyse the synthetic BEC sample (with the ML/SHAP/LLM
+        assessment when models are present). Idempotent: existing users and emails are kept.
+
     python -m app.cli seed-dev-users
         LOCAL DEV ONLY (APP_ENV=dev). (Re)creates demo-admin / demo-analyst / demo-viewer with
         random strong passwords written to backend/.dev_credentials (mode 0600, gitignored).
@@ -124,6 +135,117 @@ def seed_dev_users_cmd(args) -> int:
 
 
 DEMO_DIR = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "demo" / "campaign"
+BEC_SAMPLE = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "demo" / "bec_wire_change.eml"
+DEMO_CREDENTIALS = Path(__file__).resolve().parents[1] / ".demo_credentials"
+SEED_ENVS = {"dev", "demo"}          # synthetic seeding is never allowed in production
+
+
+def _preflight() -> int:
+    """Fail closed before touching the database: production config + JWT secret (same checks as the app)."""
+    from app.core.config import get_settings
+    from app.core.production import ProductionConfigError, check_production
+    from app.security.tokens import AuthConfigError, load_auth_config
+    env_name = get_settings().env
+    try:
+        check_production(env_name)
+        load_auth_config(env_name)
+    except (ProductionConfigError, AuthConfigError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 3
+    return 0
+
+
+def migrate_cmd(args) -> int:
+    rc = _preflight()
+    if rc:
+        return rc
+    from app.core.db import engine       # never print the URL (host/user); the dialect is enough
+    from app.core.migrations import current_version, upgrade
+    applied = upgrade(engine)
+    print(f"database: {engine.dialect.name}")
+    print(f"applied now: {', '.join(applied) if applied else 'none (already up to date)'}")
+    print(f"schema version: {current_version(engine)}")
+    return 0
+
+
+def _demo_credentials_path() -> Path:
+    from app.core.config import env
+    p = env("AIPISH_DEMO_CREDENTIALS_FILE")
+    return Path(p) if p else DEMO_CREDENTIALS
+
+
+def init_demo_cmd(args) -> int:
+    import hashlib
+    import io
+    from app.core.config import get_settings
+    from app.core.production import is_production
+    settings = get_settings()
+    if is_production(settings.env):
+        print("refusing: init-demo never runs with APP_ENV=production", file=sys.stderr)
+        return 2
+    if (settings.env or "").lower() not in SEED_ENVS:
+        print("refusing: init-demo runs only with APP_ENV=dev or demo", file=sys.stderr)
+        return 2
+    from app.core.models import Analysis
+    from app.security.passwords import generate_password
+    from app.security.users import create_user, get_by_username
+    path = _demo_credentials_path()
+    with _session() as db:
+        missing = [(u, r) for u, r in DEMO_USERS if get_by_username(db, u) is None]
+        if missing or not path.is_file():
+            # (re)issue every demo password so the file always matches the database
+            from app.core.models import utcnow
+            from app.security.passwords import hash_password
+            lines = ["# AIPISH DEMO accounts (SYNTHETIC demo data only). Mode 0600, never commit.",
+                     "# username\trole\tpassword"]
+            for username, role in DEMO_USERS:
+                pw = generate_password()
+                u = get_by_username(db, username)
+                if u is None:
+                    create_user(db, username, pw, role, audit_source="demo_seed")
+                else:
+                    u.password_hash, u.role, u.is_active = hash_password(pw), role, True
+                    u.must_change_password, u.failed_login_count, u.locked_until = False, 0, None
+                    u.token_version = int(u.token_version or 0) + 1
+                    u.password_changed_at = utcnow()
+                    db.commit()
+                lines.append(f"{username}\t{role}\t{pw}")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _write_private(path, "\n".join(lines) + "\n")
+            print("demo users: created/reset")
+        else:
+            print("demo users: already present (credentials file kept)")
+    print(f"demo credentials written to {path}")
+
+    rc = seed_demo_campaign_cmd(args)
+    if rc:
+        return rc
+
+    raw = BEC_SAMPLE.read_bytes()
+    with _session() as db:
+        if db.query(Analysis).filter_by(raw_sha256=hashlib.sha256(raw).hexdigest()).first() is not None:
+            print("BEC sample: already analysed")
+            return 0
+    from starlette.datastructures import UploadFile
+    original_env = settings.env
+    settings.env = "offline"          # synthetic sample: no live DNS / enrichment lookups
+    try:
+        with _session() as db:
+            upload = UploadFile(file=io.BytesIO(raw), filename=BEC_SAMPLE.name)
+            from app.ml.inference import model_dir
+            if getattr(args, "no_assessment", False) or not model_dir().is_dir():
+                from app.api.router import upload_eml
+                upload_eml(upload, db)
+                print("BEC sample: analysed (rules only; models not mounted or --no-assessment)")
+            else:
+                from app.api.llm_router import summary_from_upload
+                res = summary_from_upload(upload, db)
+                ml = (res.get("ml") or {})
+                llm = ((res.get("forensic_summary") or {}).get("status")) or "see dashboard"
+                print(f"BEC sample: analysed with assessment (ml {ml.get('status')}, llm {llm})")
+    finally:
+        settings.env = original_env
+    return 0
 
 
 def backfill_attack_cmd(args) -> int:
@@ -155,8 +277,8 @@ def seed_demo_campaign_cmd(args) -> int:
     import io
     from app.core.config import get_settings
     settings = get_settings()
-    if (settings.env or "").lower() != "dev":
-        print("refusing: seed-demo-campaign runs only with APP_ENV=dev", file=sys.stderr)
+    if (settings.env or "").lower() not in SEED_ENVS:
+        print("refusing: seed-demo-campaign runs only with APP_ENV=dev or demo", file=sys.stderr)
         return 2
     from starlette.datastructures import UploadFile
     from app.api.router import upload_eml
@@ -214,6 +336,11 @@ def main(argv: list[str] | None = None) -> int:
     r.set_defaults(func=rebuild_correlation_cmd)
     d = sub.add_parser("seed-demo-campaign", help="LOCAL DEV ONLY: synthetic campaign demo data")
     d.set_defaults(func=seed_demo_campaign_cmd)
+    m = sub.add_parser("migrate", help="create/upgrade the schema (idempotent) and print its version")
+    m.set_defaults(func=migrate_cmd)
+    i = sub.add_parser("init-demo", help="DEMO ONLY: demo users, synthetic campaign and BEC sample")
+    i.add_argument("--no-assessment", action="store_true", help="skip the ML/SHAP/LLM assessment of the BEC sample")
+    i.set_defaults(func=init_demo_cmd)
     s = sub.add_parser("seed-dev-users", help="LOCAL DEV ONLY: demo users with random passwords")
     s.set_defaults(func=seed_dev_users_cmd)
     args = p.parse_args(argv)

@@ -34,6 +34,8 @@ V1 = "/api/v1"
 ROUTE_PERMISSIONS: dict[tuple[str, str], str] = {
     # public allowlist — keep this list minimal
     ("GET", f"{V1}/health"): PUBLIC,
+    # P5i readiness probe for container health checks: anonymous, returns only {"status": ...}
+    ("GET", f"{V1}/health/ready"): PUBLIC,
     ("POST", f"{V1}/auth/login"): PUBLIC,
     # own account
     ("GET", f"{V1}/auth/me"): SELF,

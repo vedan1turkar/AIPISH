@@ -77,7 +77,7 @@ def endpoint_allowed(url: str) -> bool:
 
 
 def _default_offline() -> bool:
-    if (get_settings().env or "").lower() == "offline":
+    if (get_settings().env or "").lower() in ("offline", "demo"):     # P5i: the demo never calls providers
         return True
     return _flag("INTEL_OFFLINE", False)
 

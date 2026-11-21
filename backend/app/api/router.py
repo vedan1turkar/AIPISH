@@ -35,7 +35,7 @@ from app.ingestion.parser import parse_eml
 def auth_live_enabled() -> bool:
     """Auth DNS checks run live only when the app-level flag allows."""
     env = (get_settings().env or "").lower()
-    return env not in ("test", "offline")
+    return env not in ("test", "offline", "demo")
 
 
 def enrichment_live_enabled() -> bool:
@@ -47,7 +47,7 @@ def enrichment_live_enabled() -> bool:
 
 def _enrich_env_enabled() -> bool:
     env = (get_settings().env or "").lower()
-    if env in ("test", "offline"):
+    if env in ("test", "offline", "demo"):
         return False
     from app.core.config import env as _env
     return (_env("ENRICH_ENABLE_ALL", "1") or "1").strip().lower() not in ("0", "false")
@@ -74,6 +74,23 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
         env=settings.env,
         db_connected=_db_connected(db),
     )
+
+
+@router.get("/health/ready", include_in_schema=True)
+def health_ready(db: Session = Depends(get_db)):
+    """Readiness (P5i): anonymous, used by container health checks and load balancers.
+
+    Returns only ``{"status": "ok"}`` (200) or ``{"status": "unavailable"}`` (503) — never versions,
+    hostnames, paths or database errors.
+    """
+    from fastapi.responses import JSONResponse
+    ok = _db_connected(db)
+    if not ok:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+    return JSONResponse({"status": "ok" if ok else "unavailable"}, status_code=200 if ok else 503)
 
 
 # ── .eml ingestion ─────────────────────────────────────────────────────────

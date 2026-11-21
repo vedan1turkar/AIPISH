@@ -1,0 +1,17 @@
+# gitleaks allow-list (P5i). Each entry was reviewed and is a known false positive:
+#  - backend/tests/unit/test_llm.py: synthetic secrets used as INPUT to the redaction test
+#  - backend/tests/unit/test_access_control.py, frontend/src/auth/Auth.test.tsx: fake test passwords
+#  - docs/llm/sample_bec_injection.eml: fictional token in a synthetic phishing sample URL
+#  - docs/ml/final_evaluation_v1.json: SHA-256 file hashes of tokenizer files
+# Fingerprints pin the exact commit/file/rule/line: any new finding still fails CI.
+0fea7e186ff626836b95ba5c901fbdbc20983b8c:docs/ml/final_evaluation_v1.json:generic-api-key:17
+0fea7e186ff626836b95ba5c901fbdbc20983b8c:docs/ml/final_evaluation_v1.json:generic-api-key:18
+0fea7e186ff626836b95ba5c901fbdbc20983b8c:docs/ml/final_evaluation_v1.json:generic-api-key:19
+2e32b08b2ec5226aee1f6611b7c754137574672f:backend/tests/unit/test_access_control.py:generic-api-key:275
+2e32b08b2ec5226aee1f6611b7c754137574672f:backend/tests/unit/test_access_control.py:generic-api-key:36
+2e32b08b2ec5226aee1f6611b7c754137574672f:backend/tests/unit/test_access_control.py:generic-api-key:393
+2e32b08b2ec5226aee1f6611b7c754137574672f:backend/tests/unit/test_access_control.py:generic-api-key:459
+2e32b08b2ec5226aee1f6611b7c754137574672f:frontend/src/auth/Auth.test.tsx:generic-api-key:268
+d565b8c8220982fb065f8c2ffed8650c05f6aa02:backend/tests/unit/test_llm.py:aws-access-token:221
+d565b8c8220982fb065f8c2ffed8650c05f6aa02:backend/tests/unit/test_llm.py:jwt:223
+d565b8c8220982fb065f8c2ffed8650c05f6aa02:docs/llm/sample_bec_injection.eml:generic-api-key:17

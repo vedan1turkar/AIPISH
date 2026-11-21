@@ -1,0 +1,136 @@
+# AIPISH deployment (P5i): PostgreSQL + backend (FastAPI) + web (nginx: SPA + /api reverse proxy).
+#
+#   cp deploy/env.example deploy/.env      # then set POSTGRES_PASSWORD and AIPISH_JWT_SECRET
+#   docker compose -f deploy/docker-compose.yml up -d --build --wait
+#   open http://localhost:8080
+#
+# Demo with synthetic data in one command: scripts/demo-up.sh (see docs/deployment/README.md).
+# No secrets live in this file: everything comes from deploy/.env (gitignored). Missing required values
+# stop `docker compose` before anything starts; weak ones stop the backend in production mode.
+# Ollama (local Mistral) stays on the HOST and is reached via host.docker.internal.
+
+name: aipish
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:17.12-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aipish}
+      POSTGRES_USER: ${POSTGRES_USER:-aipish}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env (see deploy/env.example)}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" -q"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks: [aipish]
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+    # no published port: only the backend reaches the database
+
+  backend:
+    build:
+      context: ../backend
+      args:
+        WITH_ML: ${AIPISH_WITH_ML:-1}
+    image: aipish-backend:${AIPISH_IMAGE_TAG:-local}
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-aipish}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}@postgres:5432/${POSTGRES_DB:-aipish}
+      AIPISH_JWT_SECRET: ${AIPISH_JWT_SECRET:?Set AIPISH_JWT_SECRET in deploy/.env (python -c 'import secrets; print(secrets.token_urlsafe(48))')}
+      APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-}
+      APP_UPLOAD_MAX_MB: ${APP_UPLOAD_MAX_MB:-10}
+      # Only the web container may set X-Forwarded-For (see docs/deployment/README.md#client-ip-and-proxy-trust).
+      AIPISH_TRUSTED_PROXIES: ${AIPISH_PROXY_IP:-172.30.89.10}
+      AIPISH_MODEL_DIR: /models/aipish-email-v1
+      AIPISH_SEED_DEMO: ${AIPISH_SEED_DEMO:-0}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_ALLOWED_HOSTS: ${OLLAMA_ALLOWED_HOSTS:-host.docker.internal}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"     # Linux; Docker Desktop provides it already
+    volumes:
+      # Trained models are mounted read-only, never baked into the image. If the directory is empty
+      # or missing, ML reports "unavailable" and everything else works.
+      - ${AIPISH_MODELS_DIR:-../models}:/models:ro
+      - backend-var:/app/var
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [aipish]
+    logging: *logging
+
+  web:
+    build:
+      context: ../frontend
+    image: aipish-web:${AIPISH_IMAGE_TAG:-local}
+    restart: unless-stopped
+    environment:
+      BACKEND_UPSTREAM: backend:8000
+      CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-11m}
+      API_READ_TIMEOUT: ${NGINX_API_READ_TIMEOUT:-300s}
+    ports:
+      - "${AIPISH_BIND_ADDRESS:-127.0.0.1}:${AIPISH_HTTP_PORT:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /etc/nginx/conf.d:uid=101,gid=101
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      aipish:
+        ipv4_address: ${AIPISH_PROXY_IP:-172.30.89.10}
+    logging: *logging
+
+  # Opt-in throwaway PostgreSQL for the backend test suite (never the application database):
+  #   docker compose -f deploy/docker-compose.yml --profile test up -d postgres-test
+  #   cd backend && TEST_DATABASE_URL=postgresql://aipish_test@127.0.0.1:55432/aipish_test \
+  #     .venv/bin/python -m pytest --allow-hosts=127.0.0.1
+  # Loopback-only, in-memory (tmpfs) and passwordless by design: it holds nothing but test data.
+  postgres-test:
+    profiles: [test]
+    image: postgres:17.12-alpine
+    environment:
+      POSTGRES_USER: aipish_test
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:${AIPISH_TEST_PG_PORT:-55432}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aipish_test -q"]
+      interval: 3s
+      retries: 20
+    networks: [aipish]
+
+volumes:
+  pgdata:
+  backend-var:
+
+networks:
+  aipish:
+    ipam:
+      config:
+        - subnet: ${AIPISH_NET_SUBNET:-172.30.89.0/24}
