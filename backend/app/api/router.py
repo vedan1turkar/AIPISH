@@ -281,7 +281,9 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
     # and the combined risk assessment. Both failure-isolated: the response above is already built.
     from app.risk.service import classify_at_upload, compute_safely as risk_safely
     classify_at_upload(db, detail.id, raw)
-    risk_safely(db, detail.id, "upload")
+    risk_safely(db, detail.id, "upload")             # P5f: also evaluates analysis alerts (isolated)
+    from app.alerts.service import evaluate_campaigns_safely
+    evaluate_campaigns_safely(db, "upload")          # P5f: new-campaign / growth alerts (isolated)
     return detail
 
 

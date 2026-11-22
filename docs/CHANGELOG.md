@@ -1,5 +1,52 @@
 # Changelog
 
+## P5f — Risk-based alerts (in-app inbox, lifecycle, dedupe, optional e-mail)
+
+- **Honesty:** alerts are raised when an analysis is processed (upload, intel run, AI assessment,
+  recompute, campaign update). There is no real-time mailbox monitoring, because IMAP/Graph ingestion is
+  not implemented.
+- **Model:** `alert` and append-only `alert_event` tables (migration step 9). Alerts hold identifiers,
+  labels and scores only: never subject, body, recipients, addresses or display names.
+- **Rules:**
+  - `high_risk_analysis`: combined level ≥ high by default; critical → critical.
+  - `hard_evidence_floor`: a floor fired below the minimum level.
+  - `review_conflict`: low, on by default.
+  - `new_campaign`: medium+ confidence.
+  - `campaign_growth`: debounced, one open alert.
+  - All are configurable (`ALERTS_ENABLED`, `ALERT_*`).
+- **Lifecycle:**
+  - One open alert per type and subject: message SHA-256, or campaign.
+  - Identical re-uploads only count occurrences.
+  - A higher level escalates the open alert, and reopens it if it was acknowledged.
+  - A lower level never auto-resolves.
+  - After resolution, only a higher level opens a new alert.
+  - Concurrency-safe acknowledge / resolve (note required) / reopen, with 409 on invalid or stale
+    transitions. Every change writes alert history and an audit event with the actor.
+- **Isolation:** the alert engine never alters uploads, assessments or risk results. Errors are audited as
+  `alert_engine_error`. `backfill-risk` creates no alerts unless `--alerts` is given.
+- **API:**
+  - `GET /alerts`, `/alerts/summary` and `/alerts/{id}` (viewer+);
+  - `POST /alerts/{id}/acknowledge|resolve|reopen` (analyst+);
+  - `GET /admin/alerts/config` (admin; secrets omitted).
+- **Optional e-mail (OFF by default):**
+  - stdlib smtplib, with STARTTLS/SSL certificate verification;
+  - Jinja2 3.1.6 templates with autoescape (now an explicit dependency);
+  - background thread with a timeout and one retry, rate limit, one e-mail per state change, recorded
+    delivery status, audited;
+  - header-injection safe;
+  - content limited to ids, labels, scores, a link and a disclaimer.
+  - The demo forces e-mail off.
+- **Retention:** delete mode removes an analysis's alerts and their history. Redact mode keeps them and
+  marks the analysis as redacted.
+- **Frontend:**
+  - top-bar new-alert badge;
+  - Alerts page (filters, pagination, detail with pinned risk version, history, actions, admin
+    configuration);
+  - Overview "Open alerts" panel;
+  - analysis open-alert strip.
+- **Unchanged:** detection, rules, ML, risk scoring and intel providers. BEC is still 100 /
+  `phishing_fraud_likely` and ML `impersonated` 0.4355.
+
 ## P5h — Explainable combined risk assessment
 
 - **Combined risk index (0–100), an additional result:**

@@ -1,4 +1,4 @@
-# AIPISH design system (P5u-1, P5u-2, P5g, P5e, P5h)
+# AIPISH design system (P5u-1, P5u-2, P5g, P5e, P5h, P5f)
 
 The goal is a calm, dense security-engineering console: information-rich, organised and easy to scan.
 Hierarchy comes from type weight and tonal surface steps, not from boxes, shadows or colour.
@@ -279,6 +279,43 @@ integrity note.
   at 1280 and 1024.
 - **Analytics:** a "Combined risk levels (index, not a probability)" bar chart beside "Rule verdicts" in
   the first row.
+
+## Alerts (P5f)
+
+- **Top bar:** an `ALERTS n` badge (square, 1px `line-strong` border, `surface-2`, mono xs uppercase).
+  - The LED is danger when there are new alerts, ok when there are none, and neutral (`—`) when the count is
+    unavailable.
+  - It links to `#alerts`.
+  - It polls every 45 seconds, only while the tab is visible.
+- **Alerts page** (`components/alerts/AlertsPage.tsx`):
+  1. `h1` plus the honesty line (neutral LED): "Alerts are raised when an analysis is processed; this system
+     does not monitor mailboxes in real time." Never use "real-time" or "live monitoring" for alerts.
+  2. A four-cell stat strip.
+  3. An `items-start` 8 + 4 row:
+     - **Alert inbox** (8 columns): a three-filter form strip, a `DataTable` (severity, type, status,
+       subject link, combined level, occurrences; first seen, last seen and actor hide below 2xl
+       ), and Newer / Older server pagination.
+     - Right column (4): the **Alert** detail panel (KV rows, pinned risk version, e-mail status, actions,
+       history list) and, for admins, the read-only **Alert configuration**.
+  - **Resolve** opens the shared square confirmation dialog with a required note.
+- **Tones:**
+
+  | Severity | Tone |
+  |---|---|
+  | low | neutral |
+  | medium | warn |
+  | high, critical | danger |
+
+  | Status | Tone |
+  |---|---|
+  | new | accent |
+  | acknowledged | warn |
+  | resolved | ok |
+
+  Tones are always paired with text.
+- **Overview:** an "Open alerts" panel (counts line plus up to three rows) tops the right column; "Recent analyses" shows 13 rows. Campaigns
+  are trimmed to five rows so the column stays balanced with "Recent analyses".
+- **Analysis page:** a one-line open-alert strip above the privacy banners.
 
 ## Accessibility
 

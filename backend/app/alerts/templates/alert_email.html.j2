@@ -1,0 +1,17 @@
+<!doctype html>
+<html><body style="font-family: monospace; font-size: 13px; color: #111;">
+<p><strong>AIPISH alert {{ alert.id }}</strong></p>
+<table cellpadding="3" style="border-collapse: collapse;">
+<tr><td>Type</td><td>{{ type_label }}</td></tr>
+<tr><td>Severity</td><td>{{ alert.severity | upper }}</td></tr>
+<tr><td>Status</td><td>{{ alert.status }}</td></tr>
+{% if s.analysis_id %}<tr><td>Analysis ID</td><td>{{ s.analysis_id }}</td></tr>{% endif %}
+{% if s.campaign_label %}<tr><td>Campaign</td><td>{{ s.campaign_label }} ({{ s.campaign_confidence }} confidence, {{ s.member_count }} members)</td></tr>{% endif %}
+{% if s.combined_level %}<tr><td>Combined risk</td><td>{{ s.combined_level }} {{ s.combined_score }}/100 (risk index, not a probability)</td></tr>
+<tr><td>Rule verdict</td><td>{{ s.rule_verdict or "n/a" }}</td></tr>
+<tr><td>ML class</td><td>{{ s.ml_class or "not available" }}</td></tr>
+<tr><td>Floors fired</td><td>{{ (s.floors | join(", ")) if s.floors else "none" }}</td></tr>{% endif %}
+</table>
+<p><a href="{{ link }}">Open the alert in AIPISH</a></p>
+<p style="color: #555;">{{ disclaimer }}</p>
+</body></html>

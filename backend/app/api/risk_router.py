@@ -51,4 +51,6 @@ def recompute_risk(analysis_id: str, db: Session = Depends(get_db)) -> dict:
                  detail={"risk_id": row.id, "version": row.version, "new_version": created, "level": row.level,
                          "combined_score": row.combined_score, "engine_version": row.engine_version})
     db.commit()
+    from app.alerts.service import evaluate_analysis_safely       # P5f: isolated; never alters the result
+    evaluate_analysis_safely(db, rec.id, "recompute")
     return {**service.risk_dict(row), "new_version": created}

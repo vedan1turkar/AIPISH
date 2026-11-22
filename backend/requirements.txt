@@ -17,3 +17,5 @@ pyspf>=2.0.14
 networkx>=3.0
 # P5i: PostgreSQL driver (psycopg 3, binary wheels; used only when DATABASE_URL points at PostgreSQL)
 psycopg[binary]==3.3.9
+# P5f: alert e-mail templates (autoescape on); version pinned in constraints.txt
+Jinja2==3.1.6

@@ -25,6 +25,7 @@ from app.api.attack_router import router as attack_router
 from app.api.geo_router import router as geo_router
 from app.api.audit_router import router as audit_router
 from app.api.risk_router import router as risk_router
+from app.api.alerts_router import router as alerts_router
 from app.api.router import router
 from app.core.config import get_settings
 from app.core.db import engine
@@ -128,6 +129,7 @@ def create_app() -> FastAPI:
     app.include_router(geo_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
     app.include_router(risk_router, prefix="/api/v1")
+    app.include_router(alerts_router, prefix="/api/v1")
 
     if (settings.env or "").lower() in DOCS_ENVS:
         @app.get("/openapi.json", include_in_schema=False)

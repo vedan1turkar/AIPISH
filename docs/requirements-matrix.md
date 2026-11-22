@@ -4,7 +4,7 @@ This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 au
 `b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`), **P5b:
 authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns** (`9213bbf`) and **P5d: MITRE ATT&CK mapping and source-type
 classification** and **P5i: PostgreSQL, Docker Compose, Nginx and CI** and **P5g: infrastructure geolocation map and analytics** and **P5e: tamper-evident audit log, retention
-enforcement and personal-data masking** and **P5h: explainable combined risk assessment**.
+enforcement and personal-data masking** and **P5h: explainable combined risk assessment** and **P5f: risk-based alerts**.
 
 **ID provenance:**
 - R1–R40 come from the original project matrix.
@@ -26,15 +26,23 @@ Recommended technologies are listed for traceability. They are not functional sc
 
 ## Counts
 
-| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g | After P5e | After P5h |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 | 30 | 31 |
-| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 | 12 | 12 |
-| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 | 8 | 7 |
-| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 | 7 | 7 |
-| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
-| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g | After P5e | After P5h | After P5f |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 | 30 | 31 | 31 |
+| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 | 12 | 12 | 12 |
+| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 | 8 | 7 | 8 |
+| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 | 7 | 7 | 6 |
+| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+
+## Changes made in P5f
+
+| ID | Before | After | Why |
+|---|---|---|---|
+| R24 | MISS | PART | Event-driven, risk-based alerts are implemented and verified: five alert types from the combined risk index and campaign detection, one open alert per subject, occurrence counting for identical re-uploads, escalation and reopen rules, concurrency-safe acknowledge/resolve/reopen with history and audit, an in-app inbox with top-bar badge, and optional SMTP e-mail (OFF by default; Jinja2 templates; tested against a fake SMTP sink only). Verified on SQLite and PostgreSQL and in a Docker/nginx run. **Not real-time:** alerts are raised when an analysis is processed; mailbox monitoring needs ingestion (R36), which is missing. No real SMTP server was used. |
+| R55 | MISS | MISS | Jinja2 is now used, but only for the alert e-mail templates; forensic report templates remain ReportLab, so the requirement (Jinja2 report templates) is still not met. |
+| R33 | VER | VER | Counts updated (see the matrix row). |
 
 ## Changes made in P5h
 
@@ -158,7 +166,7 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R21 | Source-type classification | IMP-U | `attack/engine.py` hypotheses (spoofed domain, compromised account, anonymised infra, direct malicious infra) · `test_attack.py`, `Attack.test.tsx` | Infra hypotheses tested with SIMULATED intel only; heuristic bands; no sender-history baseline |
 | R22 | Rule tests | VER | `test_detection.py` | — |
 | R23 | MITRE ATT&CK mapping | VER | `attack/` (catalog pinned to Enterprise 20.1, verified), ATT&CK tab, PDF §7C · `test_attack.py`, `Attack.test.tsx` | Single-message view; heuristic confidence; no analyst overrides |
-| R24 | Real-time alerts | MISS | — | Needs ingestion (R36) |
+| R24 | Real-time alerts | PART | P5f `alerts/` engine, `/api/v1/alerts*`, Alerts page, top-bar badge, optional e-mail · `test_alerts.py` (SQLite + PostgreSQL), `Alerts.test.tsx`, Docker run | Event-driven only (raised when an analysis is processed); no real-time mailbox monitoring because ingestion (R36) is missing; e-mail verified against a local fake SMTP sink only |
 | R25 | Analyst dashboard | IMP-U | `ResultsDashboard.tsx` tabs, including Threat intel; P5b login, role-aware actions, admin users page · `ThreatIntelPanel.test.tsx`, `AssessmentInteractions.test.tsx`, `Auth.test.tsx` | Geo shown only from live enrichment or IPinfo |
 | R26 | Interactive trace map / graphs | VER | Cytoscape trace and campaign graphs; P5g Leaflet infrastructure map (analysis + campaign) · `Geo.test.tsx`, browser run | Real-data map points depend on R14 |
 | R27 | Structured forensic reports | VER | `reports/pdf.py` (incl. §7A) · `test_assessment_report.py`, `test_p41.py`, `test_intel.py` | — |
@@ -189,7 +197,7 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R52* | Search (OpenSearch) | MISS | — | — |
 | R53* | OAuth 2.0 | BLK | — (P5b is local password auth + JWT, not OAuth 2.0) | Provider not chosen |
 | R54* | JWT authentication | VER | `security/tokens.py`, `api/auth_router.py` · `test_access_control.py` | No refresh tokens; no key rotation (key id) |
-| R55* | Jinja2 report templates | MISS | ReportLab only | Low value |
+| R55* | Jinja2 report templates | MISS | ReportLab reports; P5f uses Jinja2 (autoescape) for alert e-mail templates only | Report templates remain ReportLab |
 | R56* | Plotly analytics | VER | `geo/analytics.py`, `/analytics/summary`, `AnalyticsPage.tsx` (lazy Plotly) · `test_geo.py` (SQLite + PostgreSQL), `Geo.test.tsx`, browser run | Bounded window (2,000 latest analyses for derived charts) |
 | R57* | Leaflet geolocation map | IMP-U | `components/geo/GeoMap.tsx` (no tiles; Natural Earth outline) · `Geo.test.tsx`, browser run | Verified with SIMULATED points only; live geo data unverified |
 | R58* | Local LLM forensic summaries | VER | `llm/*` · `test_llm.py`, `test_p41.py`, `test_p42.py` | — |

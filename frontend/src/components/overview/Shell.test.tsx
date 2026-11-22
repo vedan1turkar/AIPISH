@@ -103,7 +103,7 @@ describe('overview page', () => {
     expect(stats.find((t) => t?.startsWith('Open cases'))).toContain('1')
     expect(stats.find((t) => t?.startsWith('Candidate campaigns'))).toContain('1')
     const recent = screen.getByRole('table', { name: 'Recent analyses' })
-    expect(within(recent).getAllByRole('row')).toHaveLength(11)          // header + 10 (limited)
+    expect(within(recent).getAllByRole('row')).toHaveLength(14)          // header + 13 (limited; P5f rebalanced)
     expect(screen.getByText('C-0001').getAttribute('href')).toBe('#campaign/c1')
     expect(screen.getByRole('group', { name: 'Quick actions' }).textContent).toContain('New analysis')
     await waitFor(() => expect(calls.filter((c) => c.endsWith('/assessment')).length).toBe(ML_SAMPLE))   // bounded

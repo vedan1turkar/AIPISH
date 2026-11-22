@@ -1400,3 +1400,124 @@ export async function getRiskHistory(id: string, signal?: AbortSignal): Promise<
 export async function recomputeRisk(id: string): Promise<RiskAssessment> {
   return request<RiskAssessment>(`/api/v1/analyses/${encodeURIComponent(id)}/risk/recompute`, { method: 'POST' })
 }
+
+// ── Risk-based alerts (P5f) ─────────────────────────────────────────────────
+// Alerts are raised when an analysis is processed; this system does not monitor mailboxes in real time.
+export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical'
+export type AlertStatus = 'new' | 'acknowledged' | 'resolved'
+export type AlertType = 'high_risk_analysis' | 'hard_evidence_floor' | 'review_conflict' | 'new_campaign' | 'campaign_growth'
+
+export interface AlertSummaryFields {
+  analysis_id?: string
+  latest_analysis_id?: string
+  analysis_ids?: string[]
+  combined_level?: RiskLevel
+  combined_score?: number | null
+  rule_verdict?: string | null
+  ml_class?: string | null
+  floors?: string[]
+  conflict?: string | null
+  risk_version?: number
+  campaign_id?: string
+  campaign_label?: string
+  campaign_confidence?: string
+  member_count?: number
+  previous_member_count?: number
+}
+
+export interface AlertItem {
+  id: string
+  type: AlertType
+  type_label: string
+  severity: AlertSeverity
+  status: AlertStatus
+  title: string
+  analysis_id: string | null
+  campaign_id: string | null
+  risk_id: string | null
+  summary: AlertSummaryFields
+  occurrence_count: number
+  created_at: string | null
+  updated_at: string | null
+  last_seen_at: string | null
+  acknowledged_by: string | null
+  acknowledged_at: string | null
+  resolved_by: string | null
+  resolved_at: string | null
+  resolution_note: string | null
+  delivery: { email?: { status: string; at?: string; reason?: string } }
+  version: number
+  analysis_redacted: boolean
+}
+
+export interface AlertHistoryEntry {
+  id: string
+  action: string
+  actor: string | null
+  note: string | null
+  from_state: string | null
+  to_state: string | null
+  detail: Record<string, unknown>
+  at: string | null
+}
+
+export interface AlertDetail extends AlertItem { history: AlertHistoryEntry[]; note: string }
+export interface AlertList { items: AlertItem[]; total: number; page: number; page_size: number; note: string }
+export interface AlertsSummary {
+  by_status: Record<AlertStatus, number>
+  open_by_severity: Record<AlertSeverity, number>
+  new_by_severity: Record<AlertSeverity, number>
+  new: number
+  open: number
+  enabled: boolean
+  note: string
+}
+export interface AlertConfigView {
+  enabled: boolean
+  min_level: string
+  floor_alerts: boolean
+  conflict_alerts: boolean
+  campaign_min_confidence: string
+  growth_min_new_members: number
+  growth_debounce_minutes: number
+  email: {
+    enabled: boolean; configured: boolean; min_severity: string; smtp_host: string | null; smtp_port: number
+    smtp_security: string; smtp_username_set: boolean; smtp_password_set: boolean; from: string | null
+    recipients: number; max_per_minute: number; timeout_seconds: number; app_base_url: string | null
+  }
+  trigger_note: string
+}
+export interface AlertFilters {
+  status?: AlertStatus | 'open' | ''
+  severity?: AlertSeverity | ''
+  type?: AlertType | ''
+  analysis_id?: string
+  campaign_id?: string
+  page?: number
+  page_size?: number
+}
+
+export async function listAlerts(f: AlertFilters = {}, signal?: AbortSignal): Promise<AlertList> {
+  const p = new URLSearchParams()
+  for (const [k, v] of Object.entries(f)) if (v !== undefined && v !== '' && v !== null) p.set(k, String(v))
+  const q = p.toString()
+  return request<AlertList>(`/api/v1/alerts${q ? `?${q}` : ''}`, { signal })
+}
+
+export async function getAlertsSummary(signal?: AbortSignal): Promise<AlertsSummary> {
+  return request<AlertsSummary>('/api/v1/alerts/summary', { signal })
+}
+
+export async function getAlert(id: string, signal?: AbortSignal): Promise<AlertDetail> {
+  return request<AlertDetail>(`/api/v1/alerts/${encodeURIComponent(id)}`, { signal })
+}
+
+export async function alertAction(id: string, action: 'acknowledge' | 'resolve' | 'reopen',
+                                  body: { note?: string; version?: number } = {}): Promise<AlertDetail> {
+  return request<AlertDetail>(`/api/v1/alerts/${encodeURIComponent(id)}/${action}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+}
+
+export async function getAlertConfig(signal?: AbortSignal): Promise<AlertConfigView> {
+  return request<AlertConfigView>('/api/v1/admin/alerts/config', { signal })
+}

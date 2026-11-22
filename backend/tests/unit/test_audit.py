@@ -409,7 +409,9 @@ def test_custody_timeline_and_permissions(admin, analyst, viewer, anon_client):
     assert r.status_code == 200
     body = r.json()
     actions = [t["action"] for t in body["timeline"]]
-    assert actions[:2] == ["analysis_uploaded", "analysis_viewed"]
+    # P5f: the BEC upload also raises an alert, whose audit event belongs to this analysis's custody trail
+    assert actions[0] == "analysis_uploaded"
+    assert actions.index("analysis_viewed") > actions.index("alert_raised") > 0
     assert all("hash" not in json.dumps(t) for t in body["timeline"])
     assert body["integrity_note"] == "SHA-256 detects change to the stored file; it does not make storage tamper-proof."
     assert viewer.get(f"/api/v1/analyses/{aid}/custody").status_code == 403
@@ -652,9 +654,12 @@ def test_masking_covers_every_get_endpoint_for_viewers(analyst, viewer):
     cid = analyst.post(f"/api/v1/investigations/from-analysis/{aid}").json()["id"]
     with dbmod.SessionLocal() as db:
         camp = db.query(Campaign).first()
+        from app.core.models import Alert
+        alert = db.query(Alert).filter_by(analysis_id=aid).first()      # P5f: the BEC raises an alert
+        assert alert is not None
     params = {"analysis_id": aid, "case_id": cid, "campaign_id": camp.id if camp else "none",
               "entity_type": "display_name_alias", "value": "dana finance director", "assessment_id": "none",
-              "hold_id": "none"}
+              "hold_id": "none", "alert_id": alert.id}
     from app.security.permissions import ROUTE_PERMISSIONS, role_allows
     checked = 0
     for (method, path), perm in ROUTE_PERMISSIONS.items():

@@ -298,8 +298,9 @@ def backfill_risk_cmd(args) -> int:
     from app.cases.service import record_audit
     from app.risk.service import backfill
     with _session() as db:
-        result = backfill(db)
-        record_audit(db, "risk_backfilled", detail={**result, "source": "cli"})
+        # P5f: no alerts unless --alerts is given (a backfill must never create an alert storm)
+        result = backfill(db, alerts=bool(getattr(args, "alerts", False)))
+        record_audit(db, "risk_backfilled", detail={**result, "source": "cli", "alerts": bool(getattr(args, "alerts", False))})
         db.commit()
     for k, v in result.items():
         print(f"{k}: {v}")
@@ -313,6 +314,8 @@ def rebuild_correlation_cmd(args) -> int:
         result = rebuild_all(db)
         record_audit(db, "correlation_rebuilt", detail={**result, "source": "cli"})
         db.commit()
+        from app.alerts.service import evaluate_campaigns_safely      # P5f: campaign alerts (isolated)
+        evaluate_campaigns_safely(db, "correlation_rebuild")
     for k, v in result.items():
         print(f"{k}: {v}")
     return 0
@@ -426,6 +429,7 @@ def main(argv: list[str] | None = None) -> int:
     ba = sub.add_parser("backfill-attack", help="compute ATT&CK mappings for all analyses (idempotent)")
     ba.set_defaults(func=backfill_attack_cmd)
     br = sub.add_parser("backfill-risk", help="compute combined risk assessments for all analyses (idempotent)")
+    br.add_argument("--alerts", action="store_true", help="also evaluate alerts (default: no alerts, no alert storms)")
     br.set_defaults(func=backfill_risk_cmd)
     r = sub.add_parser("rebuild-correlation", help="backfill observations and recompute campaigns")
     r.set_defaults(func=rebuild_correlation_cmd)

@@ -17,14 +17,17 @@ import AuditPage from './components/admin/AuditPage'
 import RetentionPage from './components/admin/RetentionPage'
 import StatusBar from './components/shell/StatusBar'
 import OverviewPage from './components/overview/OverviewPage'
+import AlertsPage from './components/alerts/AlertsPage'
+import { AlertBadge } from './components/alerts/shared'
 
-type View = 'overview' | 'upload' | 'results' | 'history' | 'users' | 'account' | 'campaigns' | 'campaign' | 'case' | 'search' | 'analytics' | 'audit' | 'retention' | 'notfound'
+type View = 'overview' | 'upload' | 'results' | 'history' | 'users' | 'account' | 'campaigns' | 'campaign' | 'case' | 'search' | 'analytics' | 'audit' | 'retention' | 'alerts' | 'notfound'
 
 // `perm`: shown only to roles holding it. The backend enforces the same permission on every call.
 const NAV: { id: View; label: string; perm?: string }[] = [
   { id: 'overview', label: 'Overview', perm: 'analysis:read' },
   { id: 'upload', label: 'Analyse', perm: 'analysis:create' },
   { id: 'history', label: 'History', perm: 'analysis:read' },
+  { id: 'alerts', label: 'Alerts', perm: 'alert:read' },
   { id: 'campaigns', label: 'Campaigns', perm: 'correlation:read' },
   { id: 'analytics', label: 'Analytics', perm: 'analysis:read' },
   { id: 'search', label: 'Search', perm: 'search:read' },
@@ -136,6 +139,10 @@ function SignedInApp() {
       else if (h === '#audit') setView(allowed('audit') ? 'audit' : 'history')
       else if (h === '#retention') setView(allowed('retention') ? 'retention' : 'history')
       else if (h === '#analytics') setView(allowed('analytics') ? 'analytics' : 'history')
+      else if (h === '#alerts' || h.startsWith('#alerts/')) {
+        setRouteId(h.startsWith('#alerts/') ? h.slice('#alerts/'.length) || null : null)
+        setView(allowed('alerts') ? 'alerts' : 'history')
+      }
       else if (h.startsWith('#campaign/') && allowed('campaigns')) {
         setRouteId(h.slice('#campaign/'.length))
         setView('campaign')
@@ -186,6 +193,7 @@ function SignedInApp() {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-2 text-sm" data-testid="current-user">
+            {can('alert:read') && <AlertBadge />}
             <span className="whitespace-nowrap font-mono text-sm text-fg">{user.username}</span>
             <span className="rounded-sm border border-line-strong px-1.5 font-mono text-xs uppercase tracking-wider text-muted">
               {user.role}
@@ -250,6 +258,7 @@ function SignedInApp() {
         {view === 'analytics' && can('analysis:read') && <AnalyticsPage />}
         {view === 'audit' && can('audit:read') && <AuditPage />}
         {view === 'retention' && can('retention:manage') && <RetentionPage />}
+        {view === 'alerts' && can('alert:read') && <AlertsPage initialId={routeId} />}
         <p className="mt-6 border-t border-line pt-2 text-sm text-muted">
           All results come from the connected backend. Heuristic scores are investigative
           indicators — not proof of who sent a message or where they are located.

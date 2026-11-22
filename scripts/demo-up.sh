@@ -61,6 +61,7 @@ export APP_ENV=demo
 export AIPISH_HTTP_PORT="$PORT"
 export AIPISH_NET_SUBNET="${AIPISH_DEMO_SUBNET:-172.30.90.0/24}"
 export AIPISH_PROXY_IP="${AIPISH_DEMO_PROXY_IP:-172.30.90.10}"
+export ALERT_EMAIL_ENABLED=0       # P5f: the demo never sends alert e-mail (alerts stay in the in-app inbox)
 export AIPISH_SEED_DEMO=0          # seeded explicitly below, after the stack is healthy
 
 compose() { docker compose -p "$PROJECT" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }

@@ -166,29 +166,39 @@ def compute_and_store(db: Session, rec: Analysis, source: str) -> tuple[RiskAsse
     return row, True
 
 
-def compute_safely(db: Session, analysis_id: str, source: str) -> str:
-    """Pipeline hook. Never raises and never alters the analysis or any other result."""
+def compute_safely(db: Session, analysis_id: str, source: str, alerts: bool = True) -> str:
+    """Pipeline hook. Never raises and never alters the analysis or any other result.
+    P5f: then evaluates alerts for the analysis (separately failure-isolated)."""
     try:
         rec = db.get(Analysis, analysis_id)
         if rec is None:
             return "missing"
         compute_and_store(db, rec, source)
         db.commit()
-        return "ok"
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         logger.warning("combined risk assessment failed for an analysis (%s); analysis unaffected",
                        type(exc).__name__)
         return "error"
+    if alerts:
+        from app.alerts.service import evaluate_analysis_safely
+        evaluate_analysis_safely(db, analysis_id, source)
+    return "ok"
 
 
-def backfill(db: Session) -> dict:
+def backfill(db: Session, alerts: bool = False) -> dict:
+    """Idempotent. P5f: no alerts by default (no alert storms); ``alerts=True`` evaluates each analysis."""
     created = unchanged = 0
-    for (aid,) in db.query(Analysis.id).order_by(Analysis.created_at, Analysis.id).all():
+    ids = [aid for (aid,) in db.query(Analysis.id).order_by(Analysis.created_at, Analysis.id).all()]
+    for aid in ids:
         _row, new = compute_and_store(db, db.get(Analysis, aid), "backfill")
         created += int(new)
         unchanged += int(not new)
     db.commit()
+    if alerts:
+        from app.alerts.service import evaluate_analysis_safely
+        for aid in ids:
+            evaluate_analysis_safely(db, aid, "backfill")
     return {"analyses": created + unchanged, "versions_created": created, "unchanged": unchanged,
             "total_versions": db.query(RiskAssessment).count()}
 

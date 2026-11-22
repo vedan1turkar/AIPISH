@@ -482,3 +482,56 @@ class RiskAssessment(Base):
     fingerprint: Mapped[str] = mapped_column(String(64))
     results_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class Alert(Base):
+    """Risk-based alert (P5f), raised when an analysis is processed (upload, recompute, campaign update).
+
+    Holds system-written titles and identifiers/labels only — never message subject, body, recipients,
+    sender addresses or display names. ``dedupe_key`` identifies the subject of the alert (type + message
+    SHA-256, or type + campaign id); ``active_key`` equals ``dedupe_key`` while the alert is new or
+    acknowledged and is NULL once resolved, so the unique index allows one active alert per key on both
+    SQLite and PostgreSQL.
+    """
+    __tablename__ = "alert"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    dedupe_key: Mapped[str] = mapped_column(String(160), index=True)
+    active_key: Mapped[str | None] = mapped_column(String(160), nullable=True, unique=True)
+    type: Mapped[str] = mapped_column(String(32), index=True)
+    severity: Mapped[str] = mapped_column(String(16), index=True)
+    status: Mapped[str] = mapped_column(String(16), index=True)          # new | acknowledged | resolved
+    analysis_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    campaign_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    risk_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    title: Mapped[str] = mapped_column(String(200))
+    summary_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    occurrence_count: Mapped[int] = mapped_column(Integer, default=1)
+    level_at_resolution: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    acknowledged_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    delivery_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)      # optimistic concurrency for transitions
+
+
+class AlertEvent(Base):
+    """Append-only alert history (P5f). ``analysis_id`` is copied from the alert so retention delete mode
+    removes the history together with the alert (generic dependents)."""
+    __tablename__ = "alert_event"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    alert_id: Mapped[str] = mapped_column(String(32), index=True)
+    analysis_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(32))
+    actor_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    from_state: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    to_state: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    detail_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

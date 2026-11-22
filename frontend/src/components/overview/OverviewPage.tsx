@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../../auth/AuthContext'
 import { useSystemStatus } from '../shell/StatusBar'
 import { RiskLevelTag } from '../risk/level'
+import { OpenAlertsPanelBody } from '../alerts/shared'
 import {
   Button, DataTable, EmptyLine, KV, LED, Panel, SkeletonRows, StatCell, StatusTag, formatDate, verdictTone, type Tone,
 } from '../ui'
@@ -174,7 +175,7 @@ export default function OverviewPage({ onOpenAnalysis }: { onOpenAnalysis: (id: 
           {analyses.state === 'loading' ? <div className="p-3"><SkeletonRows rows={6} /></div> : (
             <DataTable<AnalysisSummary>
               label="Recent analyses"
-              rows={(list ?? []).slice(0, 10)}
+              rows={(list ?? []).slice(0, 13)}
               rowKey={(a) => a.id}
               empty="No analyses yet. Upload an .eml from Analyse to start."
               columns={[
@@ -195,7 +196,14 @@ export default function OverviewPage({ onOpenAnalysis }: { onOpenAnalysis: (id: 
         </Panel>
 
         <div className="flex flex-col gap-4 xl:col-span-4">
-        {/* 3 — campaigns */}
+        {/* 3 — open alerts (P5f) */}
+        {can('alert:read') && (
+          <Panel title="Open alerts" bodyClassName="p-0"
+                 status={<a href="#alerts" className="font-mono text-xs uppercase text-accent hover:underline">view all</a>}>
+            <OpenAlertsPanelBody />
+          </Panel>
+        )}
+        {/* 4 — campaigns */}
         <Panel title="Candidate campaigns" bodyClassName="p-0"
                status={<a href="#campaigns" className="font-mono text-xs uppercase text-accent hover:underline">view all</a>}>
           {!can('correlation:read') ? <div className="p-3"><EmptyLine>Your role cannot read campaigns.</EmptyLine></div>
@@ -204,7 +212,7 @@ export default function OverviewPage({ onOpenAnalysis }: { onOpenAnalysis: (id: 
             : (
               <DataTable<CampaignBrief>
                 label="Candidate campaigns"
-                rows={camps.slice(0, 8)}
+                rows={camps.slice(0, 5)}
                 rowKey={(c) => c.id}
                 empty="No candidate campaigns: no analyses share enough non-generic infrastructure."
                 columns={[
@@ -218,7 +226,7 @@ export default function OverviewPage({ onOpenAnalysis }: { onOpenAnalysis: (id: 
             )}
         </Panel>
 
-        {/* 4 — system status */}
+        {/* 5 — system status */}
         <Panel title="System status">
           {cells.length === 0 ? <SkeletonRows rows={3} /> : (
             <dl>

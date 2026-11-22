@@ -16,6 +16,7 @@ _VIEWER_PERMS = {
     SELF, "analysis:read", "case:read", "report:download", "intel:read", "assessment:read", "ml:status",
     "correlation:read", "search:read", "attack:read",
     "risk:read",       # P5h: combined risk assessment (masked per P5e like every response)
+    "alert:read",      # P5f: alert inbox (read-only)
 }
 _ANALYST_PERMS = _VIEWER_PERMS | {
     "analysis:create", "case:write", "evidence:verify", "intel:run", "assessment:run", "ml:run",
@@ -23,6 +24,7 @@ _ANALYST_PERMS = _VIEWER_PERMS | {
     "pii:view",        # P5e: unmasked sender/recipient addresses, display names and body text
     "custody:read",    # P5e: per-analysis audit timeline
     "risk:recompute",  # P5h
+    "alert:manage",    # P5f: acknowledge / resolve / reopen
 }
 _ADMIN_PERMS = _ANALYST_PERMS | {"users:manage", "config:status", "docs:read", "correlation:rebuild",
                                  "audit:read", "audit:manage", "retention:manage"}   # P5e
@@ -108,6 +110,13 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], str] = {
     ("GET", f"{V1}/analyses/{{analysis_id}}/risk"): "risk:read",                 # P5h
     ("GET", f"{V1}/analyses/{{analysis_id}}/risk/history"): "risk:read",
     ("POST", f"{V1}/analyses/{{analysis_id}}/risk/recompute"): "risk:recompute",
+    ("GET", f"{V1}/alerts"): "alert:read",                                       # P5f
+    ("GET", f"{V1}/alerts/summary"): "alert:read",
+    ("GET", f"{V1}/alerts/{{alert_id}}"): "alert:read",
+    ("POST", f"{V1}/alerts/{{alert_id}}/acknowledge"): "alert:manage",
+    ("POST", f"{V1}/alerts/{{alert_id}}/resolve"): "alert:manage",
+    ("POST", f"{V1}/alerts/{{alert_id}}/reopen"): "alert:manage",
+    ("GET", f"{V1}/admin/alerts/config"): "config:status",
     # user administration
     ("GET", f"{V1}/admin/users"): "users:manage",
     ("POST", f"{V1}/admin/users"): "users:manage",

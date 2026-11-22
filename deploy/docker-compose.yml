@@ -62,6 +62,8 @@ services:
       AIPISH_SEED_DEMO: ${AIPISH_SEED_DEMO:-0}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_ALLOWED_HOSTS: ${OLLAMA_ALLOWED_HOSTS:-host.docker.internal}
+      # P5f: alert e-mail is OFF unless explicitly enabled (scripts/demo-up.sh forces 0 for the demo)
+      ALERT_EMAIL_ENABLED: ${ALERT_EMAIL_ENABLED:-0}
     extra_hosts:
       - "host.docker.internal:host-gateway"     # Linux; Docker Desktop provides it already
     volumes:

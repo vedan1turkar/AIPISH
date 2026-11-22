@@ -201,6 +201,8 @@ Anonymous `GET /api/v1/health` now returns only `{"status"}`. Container health c
 | `RETENTION_ANALYSIS_DAYS` / `RETENTION_EVIDENCE_DAYS` | `0` / `0` | Retention periods (0 = disabled). Nothing is purged unless a run is applied. |
 | `RETENTION_MODE` / `RETENTION_GRACE_DAYS` | `redact` / `0` | `redact` or `delete`; extra days before eligibility. Audit events are never purged. |
 | `RETENTION_INTERVAL_SECONDS` | `86400` | Loop interval of the optional `retention` profile service. |
+| `ALERTS_ENABLED` and `ALERT_*` | see `env.example` | P5f risk-based alerts (explicitly enabled in the template). Raised when an analysis is processed; no real-time mailbox monitoring. Rules: docs/alerts/README.md. |
+| `ALERT_EMAIL_ENABLED`, `ALERT_SMTP_HOST/PORT/SECURITY/USERNAME/PASSWORD`, `ALERT_EMAIL_FROM/TO`, `APP_BASE_URL` | e-mail off | Optional alert e-mail. TLS verification always on; secrets only in `deploy/.env`, never logged or returned. `scripts/demo-up.sh` forces e-mail off for the demo. |
 | `AIPISH_ML_AT_UPLOAD` / `AIPISH_ML_UPLOAD_TIMEOUT_SECONDS` | `1` / `20` | P5h upload-time ML classification (cheap ensemble only) and its time bound. Without mounted models it is stored as `unavailable`. |
 | `CASE_EVIDENCE_STORE` etc. | see `.env.example` | Evidence policy, auth throttling, intel keys: as in development. |
 

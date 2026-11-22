@@ -88,4 +88,6 @@ def rebuild(db: Session = Depends(get_db)) -> dict:
     result = rebuild_all(db)
     record_audit(db, "correlation_rebuilt", detail={k: v for k, v in result.items()})
     db.commit()
+    from app.alerts.service import evaluate_campaigns_safely      # P5f: campaign alerts (isolated)
+    evaluate_campaigns_safely(db, "correlation_rebuild")
     return result

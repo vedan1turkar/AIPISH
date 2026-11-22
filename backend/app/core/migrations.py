@@ -93,6 +93,7 @@ STEPS: list[tuple[int, str, Callable[[Engine], None]]] = [
     (6, "audit_chain_genesis", _audit_genesis),                         # P5e (before triggers)
     (7, "audit_append_only_triggers", _audit_triggers),                 # P5e
     (8, "risk_assessment_tables", _baseline),      # P5h: ml_classification + risk_assessment (create_all)
+    (9, "alert_tables", _baseline),               # P5f: alert + alert_event (create_all)
 ]
 
 

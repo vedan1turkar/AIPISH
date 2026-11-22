@@ -55,6 +55,7 @@ import AttackPanel from './attack/AttackPanel'
 import { getAttack, getAttackHistory, recomputeAttack, type AttackHistoryItem, type AttackMappingResult } from '../api/client'
 import { getRisk, getRiskHistory, recomputeRisk, type RiskAssessment, type RiskHistoryItem } from '../api/client'
 import RiskPanel from './risk/RiskPanel'
+import { AnalysisAlertBanner } from './alerts/shared'
 import { useAuth } from '../auth/AuthContext'
 
 type Tab = 'overview' | 'risk' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'attack' | 'trace' | 'geo' | 'ai' | 'custody'
@@ -407,6 +408,8 @@ export default function ResultsDashboard({
           </Button>
         </div>
       </div>
+
+      {can('alert:read') && <AnalysisAlertBanner analysisId={analysis.id} />}
 
       {(analysis.retention_state === 'redacted' || analysis.pii_masked) && (
         <div className="space-y-1" data-testid="privacy-banners">

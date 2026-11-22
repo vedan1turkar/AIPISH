@@ -1,0 +1,15 @@
+AIPISH alert {{ alert.id }}
+
+Type:        {{ type_label }}
+Severity:    {{ alert.severity | upper }}
+Status:      {{ alert.status }}
+{% if s.analysis_id %}Analysis ID: {{ s.analysis_id }}
+{% endif %}{% if s.campaign_label %}Campaign:    {{ s.campaign_label }} ({{ s.campaign_confidence }} confidence, {{ s.member_count }} members)
+{% endif %}{% if s.combined_level %}Combined risk: {{ s.combined_level }} {{ s.combined_score }}/100 (risk index, not a probability)
+Rule verdict: {{ s.rule_verdict or "n/a" }}
+ML class:     {{ s.ml_class or "not available" }}
+Floors fired: {{ (s.floors | join(", ")) if s.floors else "none" }}
+{% endif %}
+Open in AIPISH: {{ link }}
+
+{{ disclaimer }}
