@@ -1,0 +1,11 @@
+<section id="s8b"><h2>8B. Custody and Integrity Note</h2><div class="body">
+<p>{{ custody.guarantee }}</p>
+<p>{{ custody.integrity_note }}</p>
+<p class="caveat">The download of this report was recorded in the tamper-evident audit log with the requesting user and the pinned versions printed above.</p>
+</div></section>
+
+<section id="s9"><h2>9. Confidence &amp; Limitations</h2><div class="body">
+<ul>{% for line in limitations %}<li>{{ line }}</li>{% endfor %}</ul>
+{% if unknowns %}<p><strong>Missing/unknown evidence:</strong></p><ul>{% for f, why in unknowns %}<li>{{ f }}: {{ why }}</li>{% endfor %}</ul>{% endif %}
+{% if forensics_disclaimer %}<p class="caveat">{{ forensics_disclaimer }}</p>{% endif %}
+</div></section>

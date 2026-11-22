@@ -1,0 +1,60 @@
+<section id="s8"><h2>8. ML Classification, SHAP and AI-Assisted Interpretation</h2><div class="body">
+<p class="caveat">These components are separate from, and do not replace, the 18-rule verdict above. Each block states whether it actually ran.</p>
+{% if not assessment %}<p>No ML / SHAP / AI assessment has been generated for this analysis; none of these components are reported.</p>
+{% else %}{% set a = assessment %}
+<dl><dt>Assessment version</dt><dd>{{ a.version }}</dd><dt>Assessment ID</dt><dd class="mono">{{ a.id }}</dd>
+<dt>Generated</dt><dd>{{ a.generated }}</dd><dt>Source</dt><dd>{{ a.source }}</dd></dl>
+<p class="caveat">This report prints exactly the assessment version identified above; regenerating the assessment later creates a new version and does not change it.</p>
+{% if a.financial %}<p class="notice">INDEPENDENT VERIFICATION REQUIRED. {{ a.financial.warning }}{% if a.financial.terms %} (signals: {{ a.financial.terms }}){% endif %}</p>{% endif %}
+<h3>8.1 ML classification</h3>
+<p>Classifier: {{ a.ml.status }}{% if a.ml.reason %} — {{ a.ml.reason }}{% endif %}</p>
+{% if a.ml.ok %}<dl><dt>Predicted class</dt><dd><strong>{{ a.ml.label }}</strong></dd>
+<dt>Ensemble score</dt><dd>{{ a.ml.confidence }} (model probability for the predicted class; uncalibrated, not a certainty)</dd>
+<dt>Model version</dt><dd class="mono">{{ a.ml.model }}</dd><dt>Never-predicted classes</dt><dd>{{ a.ml.untrained }}</dd></dl>
+{% if a.ml.probs %}<table><thead><tr><th>Class</th><th>Score</th></tr></thead><tbody>{% for k, v in a.ml.probs %}<tr><td>{{ k }}</td><td class="mono">{{ v }}</td></tr>{% endfor %}</tbody></table>{% endif %}{% endif %}
+<h3>8.2 SHAP feature contributions</h3>
+<p>Explanation: {{ a.shap.status }}{% if a.shap.reason %} — {{ a.shap.reason }}{% endif %}</p>
+{% for c in a.shap.components %}
+<p>Component <strong>{{ c.name }}</strong> ({{ c.explainer }}, ensemble weight {{ c.weight }}) for class <strong>{{ c.label }}</strong>. Values are in the raw-margin space ({{ c.space }}); they are not probabilities.</p>
+<p>{{ c.net }}</p>{% if c.divergence %}<p class="caveat">Why the ensemble still predicts this class: {{ c.divergence }}</p>{% endif %}
+<table><thead><tr><th>Feature</th><th>Group</th><th>Value</th><th>SHAP (raw margin)</th><th>Direction</th></tr></thead><tbody>
+{% for r in c.rows %}<tr><td class="mono">{{ r.feature }}</td><td>{{ r.group }}</td><td>{{ r.value }}</td><td class="mono">{{ r.shap }}</td><td>{{ r.direction }}</td></tr>{% endfor %}
+{% if c.remainder %}<tr><td>other features (not listed)</td><td>—</td><td>sum of contributions below the top-10 cut-off</td><td class="mono">{{ c.remainder }}</td><td>—</td></tr>{% endif %}
+</tbody></table><p class="muted">Additivity: {{ c.additivity }}.</p>
+{% endfor %}
+{% for comp, why in a.shap.not_explained %}<p class="caveat">Not explained: {{ comp }} — {{ why }}</p>{% endfor %}
+<p class="caveat">SHAP covers only the explained component(s) listed above (the XGBoost half of the served ensemble); it does not explain the DistilRoBERTa component or the ensemble as a whole.</p>
+{% if a.shap.disclaimer %}<p class="caveat">{{ a.shap.disclaimer }}</p>{% endif %}
+<h3>8.3 AI-generated forensic interpretation (local LLM)</h3>
+<p class="caveat"><strong>AI-GENERATED INTERPRETATION.</strong> {{ a.llm.label }} It never replaces the rule-engine or ML verdicts.</p>
+<p>Summary: {{ a.llm.status }}{% if a.llm.reason %} — {{ a.llm.reason }}{% endif %}</p>
+{% if a.llm.model %}<p class="muted">Model: {{ a.llm.model.provider }} / {{ a.llm.model.name }} (digest {{ (a.llm.model.digest or "n/a")[:12] }}, local: {{ a.llm.model.local }})</p>{% endif %}
+{% if a.llm.ok %}
+{% if a.llm.summary %}<p><strong>Summary:</strong> {{ a.llm.summary }}</p>{% else %}<p class="caveat">Summary withheld: it failed evidence validation.</p>{% endif %}
+{% if a.llm.assessment %}<p><strong>Assessment:</strong> {{ a.llm.assessment }}</p>{% endif %}
+{% if a.llm.findings %}<table><thead><tr><th>#</th><th>Finding</th><th>Basis</th><th>Evidence</th></tr></thead><tbody>
+{% for f in a.llm.findings %}<tr><td class="mono">{{ loop.index }}</td><td>{{ f.statement }}</td><td><strong>{{ f.basis }}</strong></td><td class="mono">{{ f.ids }}</td></tr>{% endfor %}</tbody></table>
+{% else %}<p>No findings passed validation.</p>{% endif %}
+{% if a.llm.rejected %}<p><strong>Rejected by validation (not evidence):</strong></p><ul>{% for st, why in a.llm.rejected %}<li>{{ st }} — <em>{{ why }}</em></li>{% endfor %}</ul>{% endif %}
+{% if a.llm.limitations %}<p><strong>Model-stated limitations:</strong></p><ul>{% for x in a.llm.limitations %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+{% endif %}
+{% for g in a.llm.recommendations %}<p><strong>{{ g.title }}</strong></p><ul>{% for r in g.entries %}<li>{% if r.struck %}<s>{{ r.text }}</s>{% else %}{{ r.text }}{% endif %}{% if r.ids %} <span class="mono">[{{ r.ids }}]</span>{% endif %}{% if r.note %} — <em>{{ r.note }}</em>{% endif %}</li>{% endfor %}</ul>{% endfor %}
+<p class="caveat"><strong>Privacy:</strong> before reaching the local model, secrets, account and card numbers, phone numbers, address local parts and URL paths are redacted, as are personal names taken from the From/To/Cc headers and names after greetings or sign-offs. Other personal names in the body are not reliably detected and may reach the local model; nothing is sent to an external service.</p>
+{% if a.llm.unavailable %}<p><strong>Checks unavailable to the interpretation (not passed):</strong></p><ul>{% for c, why in a.llm.unavailable %}<li>{{ c }}: {{ why }}</li>{% endfor %}</ul>{% endif %}
+{% if a.llm.evidence %}<h3>Evidence items cited above (deterministic, produced by the pipeline — not by the LLM)</h3>
+<table><thead><tr><th>ID</th><th>Category</th><th>Source</th><th>Statement</th></tr></thead><tbody>
+{% for i, c, src, st in a.llm.evidence %}<tr><td class="mono">{{ i }}</td><td>{{ c }}</td><td class="mono">{{ src }}</td><td>{{ st }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+{% endif %}
+</div></section>
+
+<section id="s8a"><h2>8A. Combined Risk Assessment (additional result, not a probability)</h2><div class="body">
+<p class="caveat">An additional, separately labelled risk index that combines the rule engine, the ML ensemble, hard-evidence floors and consented threat intelligence by documented rules. It does not replace or change the rule verdict or the ML classification.</p>
+{% if not risk %}<p><strong>Combined risk: NOT COMPUTED</strong> for this analysis.</p>
+{% else %}<dl><dt>Result</dt><dd><strong>{{ risk.level }}</strong> — {% if risk.score is not none %}{{ risk.score }}/100{% else %}no score (indeterminate){% endif %}; confidence {{ risk.confidence }}; agreement {{ risk.agreement }}</dd>
+<dt>Version</dt><dd class="mono">{{ risk.version }}</dd><dt>Inputs</dt><dd>{{ risk.inputs }}</dd><dt>Flags</dt><dd>{{ risk.flags }}</dd></dl>
+<table><thead><tr><th>Component</th><th>Status</th><th>Value</th><th>Role / effect</th><th>Evidence</th></tr></thead><tbody>
+{% for c in risk.components %}<tr><td>{{ c.label }}</td><td>{{ c.status }}</td><td>{{ c.value }}</td><td>{{ c.role }}</td><td class="mono">{{ c.evidence }}</td></tr>{% endfor %}</tbody></table>
+<ul>{% for line in risk.explanation %}<li>{{ line }}</li>{% endfor %}</ul>
+{% if risk.evidence %}<table><thead><tr><th>ID</th><th>Source</th><th>Statement</th></tr></thead><tbody>{% for i, src, st in risk.evidence %}<tr><td class="mono">{{ i }}</td><td>{{ src }}</td><td>{{ st }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+<ul class="caveat">{% for d in risk.disclaimers %}<li>{{ d }}</li>{% endfor %}</ul>{% endif %}
+</div></section>

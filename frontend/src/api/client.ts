@@ -282,6 +282,7 @@ export interface AnalysisDetail {
   redacted_at?: string | null
   legal_hold?: boolean
   redaction_note?: string | null
+  parser_crosscheck?: ParserCrosscheck | null   // P5k-lite (informational; counts and field names only)
   pii_masked?: boolean
   body_restricted?: boolean
 }
@@ -382,16 +383,39 @@ export async function downloadReport(
   attackId?: string | null,
   riskId?: string | null,
 ): Promise<void> {
+  const q = pinQuery(assessmentId, intelRunId, attackId, riskId)
+  // Authenticated fetch → blob → download (a bare link could not carry the bearer token).
+  await downloadAuthed(
+    `/api/v1/investigations/${encodeURIComponent(caseId)}/report/${encodeURIComponent(analysisId)}${q}`,
+    `forensic-report-${caseId.slice(0, 8)}.pdf`,
+  )
+}
+
+/** P5k-lite: the same report as a self-contained HTML file (Jinja2; no case needed; same version pins). */
+export async function downloadHtmlReport(
+  analysisId: string,
+  assessmentId?: string | null,
+  intelRunId?: string | null,
+  attackId?: string | null,
+  riskId?: string | null,
+): Promise<void> {
+  const q = pinQuery(assessmentId, intelRunId, attackId, riskId)
+  await downloadAuthed(`/api/v1/analyses/${encodeURIComponent(analysisId)}/report.html${q}`,
+                       `forensic-report-${analysisId.slice(0, 8)}.html`)
+}
+
+function pinQuery(assessmentId?: string | null, intelRunId?: string | null, attackId?: string | null,
+                  riskId?: string | null): string {
   const params = new URLSearchParams()
   if (assessmentId) params.set('assessment_id', assessmentId)
   if (intelRunId) params.set('intel_run_id', intelRunId)
   if (attackId) params.set('attack_id', attackId)
   if (riskId) params.set('risk_id', riskId)
-  const q = params.toString() ? `?${params.toString()}` : ''
-  // Authenticated fetch → blob → download (a bare link could not carry the bearer token).
-  const res = await authedFetch(
-    `/api/v1/investigations/${encodeURIComponent(caseId)}/report/${encodeURIComponent(analysisId)}${q}`,
-  )
+  return params.toString() ? `?${params.toString()}` : ''
+}
+
+async function downloadAuthed(path: string, filename: string): Promise<void> {
+  const res = await authedFetch(path)
   if (!res.ok) {
     let code = `HTTP_${res.status}`
     let message = `Report download failed (HTTP ${res.status})`
@@ -413,7 +437,7 @@ export async function downloadReport(
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `forensic-report-${caseId.slice(0, 8)}.pdf`
+  a.download = filename
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -1520,4 +1544,18 @@ export async function alertAction(id: string, action: 'acknowledge' | 'resolve' 
 
 export async function getAlertConfig(signal?: AbortSignal): Promise<AlertConfigView> {
   return request<AlertConfigView>('/api/v1/admin/alerts/config', { signal })
+}
+
+// ── Parser cross-check (P5k-lite, informational) ───────────────────────────
+export type CrosscheckStatus = 'agree' | 'minor_differences' | 'security_relevant_differences' | 'unavailable'
+export interface CrosscheckDifference { field: string; severity: 'info' | 'security_relevant'; description: string; evidence_id: string }
+export interface ParserCrosscheck {
+  status: CrosscheckStatus
+  reason?: string
+  primary: string
+  secondary: string
+  secondary_version: string | null
+  differences: CrosscheckDifference[]
+  compared: { received_hops: number[]; attachments: number[]; body_parts: number[] } | null
+  note: string
 }

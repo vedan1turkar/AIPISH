@@ -78,6 +78,7 @@ fails if any route is missing from `ROUTE_PERMISSIONS`.
 | `GET` | `/api/v1/analyses/{analysis_id}/risk` | `risk:read` | viewer, analyst, admin (P5h; masked per P5e) |
 | `GET` | `/api/v1/analyses/{analysis_id}/risk/history` | `risk:read` | viewer, analyst, admin (P5h) |
 | `POST` | `/api/v1/analyses/{analysis_id}/risk/recompute` | `risk:recompute` | analyst, admin (P5h; audited) |
+| `GET` | `/api/v1/analyses/{analysis_id}/report.html` | `report:download` | viewer, analyst, admin (P5k-lite; masked like the PDF; audited) |
 | `GET` | `/api/v1/alerts` | `alert:read` | viewer, analyst, admin (P5f) |
 | `GET` | `/api/v1/alerts/summary` | `alert:read` | viewer, analyst, admin (P5f) |
 | `GET` | `/api/v1/alerts/{alert_id}` | `alert:read` | viewer, analyst, admin (P5f) |

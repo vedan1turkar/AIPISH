@@ -228,6 +228,78 @@ def _correlation_snapshot(db: Session, analysis_id: str) -> dict | None:
         return None
 
 
+def report_inputs(db: Session, rec: Analysis, case: Case | None, request: Request | None,
+                  assessment_id: str | None = None, intel_run_id: str | None = None, attack_id: str | None = None,
+                  risk_id: str | None = None) -> dict:
+    """The exact inputs of a forensic report (shared by the PDF and the P5k-lite HTML report so both print the
+    same, identically masked and version-pinned data). Stored versions only; nothing is re-run here."""
+    integrity = _verify_integrity(db, rec)
+    report_id = f"RPT-{rec.id[:8]}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    # P5e: the same masking serializer as the API for roles without pii:view ("MASKED VIEW"); pinned
+    # versions are identical for every role. Redacted analyses print the retention notice.
+    from app.privacy.masking import mask_payload, role_sees_pii
+    masked = not role_sees_pii(getattr(getattr(request, "state", None), "user_role", None)) if request else False
+    view_notes = []
+    if masked:
+        view_notes.append("MASKED VIEW: personal data (addresses, display names, body) masked for the requesting role.")
+    if rec.retention_state == "redacted":
+        view_notes.append("Content redacted per retention policy: personal content was removed; hashes, "
+                          "indicators, findings and scores are retained.")
+    _m = mask_payload if masked else (lambda x: x)
+    assessment = _assessment_for(db, rec.id, assessment_id)
+    intel = _intel_for(db, rec.id, intel_run_id)
+    corr = _correlation_snapshot(db, rec.id)
+    attack = _attack_for(db, rec.id, attack_id)
+    risk = _risk_for(db, rec.id, risk_id)
+    kwargs = dict(
+        view_notes=view_notes,
+        case_dict=_m(case_to_dict(db, case)) if case is not None else {"case_number": None, "title": None},
+        analysis_row=_m({
+            "id": rec.id,
+            "sha256": rec.raw_sha256,
+            "size_bytes": rec.raw_size_bytes,
+            "subject": rec.subject,
+            "date": rec.date_header,
+            "message_id": rec.message_id,
+            "reply_to": [{"email": e} for e in (rec.reply_to_emails or [])],
+            "return_path": rec.return_path,
+            "to": [{"email": e} for e in (rec.to_emails or [])],
+            "cc": [{"email": e} for e in (rec.cc_emails or [])],
+            "sender": {
+                "display_name": rec.from_display_name,
+                "email": rec.from_email,
+                "domain": rec.from_domain,
+            },
+            "parser_crosscheck": rec.parser_crosscheck,      # P5k-lite (counts/field names only)
+            "retention_state": rec.retention_state,
+        }),
+        detection=_m(rec.detection_json or {}),
+        forensics=_m(rec.forensics_json or {}),
+        auth=_m(rec.auth_json or {}),
+        enrichment=_m(rec.enrichment_json or {}),
+        integrity=integrity,
+        report_id=report_id,
+        assessment=_m(assessment),
+        intel=_m(intel),
+        correlation=_m(corr),
+        attack=_m(attack),
+        risk=_m(risk),
+    )
+    return {"kwargs": kwargs, "masked": masked, "mask": _m, "assessment": assessment, "intel": intel,
+            "correlation": corr, "attack": attack, "risk": risk}
+
+
+def report_audit_detail(inputs: dict, size_bytes: int, report_format: str, redacted: bool) -> dict:
+    a, i, c, t, r = (inputs["assessment"], inputs["intel"], inputs["correlation"], inputs["attack"], inputs["risk"])
+    return {"report_id": inputs["kwargs"]["report_id"], "format": report_format, "size_bytes": size_bytes,
+            "assessment_id": (a or {}).get("assessment_id"), "assessment_version": (a or {}).get("version"),
+            "intel_run_id": (i or {}).get("run_id"), "intel_run_version": (i or {}).get("version"),
+            "campaigns": [{"id": x["id"], "version": x["version"]} for x in (c or {}).get("campaigns", [])],
+            "attack_mapping_id": (t or {}).get("mapping_id"), "attack_mapping_version": (t or {}).get("version"),
+            "risk_id": (r or {}).get("risk_id"), "risk_version": (r or {}).get("version"),
+            "masked": inputs["masked"], "redacted": redacted}
+
+
 @router.get("/{case_id}/report/{analysis_id}")
 def report_pdf(
     case_id: str,
@@ -250,8 +322,6 @@ def report_pdf(
         raise HTTPException(status_code=404,
                             detail={"code": "NOT_FOUND", "message": "Analysis not found."})
 
-    integrity = _verify_integrity(db, rec)
-
     # serving raw/derived evidence may be key-restricted when raw retention is on
     if CASE_EVIDENCE_STORE == "raw" and CASE_EVIDENCE_STORE_KEY:
         if x_evidence_key != CASE_EVIDENCE_STORE_KEY:
@@ -259,50 +329,11 @@ def report_pdf(
                                 detail={"code": "EVIDENCE_KEY_REQUIRED",
                                         "message": "Configured policy requires a valid X-Evidence-Key header."})
 
-    report_id = f"RPT-{rec.id[:8]}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-    # P5e: the same masking serializer as the API for roles without pii:view ("MASKED VIEW"); pinned
-    # versions are identical for every role. Redacted analyses print the retention notice.
-    from app.privacy.masking import mask_payload, role_sees_pii
-    masked = not role_sees_pii(getattr(getattr(request, "state", None), "user_role", None)) if request else False
-    view_notes = []
-    if masked:
-        view_notes.append("MASKED VIEW: personal data (addresses, display names, body) masked for the requesting role.")
-    if rec.retention_state == "redacted":
-        view_notes.append("Content redacted per retention policy: personal content was removed; hashes, "
-                          "indicators, findings and scores are retained.")
-    _m = mask_payload if masked else (lambda x: x)
-    pdf = build_report_pdf(
-        view_notes=view_notes,
-        case_dict=_m(case_to_dict(db, case)),
-        analysis_row=_m({
-            "id": rec.id,
-            "sha256": rec.raw_sha256,
-            "size_bytes": rec.raw_size_bytes,
-            "subject": rec.subject,
-            "date": rec.date_header,
-            "message_id": rec.message_id,
-            "reply_to": [{"email": e} for e in (rec.reply_to_emails or [])],
-            "return_path": rec.return_path,
-            "to": [{"email": e} for e in (rec.to_emails or [])],
-            "cc": [{"email": e} for e in (rec.cc_emails or [])],
-            "sender": {
-                "display_name": rec.from_display_name,
-                "email": rec.from_email,
-                "domain": rec.from_domain,
-            },
-        }),
-        detection=_m(rec.detection_json or {}),
-        forensics=_m(rec.forensics_json or {}),
-        auth=_m(rec.auth_json or {}),
-        enrichment=_m(rec.enrichment_json or {}),
-        integrity=integrity,
-        report_id=report_id,
-        assessment=_m(assessment := _assessment_for(db, rec.id, assessment_id)),
-        intel=_m(intel := _intel_for(db, rec.id, intel_run_id)),
-        correlation=_m(corr := _correlation_snapshot(db, rec.id)),
-        attack=_m(attack := _attack_for(db, rec.id, attack_id)),
-        risk=_m(risk := _risk_for(db, rec.id, risk_id)),
-    )
+    inputs = report_inputs(db, rec, case, request, assessment_id, intel_run_id, attack_id, risk_id)
+    pdf = build_report_pdf(**inputs["kwargs"])
+    report_id, masked = inputs["kwargs"]["report_id"], inputs["masked"]
+    assessment, intel, corr, attack, risk = (inputs["assessment"], inputs["intel"], inputs["correlation"],
+                                             inputs["attack"], inputs["risk"])
     record_audit(db, "report_generated", analysis_id=rec.id, case_id=case.id,
                  detail={"report_id": report_id, "size_bytes": len(pdf),
                          "assessment_id": (assessment or {}).get("assessment_id"),

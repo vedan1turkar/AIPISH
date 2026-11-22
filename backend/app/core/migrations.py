@@ -79,6 +79,11 @@ def _audit_genesis(engine: Engine) -> None:
     genesis_backfill(engine)
 
 
+def _parser_crosscheck_column(engine: Engine) -> None:
+    """P5k-lite: informational parser cross-check result on analyses (additive, idempotent)."""
+    _add_columns(engine, "analysis", {"parser_crosscheck": ("JSON", "JSON")})
+
+
 def _audit_triggers(engine: Engine) -> None:
     from app.audit.chain import ensure_triggers
     ensure_triggers(engine)
@@ -94,6 +99,7 @@ STEPS: list[tuple[int, str, Callable[[Engine], None]]] = [
     (7, "audit_append_only_triggers", _audit_triggers),                 # P5e
     (8, "risk_assessment_tables", _baseline),      # P5h: ml_classification + risk_assessment (create_all)
     (9, "alert_tables", _baseline),               # P5f: alert + alert_event (create_all)
+    (10, "analysis_parser_crosscheck", _parser_crosscheck_column),   # P5k-lite
 ]
 
 

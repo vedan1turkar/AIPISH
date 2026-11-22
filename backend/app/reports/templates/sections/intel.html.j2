@@ -1,0 +1,63 @@
+<section id="s7a"><h2>7A. Threat Intelligence Lookups (external providers, informational only)</h2><div class="body">
+{% if not intel %}<p><strong>Threat-intelligence lookup: NOT RUN</strong> for this analysis. No indicator was sent to any external provider.</p>
+<p class="caveat">Absence of a lookup is not evidence either way.</p>
+{% else %}<dl>
+{% if intel.simulated %}<dt>Data source</dt><dd><span class="tag warn">SIMULATED</span> providers (local stub) — not real provider data</dd>{% endif %}
+<dt>Run</dt><dd class="mono">{{ intel.run_id }} (version {{ intel.version }})</dd>
+<dt>Run at</dt><dd>{{ intel.created }}</dd><dt>Consent</dt><dd>{{ intel.consent }}</dd>
+<dt>Providers requested</dt><dd>{{ intel.providers }}</dd>
+<dt>Offline mode</dt><dd>{{ "ON — external calls blocked; cached results only, labelled" if intel.offline else "off" }}</dd>
+<dt>Indicators</dt><dd>{{ intel.counts }}</dd><dt>Not configured</dt><dd>{{ intel.not_configured }}</dd></dl>
+{% if intel.rows %}<table><thead><tr><th>Indicator</th><th>Provider</th><th>Status</th><th>Fetched / cache</th><th>Key facts (provider-supplied, sanitised)</th></tr></thead><tbody>
+{% for r in intel.rows %}<tr><td class="mono">{{ r.indicator }}</td><td>{{ r.provider }}</td><td>{% if r.flag %}<strong>{{ r.status }}</strong>{% else %}{{ r.status }}{% endif %}</td><td>{{ r.fetched }}</td><td>{{ r.facts }}</td></tr>
+{% endfor %}</tbody></table>{% else %}<p>No indicators were extracted from this analysis.</p>{% endif %}
+<p class="caveat">{{ intel.disclaimer }}</p>
+<p class="caveat">Stale results are earlier cached provider data shown because a live lookup was not possible; they carry their original fetch time. "No record" or "no flags" is not proof of safety. No credential is printed in this report.</p>
+{% endif %}</div></section>
+
+<section id="s7b"><h2>7B. Related Analyses / Candidate Campaigns (shared infrastructure)</h2><div class="body">
+{% if correlation is none %}<p>Correlation data was not available when this report was generated.</p>
+{% else %}<p class="caveat">Snapshot taken at report time ({{ correlation.snapshot }}). Correlation status: {{ correlation.status }}.</p>
+{% if correlation.campaigns %}<dl>{% for label, txt in correlation.campaigns %}<dt>{{ label }}</dt><dd>{{ txt }}</dd>{% endfor %}</dl>{% endif %}
+{% if correlation.related %}<table><thead><tr><th>Related analysis</th><th>Linked?</th><th>Score</th><th>Shared indicators (type, value, strength)</th></tr></thead><tbody>
+{% for r in correlation.related %}<tr><td class="mono">{{ r.id }}</td><td>{{ r.linked }}</td><td class="mono">{{ r.score }}</td><td>{{ r.indicators }}</td></tr>
+{% endfor %}</tbody></table>{% else %}<p><strong>No related analyses recorded at report time.</strong> This is not a claim that the message is unique.</p>{% endif %}
+{% if correlation.generic %}<p class="caveat">{{ correlation.generic }}</p>{% endif %}
+<p class="caveat">{{ correlation.rule }}</p><p class="caveat">{{ correlation.disclaimer }}</p>{% endif %}
+</div></section>
+
+<section id="s7c"><h2>7C. MITRE ATT&amp;CK Mapping and Source-Type Hypotheses (informational only)</h2><div class="body">
+{% if not attack %}<p><strong>ATT&amp;CK mapping: NOT COMPUTED</strong> for this analysis.</p>
+{% else %}<dl><dt>Mapping</dt><dd class="mono">{{ attack.mapping }}</dd><dt>Catalog</dt><dd>{{ attack.catalog }}</dd>
+<dt>Engine</dt><dd class="mono">{{ attack.engine }}</dd><dt>Inputs</dt><dd>{{ attack.inputs }}</dd></dl>
+{% if attack.mappings %}<table><thead><tr><th>Technique</th><th>Tactic</th><th>Basis / confidence</th><th>Evidence</th><th>Rationale and limitations</th></tr></thead><tbody>
+{% for m in attack.mappings %}<tr><td class="mono">{{ m.technique }}</td><td>{{ m.tactics }}</td><td>{{ m.basis }}</td><td class="mono">{{ m.evidence }}</td><td>{{ m.note }}</td></tr>
+{% endfor %}</tbody></table>{% else %}<p>{{ attack.empty or "No ATT&CK techniques could be mapped from the available evidence." }}</p>{% endif %}
+<table><thead><tr><th>Source-type hypothesis</th><th>Assessment</th><th>Evidence</th><th>Rationale / missing data</th></tr></thead><tbody>
+{% for h in attack.hypotheses %}<tr><td>{{ h.label }}</td><td><strong>{{ h.band }}</strong></td><td class="mono">{{ h.evidence }}</td><td>{{ h.why }}</td></tr>
+{% endfor %}</tbody></table>
+{% if attack.evidence %}<table><thead><tr><th>ID</th><th>Category</th><th>Source field</th><th>Statement</th></tr></thead><tbody>
+{% for i, c, f, st in attack.evidence %}<tr><td class="mono">{{ i }}</td><td>{{ c }}</td><td class="mono">{{ f }}</td><td>{{ st }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+<p class="caveat">{{ attack.note }}</p><p class="caveat">{{ attack.disclaimer }}</p>{% endif %}
+</div></section>
+
+<section id="s7d"><h2>7D. Indicators of Compromise (HTML export)</h2><div class="body">
+{% if iocs.redacted %}<p>Indicators that could contain personal data were redacted per retention policy; hashes and hosts below are retained.</p>{% endif %}
+<h3>URLs</h3>
+{% if iocs.urls %}<table><thead><tr><th>Host</th><th>Scheme</th><th>Seen in</th></tr></thead><tbody>
+{% for u in iocs.urls %}<tr><td class="mono">{{ u.host }}</td><td class="mono">{{ u.scheme }}</td><td>{{ u.where }}</td></tr>{% endfor %}</tbody></table>
+{% else %}<p>No URLs were extracted.</p>{% endif %}
+<p class="caveat">URL hosts only; full URLs are not printed and are never links in this file.</p>
+<h3>Attachments</h3>
+{% if iocs.attachments %}<table><thead><tr><th>File name</th><th>Content type</th><th>Size</th><th>SHA-256</th></tr></thead><tbody>
+{% for a in iocs.attachments %}<tr><td class="mono">{{ a.filename }}</td><td class="mono">{{ a.content_type }}</td><td class="mono">{{ a.size_bytes }}</td><td class="mono">{{ a.sha256 }}</td></tr>{% endfor %}</tbody></table>
+{% else %}<p>No attachments.</p>{% endif %}
+</div></section>
+
+<section id="s7e"><h2>7E. Infrastructure Locations (stored data, table only)</h2><div class="body">
+{% if not geo or not geo.points %}<p>No stored location data for this analysis's IPs.</p>
+{% else %}<table><thead><tr><th>IP</th><th>Role</th><th>Country / region / city</th><th>ASN / org</th><th>Source</th><th>Flags</th></tr></thead><tbody>
+{% for p in geo.points %}<tr><td class="mono">{{ p.ip }}</td><td>{{ p.role | replace('_', ' ') }}</td><td>{{ p.place }}</td><td class="mono">{{ p.network }}</td><td>{{ p.source }}</td><td>{% if p.simulated %}<span class="tag warn">SIMULATED</span> {% endif %}{% if p.stale %}<span class="tag warn">stale</span>{% endif %}</td></tr>{% endfor %}</tbody></table>{% endif %}
+{% if geo and geo.no_location %}<p class="muted">IPs without location data: {{ geo.no_location }}</p>{% endif %}
+<p class="caveat">Approximate location of network infrastructure only; never the location or identity of a person.</p>
+</div></section>

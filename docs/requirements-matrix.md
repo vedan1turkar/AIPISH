@@ -4,7 +4,7 @@ This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 au
 `b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`), **P5b:
 authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns** (`9213bbf`) and **P5d: MITRE ATT&CK mapping and source-type
 classification** and **P5i: PostgreSQL, Docker Compose, Nginx and CI** and **P5g: infrastructure geolocation map and analytics** and **P5e: tamper-evident audit log, retention
-enforcement and personal-data masking** and **P5h: explainable combined risk assessment** and **P5f: risk-based alerts**.
+enforcement and personal-data masking** and **P5h: explainable combined risk assessment** and **P5f: risk-based alerts** and **P5k-lite: mail-parser cross-check and Jinja2 HTML report**.
 
 **ID provenance:**
 - R1–R40 come from the original project matrix.
@@ -26,15 +26,23 @@ Recommended technologies are listed for traceability. They are not functional sc
 
 ## Counts
 
-| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g | After P5e | After P5h | After P5f |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 | 30 | 31 | 31 |
-| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 | 12 | 12 | 12 |
-| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 | 8 | 7 | 8 |
-| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 | 7 | 7 | 6 |
-| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
-| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g | After P5e | After P5h | After P5f | After P5k-lite |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 | 30 | 31 | 31 | 33 |
+| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 | 12 | 12 | 12 | 12 |
+| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 | 8 | 7 | 8 | 8 |
+| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 | 7 | 7 | 6 | 4 |
+| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+
+## Changes made in P5k-lite
+
+| ID | Before | After | Why |
+|---|---|---|---|
+| R43 | MISS | VER | mail-parser 4.10.0 (pinned) runs as a second, independent parser over the same bytes at upload; normalised views (addresses, Return-Path, Received chain, attachments with SHA-256, MIME structure, duplicate single-instance headers, charsets, Date/Message-ID/Subject-as-hash) are compared and stored as an informational result (status, differences with severity and P-evidence ids; no email content) shown in the Headers tab, the PDF and the HTML report. Verified by tests on normal fixtures (agree) and crafted differentials (duplicate From, conflicting Return-Path, folded From, unclosed and reused boundaries, duplicate Date), failure isolation (import/parse/timeout/size), unchanged rule/risk/alert outputs, SQLite and PostgreSQL, and a Docker/nginx run. Limits: two parsers only; malformed Received headers that both keep verbatim are not flagged; never feeds any score. |
+| R55 | MISS | VER | Jinja2 report templates: a self-contained HTML forensic report (`/analyses/{id}/report.html`, Jinja2 with autoescape, no scripts or external resources, restrictive CSP, same inputs, masking and version pins as the PDF, audited) plus the P5f alert e-mail templates. The PDF remains ReportLab. |
+| R33 | VER | VER | Counts updated: backend 773 / 7 skipped (SQLite), 774 / 6 skipped (PostgreSQL); frontend 203 (the row had not been updated in P5f; it now reflects P5f and P5k-lite). |
 
 ## Changes made in P5f
 
@@ -175,7 +183,7 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R30 | Evidence preservation / chain-of-custody support | VER | SHA-256, optional raw retention, versioned assessments and intel runs; P5e HMAC hash-chained audit log, custody timeline and tab, checkpoints · `test_audit.py`, `Audit.test.tsx`, Docker tamper demo | Tamper-evident, not tamper-proof: no WORM or external timestamping; triggers bypassable by a superuser (detected by the chain); manual checkpoints |
 | R31 | Retention, masking, redaction | VER | P5e `retention/service.py` (redact or delete, grace, legal holds, `retention-run`), `privacy/masking.py` (`pii:view`), masked PDF; `llm/redact.py` · `test_audit.py`, `Audit.test.tsx`, Docker run | No built-in scheduler (cron or Compose profile); subjects not masked; stored in clear |
 | R32 | RBAC | VER | `security/permissions.py`, `security/deps.py` (app-wide `enforce_access`), `api/admin_router.py` · `test_access_control.py` (route inventory + role matrix), `Auth.test.tsx` | Roles are global: no per-case ownership/ACLs |
-| R33 | Tests | VER | Backend 723 passed / 7 skipped on SQLite (6 opt-in live tests + 1 PostgreSQL-only trigger test) and 724 passed / 6 skipped on PostgreSQL; frontend 190 passed; all in CI (P5i, P5g, P5e, P5h) | No browser E2E suite |
+| R33 | Tests | VER | Backend 773 passed / 7 skipped on SQLite (6 opt-in live tests + 1 PostgreSQL-only trigger test) and 774 passed / 6 skipped on PostgreSQL; frontend 203 passed; all in CI (P5i, P5g, P5e, P5h, P5f, P5k-lite) | No browser E2E suite |
 | R34 | Main database (PostgreSQL) | VER | `core/db.py` (`DATABASE_URL`, psycopg 3), `core/migrations.py` (versioned, idempotent) · full suite on PostgreSQL 17, `test_deploy.py`, Compose run (P5i) | No SQLite→PostgreSQL data copy (re-seed path documented) |
 | R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; intel lookups and correlation recompute run synchronously |
 | R36 | Email integration (IMAP/SMTP/Graph) | MISS | — | Test mailbox or Azure tenant |
@@ -185,7 +193,7 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R40 | Attribution as investigative support | VER | Disclaimers in UI, PDF and evidence; correlation (P5c) and ATT&CK / source-type (P5d) disclaimers | — |
 | R41* | Preprocessing / normalisation | VER | `ingestion/parser.py`, `enrichment/iocs.py`, `intel/validate.py` · `test_parser.py`, `test_intel.py` | — |
 | R42* | Attachment metadata | VER | Parser SHA-256 and metadata · `test_parser.py` | — |
-| R43* | mail-parser cross-check | MISS | — | — |
+| R43* | mail-parser cross-check | VER | `ingestion/crosscheck.py` (mail-parser 4.10.0), `analysis.parser_crosscheck`, Headers-tab panel, PDF/HTML section 5 · `test_crosscheck_report.py` (SQLite + PostgreSQL), `Crosscheck.test.tsx`, Docker run | Informational only; two parsers; malformed Received kept verbatim by both is not flagged |
 | R44* | VirusTotal | IMP-U | `intel/providers.py:VirusTotal` · `test_intel.py` | **Live unverified**; public API is non-commercial only |
 | R45* | AbuseIPDB | IMP-U | `intel/providers.py:AbuseIPDB` · `test_intel.py` | **Live unverified** |
 | R46* | Shodan | IMP-U | `intel/providers.py:Shodan` · `test_intel.py` | **Live unverified**; host lookups may need a paid plan (reported as not_permitted) |
@@ -197,7 +205,7 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R52* | Search (OpenSearch) | MISS | — | — |
 | R53* | OAuth 2.0 | BLK | — (P5b is local password auth + JWT, not OAuth 2.0) | Provider not chosen |
 | R54* | JWT authentication | VER | `security/tokens.py`, `api/auth_router.py` · `test_access_control.py` | No refresh tokens; no key rotation (key id) |
-| R55* | Jinja2 report templates | MISS | ReportLab reports; P5f uses Jinja2 (autoescape) for alert e-mail templates only | Report templates remain ReportLab |
+| R55* | Jinja2 report templates | VER | `reports/html.py` + `reports/templates/` (HTML report, autoescape) and `alerts/templates/` (e-mail) · `test_crosscheck_report.py`, `test_alerts.py` | The PDF remains ReportLab (by design) |
 | R56* | Plotly analytics | VER | `geo/analytics.py`, `/analytics/summary`, `AnalyticsPage.tsx` (lazy Plotly) · `test_geo.py` (SQLite + PostgreSQL), `Geo.test.tsx`, browser run | Bounded window (2,000 latest analyses for derived charts) |
 | R57* | Leaflet geolocation map | IMP-U | `components/geo/GeoMap.tsx` (no tiles; Natural Earth outline) · `Geo.test.tsx`, browser run | Verified with SIMULATED points only; live geo data unverified |
 | R58* | Local LLM forensic summaries | VER | `llm/*` · `test_llm.py`, `test_p41.py`, `test_p42.py` | — |

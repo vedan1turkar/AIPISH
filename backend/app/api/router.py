@@ -140,6 +140,10 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
     raw = _ok_file(file)
 
     parsed = parse_eml(raw)
+    # P5k-lite: informational second-parser cross-check over the same bytes (bounded, never raises, never
+    # feeds the rule score, ML, risk or alerts).
+    from app.ingestion.crosscheck import run_crosscheck
+    crosscheck = run_crosscheck(raw, parsed)
 
     # forensics + auth, then enrichment, then detection bridging all evidence
     forensics = run_header_forensics(parsed)
@@ -233,6 +237,7 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
         auth_json=auth.to_dict(),
         enrichment_json=enr_result.to_dict(),
         parse_defects=parsed.parse_defects,
+        parser_crosscheck=crosscheck,
         evidence_blob=raw if case_service.CASE_EVIDENCE_STORE == "raw" else None,
     )
     db.add(rec)
@@ -269,6 +274,7 @@ def upload_eml(file: UploadFile = File(..., alias="file"), db: Session = Depends
         authentication=AuthOut(**(rec.auth_json or {})),
         enrichment=EnrichmentOut(**(rec.enrichment_json or {})),
         parse_defects=rec.parse_defects or [],
+        parser_crosscheck=rec.parser_crosscheck,
     )
     # P5c: record observations + update candidate campaigns. Failure-isolated: the analysis is
     # already committed and the response above is built; an error only sets corr_state=error.
@@ -390,4 +396,5 @@ def get_analysis(analysis_id: str, request: Request, db: Session = Depends(get_d
         redacted_at=rec.redacted_at.isoformat() if rec.redacted_at else None,
         legal_hold=rec.id in held_analysis_ids(db),
         redaction_note=("content redacted per retention policy" if rec.retention_state == "redacted" else None),
+        parser_crosscheck=rec.parser_crosscheck,
     )

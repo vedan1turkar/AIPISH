@@ -1,4 +1,4 @@
-# AIPISH design system (P5u-1, P5u-2, P5g, P5e, P5h, P5f)
+# AIPISH design system (P5u-1, P5u-2, P5g, P5e, P5h, P5f, P5k-lite)
 
 The goal is a calm, dense security-engineering console: information-rich, organised and easy to scan.
 Hierarchy comes from type weight and tonal surface steps, not from boxes, shadows or colour.
@@ -316,6 +316,28 @@ integrity note.
 - **Overview:** an "Open alerts" panel (counts line plus up to three rows) tops the right column; "Recent analyses" shows 13 rows. Campaigns
   are trimmed to five rows so the column stays balanced with "Recent analyses".
 - **Analysis page:** a one-line open-alert strip above the privacy banners.
+
+## Parser cross-check and HTML report (P5k-lite)
+
+- **Headers & relay tab:** a full-width "Parser cross-check · informational" panel below the anomalies.
+  - Its status tag (with text) is one of:
+
+    | Status | Tone |
+    |---|---|
+    | agree | ok |
+    | minor differences | neutral |
+    | security-relevant differences | warn |
+    | unavailable | neutral |
+
+  - It shows parser and count KV rows, a `DataTable` of differences (ID, field, severity tag, description)
+    and a muted footer saying the check never changes a score.
+  - The redacted and not-recorded states are each one `EmptyLine`.
+- **Analysis header:** a secondary "Download HTML report" button sits next to the primary PDF button. It
+  uses the same authenticated blob download and is shown to every role with `report:download`.
+- **The exported HTML file:**
+  - It follows the same tokens (dark surfaces, 1px lines, mono uppercase labels, radius 0).
+  - Print CSS switches to black on white.
+  - No fonts, scripts or images are loaded.
 
 ## Accessibility
 

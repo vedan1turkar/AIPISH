@@ -1,0 +1,57 @@
+<section id="s1"><h2>1. Evidence &amp; Integrity</h2><div class="body"><dl>
+  <dt>Evidence SHA-256</dt><dd class="mono">{{ integrity.sha256 }}</dd>
+  <dt>Evidence size</dt><dd>{{ integrity.size }} bytes</dd>
+  <dt>Integrity re-verification</dt><dd>{{ integrity.status }}{% if integrity.detail %} — {{ integrity.detail }}{% endif %}</dd>
+  <dt>Integrity result</dt><dd>{{ integrity.text }}</dd>
+</dl></div></section>
+
+<section id="s2"><h2>2. Email Metadata</h2><div class="body"><dl>
+{% for k, v in meta %}  <dt>{{ k }}</dt><dd>{{ v }}</dd>
+{% endfor %}</dl></div></section>
+
+<section id="s3"><h2>3. Findings — Explainable Indicators</h2><div class="body">
+{% if findings %}<table><thead><tr><th>Rule</th><th>Severity</th><th>Points</th><th>Type</th><th>Evidence</th><th>Rationale</th></tr></thead><tbody>
+{% for f in findings %}<tr><td class="mono">{{ f.rule }}</td><td>{{ f.severity }}</td><td class="mono">{{ f.points }}</td><td>{{ f.type }}</td><td class="mono">{{ f.evidence }}</td><td>{{ f.rationale }}</td></tr>
+{% endfor %}</tbody></table>{% else %}<p>No weighted indicators fired on this message.</p>{% endif %}
+<p class="caveat">OBSERVED FACT rows are deterministically provable from the message bytes; HEURISTIC rows are judgment calls on noisy evidence. Contributions are bounded: no single indicator can dominate.</p>
+</div></section>
+
+<section id="s4"><h2>4. Authentication — Claims vs Independently Verified</h2><div class="body">
+<table><thead><tr><th>Protocol</th><th>Status</th><th>Header claims</th><th>Reason / policy</th></tr></thead><tbody>
+{% for a in auth %}<tr><td class="mono">{{ a.proto }}</td><td>{{ a.status }} — {{ a.note }}</td><td>{{ a.claims }}</td><td>{{ a.reason or "" }}{% if a.policy %} · published policy {{ a.policy }}{% endif %}</td></tr>
+{% endfor %}</tbody></table>
+<p class="muted">SPF alignment: {{ alignment.spf or "unknown" }} · DKIM alignment: {{ alignment.dkim or "unknown" }}</p>
+</div></section>
+
+<section id="s5"><h2>5. Header Anomalies</h2><div class="body">
+{% if anomalies %}<ul>{% for rid, sev, ev, why in anomalies %}<li><span class="mono">{{ rid }}</span> ({{ sev }}): {{ ev }}<br><span class="caveat">Why it matters: {{ why }}</span></li>{% endfor %}</ul>
+{% else %}<p>No header-field inconsistencies detected.</p>{% endif %}
+<h3>Parser cross-check (informational; does not change any score)</h3>
+{% if crosscheck.redacted %}<p>Parser cross-check: redacted per retention policy.</p>
+{% elif not crosscheck.data %}<p>Parser cross-check: not recorded for this analysis (stored before it existed).</p>
+{% else %}{% set cc = crosscheck.data %}
+<p>Status: <span class="tag {{ 'danger' if cc.status == 'security_relevant_differences' else 'warn' if cc.status == 'minor_differences' else 'ok' if cc.status == 'agree' else '' }}">{{ cc.status | replace("_", " ") }}</span>{% if crosscheck.status_text %} — {{ crosscheck.status_text }}{% endif %}{% if cc.reason %} ({{ cc.reason }}){% endif %}</p>
+<p class="caveat">Primary: {{ cc.primary }}; secondary: {{ cc.secondary }} {{ cc.secondary_version or "" }}</p>
+{% if cc.differences %}<table><thead><tr><th>ID</th><th>Field</th><th>Severity</th><th>Description</th></tr></thead><tbody>
+{% for d in cc.differences %}<tr><td class="mono">{{ d.evidence_id }}</td><td class="mono">{{ d.field }}</td><td>{{ d.severity | replace('_', ' ') }}</td><td>{{ d.description }}</td></tr>
+{% endfor %}</tbody></table>{% endif %}
+<p class="caveat">{{ cc.note }}</p>{% endif %}
+</div></section>
+
+<section id="s6"><h2>6. Observed Relay Chain</h2><div class="body">
+{% if hops %}<table><thead><tr><th>#</th><th>From (IP)</th><th>By</th><th>Trusted</th><th>Conf.</th><th>Notes</th></tr></thead><tbody>
+{% for h in hops %}<tr><td class="mono">{{ h.index }}</td><td class="mono">{{ h.from }}</td><td class="mono">{{ h.by }}</td><td>{{ h.trusted }}</td><td>{{ h.confidence }}</td><td>{{ h.notes }}</td></tr>
+{% endfor %}</tbody></table>
+{% if boundary is not none %}<p class="muted">Trusted boundary at observed hop {{ boundary }}: hops at/after it are receiver-side traces; earlier hops may be forged (RFC 5321).</p>{% endif %}
+{% else %}<p>No Received headers are present. The message's transport path cannot be reconstructed from the available evidence.</p>{% endif %}
+<p class="caveat">{{ forgery_note }}</p>
+</div></section>
+
+<section id="s7"><h2>7. Infrastructure Intelligence</h2><div class="body"><dl>
+{% for k, v in infra %}  <dt>{{ k }}</dt><dd class="mono">{{ v }}</dd>
+{% endfor %}</dl>
+{% if enrichment %}<table><thead><tr><th>Provider</th><th>IOC</th><th>Status</th><th>Latency</th><th>Provenance</th></tr></thead><tbody>
+{% for p, ioc, st, lat, prov in enrichment %}<tr><td>{{ p }}</td><td class="mono">{{ ioc }}</td><td>{{ st }}</td><td class="mono">{{ lat }}</td><td>{{ prov }}</td></tr>
+{% endfor %}</tbody></table>{% else %}<p>No infrastructure enrichment results available (providers skipped or disabled).</p>{% endif %}
+{% if degraded %}<p class="caveat">Degraded providers: {{ degraded }}</p>{% endif %}
+</div></section>

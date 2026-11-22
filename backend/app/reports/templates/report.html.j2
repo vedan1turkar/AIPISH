@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Email Forensic Report {{ report_id }}</title>
+<style>
+:root { --bg:#0a0e13; --surface:#10161d; --surface2:#151c25; --line:#2a3441; --fg:#dbe3ea; --muted:#8593a1;
+        --accent:#4cc9f0; --ok:#3fb950; --warn:#e3a008; --danger:#f0524f; }
+* { box-sizing: border-box; border-radius: 0; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+h2 { font: 600 11px/1.4 "IBM Plex Mono", ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: .08em;
+     color: var(--muted); border-bottom: 1px solid var(--line); padding: 8px 12px; margin: 0; background: var(--surface); }
+h3 { font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+section { border: 1px solid var(--line); background: var(--surface); margin: 0 0 16px; }
+section > .body { padding: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; vertical-align: top; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+th { font: 500 11px "IBM Plex Mono", ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+dl { display: grid; grid-template-columns: minmax(8rem, 13rem) 1fr; margin: 0; }
+dt { font: 11px "IBM Plex Mono", ui-monospace, Menlo, monospace; text-transform: uppercase; color: var(--muted); padding: 5px 0; border-bottom: 1px solid var(--line); }
+dd { margin: 0; padding: 5px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.mono, code { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.muted, .caveat { color: var(--muted); font-size: 12px; }
+.tag { display: inline-block; border: 1px solid var(--line); padding: 0 6px; font: 11px "IBM Plex Mono", ui-monospace, monospace; text-transform: uppercase; }
+.danger { color: var(--danger); border-color: var(--danger); } .warn { color: var(--warn); border-color: var(--warn); }
+.ok { color: var(--ok); border-color: var(--ok); } .accent { color: var(--accent); border-color: var(--accent); }
+.notice { border: 1px solid var(--warn); color: var(--warn); padding: 6px 10px; margin: 0 0 12px; font-weight: 600; }
+.banner { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); background: var(--surface); margin: 12px 0 16px; }
+.banner div { padding: 8px 12px; border-right: 1px solid var(--line); } .banner div:last-child { border-right: 0; }
+.banner b { display: block; font: 11px "IBM Plex Mono", ui-monospace, monospace; text-transform: uppercase; color: var(--muted); }
+nav.toc { font-size: 12px; margin: 0 0 16px; } nav.toc a { color: var(--accent); margin-right: 10px; text-decoration: none; }
+ul { margin: 4px 0; padding-left: 18px; } s { color: var(--muted); }
+footer { color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+@media print {
+  :root { --bg:#fff; --surface:#fff; --surface2:#f4f4f4; --line:#bbb; --fg:#000; --muted:#444; --accent:#000; }
+  nav.toc { display: none; } section { break-inside: auto; } h2 { background: #eee; }
+}
+</style>
+</head>
+<body>
+<main>
+<h1>Email Forensic Report</h1>
+<p class="muted">Self-contained HTML export (Jinja2). The PDF export (ReportLab) prints the same data. No scripts and no external resources.</p>
+{% for note in view_notes %}<p class="notice">{{ note }}</p>{% endfor %}
+<div class="banner">
+  <div><b>Report ID</b><span class="mono">{{ report_id }}</span></div>
+  <div><b>Generated</b>{{ generated }}</div>
+  <div><b>Threat verdict (rule engine)</b><span class="tag {{ 'danger' if verdict == 'phishing_fraud_likely' else 'warn' if verdict == 'suspicious' else '' }}">{{ verdict | replace('_', ' ') }}</span></div>
+  <div><b>Rule score</b><span class="mono">{{ score }}/100</span></div>
+</div>
+<nav class="toc" aria-label="Sections">
+  <a href="#s1">1 Integrity</a><a href="#s2">2 Metadata</a><a href="#s3">3 Findings</a><a href="#s4">4 Authentication</a>
+  <a href="#s5">5 Headers</a><a href="#s6">6 Relay</a><a href="#s7">7 Infrastructure</a><a href="#s7a">7A Intel</a>
+  <a href="#s7b">7B Campaigns</a><a href="#s7c">7C ATT&amp;CK</a><a href="#s7d">7D IOCs</a><a href="#s7e">7E Geo</a>
+  <a href="#s8">8 ML/AI</a><a href="#s8a">8A Risk</a><a href="#s8b">8B Custody</a><a href="#s9">9 Limitations</a>
+</nav>
+{% include "sections/core.html.j2" %}
+{% include "sections/intel.html.j2" %}
+{% include "sections/assessment.html.j2" %}
+{% include "sections/closing.html.j2" %}
+<footer>Case {{ case.case_number or "none (analysis not in a case)" }} · report {{ report_id }} · generated {{ generated }}. Investigative indicators, not proof of identity, intent or safety.</footer>
+</main>
+</body>
+</html>

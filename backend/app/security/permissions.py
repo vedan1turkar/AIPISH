@@ -110,6 +110,7 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], str] = {
     ("GET", f"{V1}/analyses/{{analysis_id}}/risk"): "risk:read",                 # P5h
     ("GET", f"{V1}/analyses/{{analysis_id}}/risk/history"): "risk:read",
     ("POST", f"{V1}/analyses/{{analysis_id}}/risk/recompute"): "risk:recompute",
+    ("GET", f"{V1}/analyses/{{analysis_id}}/report.html"): "report:download",   # P5k-lite (HTML report)
     ("GET", f"{V1}/alerts"): "alert:read",                                       # P5f
     ("GET", f"{V1}/alerts/summary"): "alert:read",
     ("GET", f"{V1}/alerts/{{alert_id}}"): "alert:read",

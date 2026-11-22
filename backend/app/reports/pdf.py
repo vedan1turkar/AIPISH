@@ -270,6 +270,7 @@ def build_report_pdf(
             story.append(Paragraph(f"<i>Why it matters: {esc(i.get('rationale'))}</i>", BODY))
     else:
         story.append(Paragraph("No header-field inconsistencies detected.", BODY))
+    _crosscheck_subsection(story, analysis_row)
 
     # ── 7. Relay chain ─────────────────────────────────────────────────────
     story.append(Paragraph("6. Observed Relay Chain", H2))
@@ -949,3 +950,40 @@ def _risk_section(story: list, r: dict | None) -> None:
             story.append(Paragraph(f"{esc(e.get('id'))} [{esc(e.get('source'))}] {esc(e.get('statement'))}", CAVEAT))
     for d in r.get("disclaimers") or []:
         story.append(Paragraph("• " + esc(d), CAVEAT))
+
+
+# ── 5 (subsection). Parser cross-check (P5k-lite, informational) ──────────
+CROSSCHECK_STATUS_TEXT = {
+    "agree": "AGREE — both parsers produced the same normalised view",
+    "minor_differences": "MINOR DIFFERENCES — informational only",
+    "security_relevant_differences": "SECURITY-RELEVANT DIFFERENCES — review the raw message",
+    "unavailable": "UNAVAILABLE — cross-check did not run",
+}
+
+
+def _crosscheck_subsection(story: list, analysis_row: dict) -> None:
+    story.append(Paragraph("<b>Parser cross-check (informational; does not change any score)</b>", SUBHEAD))
+    if analysis_row.get("retention_state") == "redacted":
+        story.append(Paragraph("Parser cross-check: redacted per retention policy.", BODY))
+        return
+    cc = analysis_row.get("parser_crosscheck")
+    if not cc:
+        story.append(Paragraph("Parser cross-check: not recorded for this analysis (stored before it existed).", BODY))
+        return
+    status = cc.get("status", "unavailable")
+    line = CROSSCHECK_STATUS_TEXT.get(status, str(status))
+    if status == "unavailable" and cc.get("reason"):
+        line += f" ({cc['reason']})"
+    story.append(Paragraph(f"<b>Status:</b> {esc(line)}", BODY))
+    story.append(Paragraph(esc(f"Primary: {cc.get('primary')}; secondary: {cc.get('secondary')} "
+                               f"{cc.get('secondary_version') or ''}"), CAVEAT))
+    diffs = cc.get("differences") or []
+    if diffs:
+        rows = [[Paragraph(f"<b>{h}</b>", CELL) for h in ("ID", "Field", "Severity", "Description")]]
+        for d in diffs[:30]:
+            rows.append([Paragraph(esc(d.get("evidence_id")), CELL_MONO), Paragraph(soft_wrap(d.get("field")), CELL_MONO),
+                         Paragraph(esc(str(d.get("severity", "")).replace("_", " ")),
+                                   CELL_B if d.get("severity") == "security_relevant" else CELL),
+                         Paragraph(esc(d.get("description")), CELL)])
+        story.append(_grid(rows, [12 * mm, 36 * mm, 28 * mm, 100 * mm]))
+    story.append(Paragraph(esc(cc.get("note") or ""), CAVEAT))

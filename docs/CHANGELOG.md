@@ -1,5 +1,33 @@
 # Changelog
 
+## P5k-lite — mail-parser cross-check (R43) and Jinja2 HTML report (R55)
+
+- **Parser cross-check (informational):**
+  - mail-parser 4.10.0 (pinned in `requirements.txt` and `constraints.txt`) runs as a second parser over the
+    same bytes at upload. It is bounded by `PARSER_CROSSCHECK_MAX_MB` and
+    `PARSER_CROSSCHECK_TIMEOUT_SECONDS`, and failure-isolated.
+  - It compares addresses, Return-Path, the Received chain, attachments (count, type, SHA-256 and size),
+    MIME structure, duplicate single-instance headers, charsets, and Date/Message-ID/Subject (as a hash).
+  - The result (status, differences with severity and `P` evidence ids, counts; no email content) is stored
+    in `analysis.parser_crosscheck` (migration step 10).
+  - It appears in the Headers tab, the PDF and the HTML report, and never feeds the rule score, ML, risk or
+    alerts.
+- **HTML report:**
+  - `GET /api/v1/analyses/{id}/report.html` (viewer+) renders the forensic report with Jinja2 (autoescape,
+    no `|safe`): one base template plus section partials.
+  - It uses the same inputs, masking ("MASKED VIEW"), redaction notice and version pins as the PDF, through
+    the shared `report_inputs()`.
+  - The file is self-contained: no scripts and no external resources; dark console look on screen,
+    print-friendly.
+  - Response headers: restrictive CSP, `nosniff`, `Content-Disposition: attachment`. Each download is
+    audited (`report_generated`, `format: html`).
+  - HTML-only sections: 7D IOCs, 7E location table and 8B custody note.
+- **PDF:** unchanged except for the new parser cross-check subsection in section 5. It remains ReportLab.
+- **Frontend:** "Download HTML report" next to the PDF button (authenticated fetch to blob, same version
+  pins) and a "Parser cross-check" panel in the Headers & relay tab.
+- **Unchanged:** detection, rules, ML, risk scoring, alerts and intel providers. BEC is still 100 /
+  `phishing_fraud_likely` and ML `impersonated` 0.4355.
+
 ## P5f — Risk-based alerts (in-app inbox, lifecycle, dedupe, optional e-mail)
 
 - **Honesty:** alerts are raised when an analysis is processed (upload, intel run, AI assessment,

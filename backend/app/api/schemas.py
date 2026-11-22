@@ -173,6 +173,8 @@ class AnalysisDetail(BaseModel):
     redacted_at: str | None = None
     legal_hold: bool = False
     redaction_note: str | None = None
+    # P5k-lite: informational second-parser cross-check (counts/field names only; never changes scores)
+    parser_crosscheck: dict | None = None
 
     model_config = {"populate_by_name": True}
 

@@ -109,6 +109,7 @@ limitations). Invocations are audited (`report_generated`).
 | `RETENTION_MODE` / `RETENTION_GRACE_DAYS` | `redact` / `0` | `redact` or `delete`; extra days before eligibility |
 | `AIPISH_ML_AT_UPLOAD` | `1` | Run the cheap ML classification at upload and store it (P5h; `0` disables) |
 | `AIPISH_ML_UPLOAD_TIMEOUT_SECONDS` | `20` | Upper bound for the upload-time classification; a timeout is stored as an error |
+| `PARSER_CROSSCHECK_MAX_MB` / `PARSER_CROSSCHECK_TIMEOUT_SECONDS` | `10` / `5` | Bounds of the informational mail-parser cross-check (P5k-lite) |
 | `ALERTS_ENABLED` / `ALERT_MIN_LEVEL` | `1` / `high` | Risk-based alerts (P5f) and the combined level that raises one; full list in docs/alerts/README.md |
 | `ALERT_EMAIL_ENABLED` + `ALERT_SMTP_*`, `ALERT_EMAIL_FROM`, `ALERT_EMAIL_TO` | `0` (off) | Optional alert e-mail; secrets from the environment only |
 
@@ -168,6 +169,7 @@ role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route perm
 | GET | `/analyses/{id}/risk[?version=]` | Combined risk index (additional result; not a probability) with components and evidence (P5h) |
 | GET | `/analyses/{id}/risk/history` | Combined risk versions (P5h) |
 | POST | `/analyses/{id}/risk/recompute` | Analyst: recompute from stored inputs; appends a version only on change (P5h) |
+| GET | `/analyses/{id}/report.html` | Self-contained HTML forensic report (Jinja2; same data, masking and version pins as the PDF) (P5k-lite) |
 | GET | `/alerts`, `/alerts/summary`, `/alerts/{id}` | Alert inbox: filters, pagination, counts, history (P5f; raised when an analysis is processed, not real-time) |
 | POST | `/alerts/{id}/acknowledge`, `/resolve`, `/reopen` | Analyst: alert lifecycle (resolve requires a note; audited) (P5f) |
 | GET | `/admin/alerts/config` | Admin: effective alert configuration, secrets omitted (P5f) |
@@ -182,6 +184,7 @@ role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route perm
 Audit chain, retention and masking: [docs/audit/README.md](docs/audit/README.md).
 Combined risk design, bands and evaluation: [docs/risk/README.md](docs/risk/README.md).
 Alert rules, dedupe/lifecycle and e-mail limits: [docs/alerts/README.md](docs/alerts/README.md).
+Reports (PDF with ReportLab, HTML with Jinja2) and the parser cross-check: [docs/reports/README.md](docs/reports/README.md).
 
 Correlation model, link strengths, stoplist and limits: [docs/correlation/README.md](docs/correlation/README.md).
 ATT&CK catalog, mapping rules and source-type hypotheses: [docs/attack/README.md](docs/attack/README.md).

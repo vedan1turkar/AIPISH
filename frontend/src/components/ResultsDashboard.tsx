@@ -56,6 +56,8 @@ import { getAttack, getAttackHistory, recomputeAttack, type AttackHistoryItem, t
 import { getRisk, getRiskHistory, recomputeRisk, type RiskAssessment, type RiskHistoryItem } from '../api/client'
 import RiskPanel from './risk/RiskPanel'
 import { AnalysisAlertBanner } from './alerts/shared'
+import ParserCrosscheckPanel from './forensics/ParserCrosscheckPanel'
+import { downloadHtmlReport } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
 type Tab = 'overview' | 'risk' | 'findings' | 'auth' | 'headers' | 'intel' | 'threat' | 'related' | 'attack' | 'trace' | 'geo' | 'ai' | 'custody'
@@ -367,6 +369,21 @@ export default function ResultsDashboard({
     }
   }
 
+  // P5k-lite: the same report as self-contained HTML (Jinja2). No case needed; same version pins as the PDF.
+  const [htmlBusy, setHtmlBusy] = useState(false)
+  async function handleDownloadHtml() {
+    setPdfError(null)
+    setHtmlBusy(true)
+    try {
+      await downloadHtmlReport(analysis.id, assessment?.assessment_id ?? null, intelRun?.run_id ?? null,
+                               attack?.mapping_id ?? null, risk?.risk_id ?? null)
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : 'HTML report download failed.')
+    } finally {
+      setHtmlBusy(false)
+    }
+  }
+
   async function handleIntegrityCheck() {
     setIntegrityError(null)
     setIntegrityBusy(true)
@@ -406,6 +423,12 @@ export default function ResultsDashboard({
           >
             {pdfBusy ? 'Preparing report…' : 'Download forensic PDF'}
           </Button>
+          {can('report:download') && (
+            <Button onClick={() => void handleDownloadHtml()} disabled={htmlBusy} data-testid="download-html"
+                    title="Self-contained HTML report (no scripts, no external resources); same data and version pins as the PDF">
+              {htmlBusy ? 'Preparing HTML…' : 'Download HTML report'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -903,6 +926,7 @@ function HeadersTab({ analysis }: { analysis: AnalysisDetail }) {
     <div className="space-y-4">
       <HeaderForensicsPanel data={analysis.forensics} />
       <AnomaliesPanel data={analysis.forensics} />
+      <ParserCrosscheckPanel analysis={analysis} />
       <Panel title="Full header counts (observed facts)">
         {Object.keys(analysis.header_counts).length === 0 ? (
           <EmptyStateInline text="No headers were counted." />

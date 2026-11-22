@@ -19,3 +19,5 @@ networkx>=3.0
 psycopg[binary]==3.3.9
 # P5f: alert e-mail templates (autoescape on); version pinned in constraints.txt
 Jinja2==3.1.6
+# P5k-lite: second, independent parser for the informational parser cross-check (R43); pure Python
+mail-parser==4.10.0

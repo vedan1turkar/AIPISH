@@ -84,6 +84,8 @@ class Analysis(Base):
     retention_state: Mapped[str | None] = mapped_column(String(16), nullable=True)
     redacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     evidence_purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # P5k-lite: informational second-parser (mail-parser) cross-check; counts and field names only, no content
+    parser_crosscheck: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class Case(Base):
