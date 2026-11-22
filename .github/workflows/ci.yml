@@ -157,6 +157,10 @@ jobs:
           fetch-depth: 0
       - name: Forbidden files are not tracked
         run: scripts/ci/check-forbidden-files.sh
+      - name: Documentation checks (matrix totals, links, paths, env vars; stdlib only)
+        run: |
+          python3 scripts/matrix_counts.py --check
+          python3 scripts/check_docs.py
       - name: gitleaks (full history; reviewed false positives in .gitleaksignore)
         run: |
           docker run --rm -v "$PWD:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.30.1 \
