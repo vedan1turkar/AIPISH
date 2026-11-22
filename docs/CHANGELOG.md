@@ -1,5 +1,19 @@
 # Changelog
 
+## P5z.1 — final polish (v1.0-pbl-1)
+
+These are low-risk fixes for the six issues the P5z report listed as open. Scoring, thresholds, models, data and
+test counts are unchanged. Details: `docs/TESTING.md` §6.
+
+- Overview: no per-row assessment lookups that can only return 404 (additive `has_assessment` on
+  `GET /analyses`).
+- Shell: one shared status poller, instead of several per page load; the unused `/health` warm-up was
+  removed.
+- Routing: forbidden page routes show a 403 notice and correct the URL to `#history`.
+- Alerts: campaign size labelled "when raised", with the current size shown.
+- Alert history after Resolve: the P5z finding was a measurement error (truncated capture). No code change.
+- Correlation: no SQLAlchemy identity-map warnings when campaign members are rewritten.
+
 ## P5z — final hardening, wording audit, regression and documentation pack (v1.0-pbl)
 
 - **Wording fixes:**

@@ -95,18 +95,22 @@ Fixed in P5z:
 - The Search verdict filter offered `low_risk` and `clean`, which the rule engine never produces, and lacked
   `minimal`. Regression test in `Correlation.test.tsx`.
 
-Open (all low severity):
-- The Overview requests `GET /analyses/{id}/assessment` for each recent row. Each analysis without an
-  assessment returns 404, and the browser logs it as a console error (17 on a fresh login after the smoke
-  test). The UI handles it.
-- Health, `/system/info` and `/ml/status` are requested several times on page load.
-- An unauthorised page route (for example `#audit` as analyst) shows History while the URL keeps the hash;
-  there is no 403 notice. The API still returns 403.
-- The detail of a new-campaign alert shows the campaign size at the time it was raised (2 members) while the
-  campaign now has 4.
-- After **Resolve**, the alert history list did not show the resolve step until the next action.
-- `SAWarning` (identity-map conflicts on `CampaignMember`) is logged from `correlation/engine.py:336` during
-  demo seeding; campaigns are still correct.
+The P5z report listed six low-severity issues as open. P5z.1 handled them as follows:
+
+- **Fixed:** the Overview requested `GET /analyses/{id}/assessment` for each recent row. Rows without an
+  assessment returned 404, which the browser logged as console errors. The list now carries
+  `has_assessment`, and known-unassessed rows are not requested.
+- **Fixed:** health, `/system/info` and `/ml/status` were requested several times on page load. One shared
+  status poller now serves the status bar and the Overview.
+- **Fixed:** an unauthorised page route (for example `#audit` as analyst) showed History with the URL
+  unchanged. It now shows a 403 notice and rewrites the URL to `#history`.
+- **Fixed:** a new-campaign alert showed its raise-time campaign size as if current. It is now labelled
+  "when raised", with the current size beside it.
+- **Not a defect (P5z finding withdrawn):** "after Resolve, the alert history did not show the resolve step".
+  The P5z check truncated the captured page text at 1,200 characters, which cut off the last history line. A
+  P5z.1 re-check confirmed the resolve step appears immediately, in the UI and in the API response.
+- **Fixed:** SQLAlchemy `SAWarning` identity-map conflicts were logged from `correlation/engine.py` when
+  campaign members were rewritten. The warning count in `test_correlation.py` went from 18 to 0.
 
 No CSP violations or other console errors were seen.
 

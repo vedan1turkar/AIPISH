@@ -84,7 +84,7 @@ incomplete; PART = partial; STUB = stub only; MISS = missing; BLK = blocked by a
 | R22 | Rule tests | VER | — |
 | R23 | MITRE ATT&CK mapping | VER | Single-message view; heuristic confidence; no analyst overrides |
 | R24 | Real-time alerts | PART | Event-driven only (raised when an analysis is processed); no real-time mailbox monitoring because ingestion (R36) is missing; e-mail verified against a local fake SMTP sink only |
-| R25 | Analyst dashboard | VER | Low-severity UI issues open (docs/TESTING.md §6); no browser E2E suite |
+| R25 | Analyst dashboard | VER | The low-severity UI issues found in P5z were fixed in P5z.1 (docs/TESTING.md §6); no browser E2E suite |
 | R26 | Interactive trace map / graphs | VER | Real-data map points depend on R14 |
 | R27 | Structured forensic reports | VER | — |
 | R28 | Searchable case management / campaigns | VER | No full-text index (R52); no case-to-campaign link |
