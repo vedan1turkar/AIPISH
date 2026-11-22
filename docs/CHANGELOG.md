@@ -1,5 +1,42 @@
 # Changelog
 
+## P5z — final hardening, wording audit, regression and documentation pack (v1.0-pbl)
+
+- **Wording fixes:**
+  - PDF section 9 custody sentence replaced. The old sentence ("application-level integrity checks … not a
+    tamper-resistant cryptographic chain of custody … hash-chained / WORM storage not implemented") predated
+    the P5e hash chain. The new shared `CUSTODY_LIMITATION` (`app/audit/__init__.py`) says SHA-256 detects change
+    to stored evidence, the audit log is a tamper-evident HMAC hash chain and not tamper-proof, and no WORM
+    storage is used. The HTML report now lists the same sentence.
+  - Analyse page: "the raw file is retained" was false under the default `hash_only` policy. It now says only
+    the SHA-256 and size are kept and which indicators can leave the host.
+  - Search verdict filter: removed `low_risk` and `clean` (the engine never produces them) and added `minimal`.
+  - `docs/deployment/README.md`: stale "only three migration steps" corrected (there are ten).
+  - `PROJECT_REPORT.md` (2026-10-11) marked as historical and superseded.
+- **Matrix:** every row cross-checked. R25 IMP-U → VER (browser sweep); R4, R7, R27, R31, R33, R37, R38 and R52
+  corrected without a status change. Totals: 38 VER, 7 IMP-U, 8 PART, 0 STUB, 4 MISS, 3 BLK.
+- **New scripts and checks:**
+  - `scripts/matrix_counts.py`: recomputes the totals and generates the table in `docs/REQUIREMENTS_SUMMARY.md`.
+  - `scripts/check_docs.py`: checks links, paths and environment variables.
+  - `backend/scripts/gen_doc_tables.py`: generates the route, role, table and migration tables in
+    `docs/ARCHITECTURE.md`.
+  - `scripts/smoke.py`: end-to-end smoke test against the Compose demo (36 checks).
+  - The checks run in CI (security job) and in `tests/unit/test_docs_consistency.py`.
+- **Env template:** `.env.example` now lists `AIPISH_ML_AT_UPLOAD`, `AIPISH_ML_UPLOAD_TIMEOUT_SECONDS`,
+  `AIPISH_TORCH_THREADS`, `OLLAMA_*`, `LLM_TIMEOUT_SECONDS`, `LLM_NUM_CTX` and `LLM_SEED`, which were documented
+  or read by the code but missing.
+- **Tests added:**
+  - custody wording in the PDF and HTML (`test_assessment_report.py`);
+  - documentation consistency (3 tests);
+  - Search verdict options (`Correlation.test.tsx`).
+  - No existing test was changed or weakened.
+- **Docs:**
+  - `README.md` rewritten.
+  - New: `docs/ARCHITECTURE.md`, `docs/REQUIREMENTS_SUMMARY.md`, `docs/DEMO_SCRIPT.md`, `docs/LIMITATIONS.md`,
+    `docs/TESTING.md`, `docs/PROJECT_SUMMARY.md`, `docs/DEV_DB_UPGRADE.md` and `THIRD_PARTY_NOTICES.md`.
+- **Unchanged:** detection, ML, rules, risk scoring, alerts, intel providers and authentication behaviour. The
+  BEC demo still gives rules 100 / `phishing_fraud_likely`, ML impersonated 0.4355 and combined HIGH 80.
+
 ## P5a-live — live threat-intelligence provider verification and response-shape fixes
 
 - **Live verification (first real provider calls, 2026-11-22, free tiers):**

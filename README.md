@@ -1,273 +1,208 @@
-# Email Forensics Platform (MVP)
+# AIPISH: email threat forensics
 
-AI-powered email threat detection, header forensics, and forensic reporting.
+AIPISH analyses a raw email (`.eml`) and shows an analyst the evidence: header and relay forensics,
+SPF/DKIM/DMARC re-verification, 18 detection rules, an ML classification with SHAP, an optional local LLM
+summary, consent-gated threat intelligence, cross-message campaigns, MITRE ATT&CK mapping, a combined risk
+index, alerts, and PDF/HTML reports. It was built as non-commercial university coursework (PBL, Group G7).
 
-## Quickstart: Docker demo (one command)
+**What it is not.** It is not a mail gateway or a mailbox monitor (there is no IMAP/Graph ingestion, so alerts
+are not real-time). It does not identify attackers, people or physical locations. A low score, `minimal`, or
+"no record" from a provider is not proof that a message is safe. The ML model was trained on old (1998–2007),
+partly synthetic data; its scores are uncalibrated. See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
-Requires Docker Desktop (or Docker Engine + Compose v2). Optional: trained models in
-`models/aipish-email-v1/` and Ollama with `mistral` on the host for the AI assessment.
+| Start here | |
+|---|---|
+| One-page summary | [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md) |
+| Architecture, data flow, routes and permissions | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Requirements R1–R60 and status | [docs/REQUIREMENTS_SUMMARY.md](docs/REQUIREMENTS_SUMMARY.md), [docs/requirements-matrix.md](docs/requirements-matrix.md) |
+| 12-minute demo walkthrough | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) |
+| Tests, CI and verification scope | [docs/TESTING.md](docs/TESTING.md) |
+| Limitations and threats to validity | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) |
+| Licences, data provenance and provider terms | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
+| Change history | [docs/CHANGELOG.md](docs/CHANGELOG.md) |
 
-```bash
-git clone https://github.com/vedan1turkar/AIPISH.git && cd AIPISH
-cp deploy/env.example deploy/.env    # optional: the script creates it and generates the secrets
-scripts/demo-up.sh                   # PostgreSQL + backend + nginx, seeded with SYNTHETIC data
+## Features and status
+
+Status codes come from the requirements matrix: **VER** implemented and verified (tests plus a real-app run),
+**IMP-U** implemented with incomplete verification, **PART** partial, **MISS** missing, **BLK** blocked.
+
+| Area | What it does | Status |
+|---|---|---|
+| Parsing and evidence | `.eml` parsing, SHA-256, attachment metadata (never stored), mail-parser cross-check | VER |
+| Header forensics | Relay chain, trust boundary, candidate origin IPs, header consistency | VER |
+| Authentication | SPF/DKIM/DMARC re-verified locally; header claims kept separate | IMP-U (not verified against live DNS) |
+| Detection rules | 18 weighted rules → score 0–100 and verdict | VER (low recall on the corpora; see limitations) |
+| ML classification | DistilRoBERTa + XGBoost ensemble, five classes | PART (`suspicious` has no data; two classes synthetic) |
+| Explanations | SHAP for the XGBoost component only | PART |
+| Local LLM summary | Mistral via Ollama, evidence-cited, constrained recommendations | VER |
+| Combined risk | Explainable index with evidence; not a probability | VER |
+| Threat intelligence | VirusTotal, AbuseIPDB, Shodan, IPinfo, Tor list; per-analysis consent | VER for the paths exercised live; MISP and MaxMind BLK |
+| Correlation | Candidate campaigns from shared non-generic indicators (NetworkX) | Graph and campaigns VER; intel/campaign correlation (R18) IMP-U; heuristic weights |
+| MITRE ATT&CK | Mapping to Enterprise 20.1, source-type hypotheses | VER (single-message approximations) |
+| Geolocation and analytics | Leaflet map from stored data, Plotly analytics | Map IMP-U (one real point verified), analytics VER |
+| Alerts | Risk-based, de-duplicated, acknowledge/resolve/reopen, optional e-mail | PART (event-driven, not real-time) |
+| Reports and cases | ReportLab PDF, Jinja2 HTML, cases, search | VER |
+| Access control | Local accounts, JWT, viewer/analyst/admin, deny-by-default routes | VER (no OAuth/SSO/MFA) |
+| Audit, retention, masking | HMAC hash-chained audit log, retention with legal holds, viewer masking | VER (tamper-evident, not tamper-proof; subjects not masked) |
+| Deployment and CI | Docker Compose + Nginx + PostgreSQL; GitHub Actions | VER |
+
+## Architecture
+
+```
+Browser (React SPA) ──► Nginx (static files, CSP, /api proxy) ──► FastAPI backend ──► PostgreSQL
+                                                                     │   (SQLite in development)
+                                       host-only, optional:          ├──► Ollama + mistral (local LLM)
+                                                                     ├──► models/ (mounted read-only)
+                          external, consent or config gated:         └──► DNS/RDAP/ip-api, VirusTotal,
+                                                                          AbuseIPDB, Shodan, IPinfo, Tor list
+
+Upload: parse → cross-check → header forensics → SPF/DKIM/DMARC → enrichment → rules → store
+        → correlation → ATT&CK → ML at upload → combined risk → alerts
+On demand: AI assessment (ML + SHAP + Mistral), threat intel (consent), PDF/HTML reports
 ```
 
-Open http://localhost:8080 and sign in with an account from `.demo/credentials` (gitignored, mode 0600; the
-script prints only its path). `scripts/demo-reset.sh` deletes the demo database.
+Details, trust boundaries and the generated route/permission tables: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-For production deployment, TLS, backups, migrations, CI and the environment-variable reference, see
-[docs/deployment/README.md](docs/deployment/README.md).
+## Quick start: Docker demo (one command)
 
-## Quickstart (Local)
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 20+ and npm
-
-### Backend
+Requirements: Docker Desktop (or Docker Engine with Compose v2) and about 5 GB of disk. Optional: the trained
+models in `models/aipish-email-v1/` (not in git) and Ollama with `mistral` on the host for the AI assessment.
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-# P5b: the backend refuses to start without a strong JWT secret (outside APP_ENV=test).
-echo "AIPISH_JWT_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" >> ../.env
-# Local dev users: demo-admin / demo-analyst / demo-viewer with random passwords
-# written to backend/.dev_credentials (0600, gitignored). Only the path is printed.
-python -m app.cli seed-dev-users
+git clone https://github.com/vedan1turkar/AIPISH.git
+```
+
+```bash
+cd AIPISH && scripts/demo-up.sh
+```
+
+What to expect:
+
+- The script creates `deploy/.env` with random secrets (mode 0600, gitignored, never printed), builds the
+  images on first run (about 3–4 minutes on an Apple M4), starts PostgreSQL, the backend and Nginx as Compose
+  project `aipish-demo`, and seeds **synthetic** data: 8 analyses, candidate campaign C-0001 and 7 alerts.
+- With images present, a fresh start took 95–99 s in the release run (including the AI assessment of the
+  BEC sample).
+- Open **http://localhost:8080**. Credentials for `demo-admin`, `demo-analyst` and `demo-viewer` are in
+  **`.demo/credentials`** (gitignored, mode 0600; the script prints only its path).
+- The demo runs with `APP_ENV=demo`: no live DNS or threat-intel lookups, and no alert e-mail.
+- Check it: `python3 scripts/smoke.py` (36 checks; creates and disables its own temporary accounts).
+- Stop and delete the demo data: `scripts/demo-reset.sh`.
+
+Production deployment, TLS, backups and the full environment-variable reference:
+[docs/deployment/README.md](docs/deployment/README.md).
+
+## Development setup
+
+Tested with Python 3.13 and Node.js 24 (the versions used in CI and the images).
+
+Backend:
+
+```bash
+cd backend && python3 -m venv .venv && source .venv/bin/activate
+```
+
+```bash
+pip install -r requirements-dev.txt -c constraints.txt
+```
+
+```bash
+pip install -r requirements-ml.txt -c constraints.txt   # optional ML stack (PyTorch, transformers, XGBoost, SHAP)
+```
+
+```bash
+cp ../.env.example ../.env   # then set AIPISH_JWT_SECRET (≥ 32 random characters)
+```
+
+```bash
+python -m app.cli seed-dev-users   # demo-admin/analyst/viewer; passwords go to backend/.dev_credentials (0600)
+```
+
+```bash
 uvicorn app.main:app --port 8000 --reload
 ```
 
-Health checks (the only public endpoints besides login): `curl http://127.0.0.1:8000/api/v1/health` (liveness, `{"status"}` only)
-and `/api/v1/health/ready` (readiness: only `{"status": "ok"|"unavailable"}`).
+The backend refuses to start without a strong `AIPISH_JWT_SECRET` (outside `APP_ENV=test`). In `dev`, a missing
+`AIPISH_AUDIT_KEY` is generated into `.env`. Only `/api/v1/health`, `/api/v1/health/ready` and
+`/api/v1/auth/login` are public.
 
-Every other endpoint needs `Authorization: Bearer <token>` from `POST /api/v1/auth/login`. Roles,
-the per-route permission table and the threat model are in [docs/auth/README.md](docs/auth/README.md).
-
-### Frontend
+Frontend (Vite dev server on :5173, proxies `/api` to :8000):
 
 ```bash
-cd frontend
-npm install
-npm run dev
+cd frontend && npm ci && npm run dev
 ```
 
-Open http://localhost:5173.
+Configuration is by environment variables; templates: [.env.example](.env.example) (development) and
+[deploy/env.example](deploy/env.example) (Compose). Secrets are never committed.
 
-## Configuration
+To upgrade an older local SQLite database: [docs/DEV_DB_UPGRADE.md](docs/DEV_DB_UPGRADE.md).
 
-Copy `.env.example` to `.env` at the repo root and adjust values.
-All settings are environment variables prefixed with `APP_`; secrets (when
-added later) must be set as environment variables and never committed.
-
-## Evidence & Audit Policy (application-level)
-
-- **Raw .eml bytes are NOT stored by default.** Only the SHA-256 and size are
-  retained; the analysis record is treated as the sanitized metadata record.
-- To retain the exact raw bytes, set `CASE_EVIDENCE_STORE=raw` (and optionally
-  `CASE_EVIDENCE_STORE_KEY=<secret>` to require an `X-Evidence-Key` header on
-  report downloads). Retention defaults to 90 days (`CASE_EVIDENCE_RETENTION_DAYS`).
-  The raw-bytes path is opt-in and access-restricted; the integrity endpoint
-  recomputes SHA-256 over the preserved bytes when retained.
-- Audit events (P5e) carry actor, target, outcome, source IP and timestamp and are
-  appended to an HMAC-SHA256 hash chain keyed by `AIPISH_AUDIT_KEY`. The log is
-  **tamper-evident (HMAC hash chain), not tamper-proof**: an attacker with both
-  database write access and the audit key could forge a chain; external
-  checkpoints reduce that risk. SHA-256 detects change to the stored file; it
-  does not make storage tamper-proof. Retention (redact/delete, legal holds) and
-  personal-data masking for viewers are described in
-  [docs/audit/README.md](docs/audit/README.md).
-
-## Forensic PDF Reports
-
-`GET /api/v1/investigations/{case_id}/report/{analysis_id}` (downloads a
-styled ReportLab PDF with verdict, findings, authentication claims vs
-verified results, relay chain, enrichment provenance, integrity status, and
-limitations). Invocations are audited (`report_generated`).
-
-## Environment Variables
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `APP_ENV` | `dev` | Environment profile |
-| `APP_BIND_HOST` | `127.0.0.1` | Backend bind address |
-| `APP_PORT` | `8000` | Backend port |
-| `APP_ALLOWED_ORIGINS` | `http://localhost:5173` | CORS origins |
-| `APP_DB_PATH` | `db/app.sqlite` | SQLite path |
-| `APP_UPLOAD_MAX_MB` | `10` | Max .eml upload size |
-| `APP_REQUEST_TIMEOUT_SECONDS` | `60` | Pipeline timeout |
-| `APP_LOG_LEVEL` | `INFO` | Log level |
-| `AIPISH_JWT_SECRET` | — (required outside `APP_ENV=test`) | HS256 signing secret, ≥ 32 random characters |
-| `AIPISH_JWT_TTL_MINUTES` | `60` | Access-token lifetime (no refresh tokens) |
-| `AIPISH_LOGIN_MAX_FAILURES_USER` / `_IP` | `5` / `20` | Failed logins before a lockout (in-memory) |
-| `AIPISH_LOGIN_WINDOW_SECONDS` / `AIPISH_LOGIN_LOCKOUT_SECONDS` | `900` / `900` | Throttle window and lockout length |
-| `AIPISH_AUDIT_KEY` | generated into `.env` in dev; required in production | HMAC key for the audit hash chain (≥ 32 random characters; keep it) |
-| `RETENTION_ANALYSIS_DAYS` / `RETENTION_EVIDENCE_DAYS` | `0` / `0` (disabled) | Retention periods; nothing is purged unless a run is applied |
-| `RETENTION_MODE` / `RETENTION_GRACE_DAYS` | `redact` / `0` | `redact` or `delete`; extra days before eligibility |
-| `AIPISH_ML_AT_UPLOAD` | `1` | Run the cheap ML classification at upload and store it (P5h; `0` disables) |
-| `AIPISH_ML_UPLOAD_TIMEOUT_SECONDS` | `20` | Upper bound for the upload-time classification; a timeout is stored as an error |
-| `PARSER_CROSSCHECK_MAX_MB` / `PARSER_CROSSCHECK_TIMEOUT_SECONDS` | `10` / `5` | Bounds of the informational mail-parser cross-check (P5k-lite) |
-| `ALERTS_ENABLED` / `ALERT_MIN_LEVEL` | `1` / `high` | Risk-based alerts (P5f) and the combined level that raises one; full list in docs/alerts/README.md |
-| `ALERT_EMAIL_ENABLED` + `ALERT_SMTP_*`, `ALERT_EMAIL_FROM`, `ALERT_EMAIL_TO` | `0` (off) | Optional alert e-mail; secrets from the environment only |
-
-## Test Commands
+## Running tests
 
 ```bash
-# Backend: full suite on a fresh temporary SQLite database (never the dev DB)
-cd backend
-source .venv/bin/activate
-python -m pytest tests -q
-
-# Backend against a throwaway PostgreSQL (Docker; dedicated aipish_test database)
-make test-pg
-
-# Frontend: typecheck, lint, production build
-cd frontend
-npx tsc -b --noEmit
-npx eslint 'src/**/*.{ts,tsx}'
-npm run build
-
-# End-to-end check against a running backend (14 scenario groups)
-# start backend first, then:
-python3 /tmp/e2e_verify.py
+cd backend && python -m pytest -q -rs        # SQLite; network blocked; live tests skipped
 ```
 
-## API Endpoints
+```bash
+make test-pg                                 # same suite on a throwaway PostgreSQL (Docker, port 55432)
+```
 
-All routes are under `/api/v1`. All except `/health`, `/health/ready` and `/auth/login` require a bearer token and a
-role; see [docs/auth/README.md](docs/auth/README.md) for the full per-route permission table.
+```bash
+cd frontend && npm run typecheck && npx eslint . && npm test && npm run build
+```
 
-| Method | Path | Purpose |
+```bash
+python3 scripts/matrix_counts.py --check && python3 scripts/check_docs.py   # documentation checks
+```
+
+Suites, counts, skip reasons, CI jobs and what is mocked, simulated or live: [docs/TESTING.md](docs/TESTING.md).
+
+## Technology
+
+| Technology | Status | Where / why |
 |---|---|---|
-| GET | `/health` | Liveness: `{"status"}` only (public; version moved to `/system/info` in P5g) |
-| GET | `/health/ready` | Readiness for container health checks: `{"status":"ok"}` or 503 `unavailable` only (public) |
-| GET | `/system/info` | Version, environment, database and schema version (viewer+; moved off the anonymous `/health` in P5g) |
-| GET | `/analyses/{id}/geo` | Infrastructure locations from stored data only, IPs without location, anonymity signals (viewer+) |
-| GET | `/campaigns/{id}/geo` | Campaign member IPs, deduplicated with member counts (viewer+) |
-| GET | `/analytics/summary?days=30` | Bounded aggregates for the Analytics page (viewer+) |
-| POST | `/auth/login` | JSON `{"username","password"}` → bearer token (public) |
-| GET | `/auth/me` | Current user and permissions |
-| POST | `/auth/logout` | Revoke all of the current user's tokens |
-| POST | `/auth/change-password` | Change own password (current password required) |
-| GET/POST | `/admin/users` | Admin: list users / create user with a one-time temporary password |
-| PATCH | `/admin/users/{id}` | Admin: change role, disable/enable (last active admin protected) |
-| POST | `/admin/users/{id}/reset-password` | Admin: one-time temporary password, revokes sessions |
-| GET | `/analyses/{id}/correlation` | Related analyses by shared non-generic infrastructure (P5c) |
-| GET | `/campaigns`, `/campaigns/{id}` | Candidate campaigns with reasons and graph data (P5c) |
-| GET | `/graph/entities/{type}/{value}` | Entity neighbourhood (P5c) |
-| GET | `/search` | Search analyses, cases, indicators, campaigns; filters + pagination (P5c) |
-| GET/POST | `/investigations/{case}/analyses` | List / add analyses in a case (P5c) |
-| DELETE | `/investigations/{case}/analyses/{id}` | Remove an analysis from a case (P5c) |
-| GET | `/investigations/{case}/indicators` | Case-level aggregated indicators (P5c) |
-| POST | `/correlation/rebuild` | Admin: backfill observations, recompute campaigns (P5c) |
-| GET | `/analyses/{id}/attack[?version=]` | MITRE ATT&CK mapping + source-type hypotheses (P5d) |
-| GET | `/analyses/{id}/attack/history` | ATT&CK mapping versions (P5d) |
-| POST | `/analyses/{id}/attack/recompute` | Analyst: recompute with latest intel run / ML (P5d) |
-| GET | `/analyses/{id}/risk[?version=]` | Combined risk index (additional result; not a probability) with components and evidence (P5h) |
-| GET | `/analyses/{id}/risk/history` | Combined risk versions (P5h) |
-| POST | `/analyses/{id}/risk/recompute` | Analyst: recompute from stored inputs; appends a version only on change (P5h) |
-| GET | `/analyses/{id}/report.html` | Self-contained HTML forensic report (Jinja2; same data, masking and version pins as the PDF) (P5k-lite) |
-| GET | `/alerts`, `/alerts/summary`, `/alerts/{id}` | Alert inbox: filters, pagination, counts, history (P5f; raised when an analysis is processed, not real-time) |
-| POST | `/alerts/{id}/acknowledge`, `/resolve`, `/reopen` | Analyst: alert lifecycle (resolve requires a note; audited) (P5f) |
-| GET | `/admin/alerts/config` | Admin: effective alert configuration, secrets omitted (P5f) |
-| GET | `/audit/events`, `/audit/export` | Admin: filtered, paginated audit log; CSV/JSON export (capped, audited) (P5e) |
-| GET | `/audit/verify` | Admin: verify the HMAC hash chain; first broken seq and reason (P5e) |
-| GET/POST | `/audit/checkpoint` | Admin: latest / record a chain checkpoint to keep outside the system (P5e) |
-| GET | `/analyses/{id}/custody` | Analyst: custody timeline and evidence-integrity facts (P5e) |
-| GET | `/admin/retention/status`, POST `/admin/retention/run` | Admin: retention policy and runs (dry run by default) (P5e) |
-| GET/POST | `/admin/holds`, POST `/admin/holds/{id}/clear` | Admin: legal holds (P5e) |
-| DELETE | `/admin/analyses/{id}` | Admin: erase an analysis (reason required; refused under legal hold) (P5e) |
-
-Audit chain, retention and masking: [docs/audit/README.md](docs/audit/README.md).
-Combined risk design, bands and evaluation: [docs/risk/README.md](docs/risk/README.md).
-Alert rules, dedupe/lifecycle and e-mail limits: [docs/alerts/README.md](docs/alerts/README.md).
-Reports (PDF with ReportLab, HTML with Jinja2) and the parser cross-check: [docs/reports/README.md](docs/reports/README.md).
-
-Correlation model, link strengths, stoplist and limits: [docs/correlation/README.md](docs/correlation/README.md).
-ATT&CK catalog, mapping rules and source-type hypotheses: [docs/attack/README.md](docs/attack/README.md).
-| POST | `/analyses` | Upload a raw `.eml` → full forensic analysis (multipart field `file`) |
-| GET | `/analyses` | Recent analyses (history list) |
-| GET | `/analyses/{id}` | One analysis: metadata, detection findings, forensics, auth, enrichment |
-| POST | `/investigations/from-analysis/{id}` | Create an investigation case from an analysis |
-| GET | `/investigations` | List investigation cases |
-| GET | `/investigations/{id}` | One case incl. its analyses |
-| POST | `/investigations/{case}/evidence-integrity/{analysis}` | Recompute SHA-256 of retained bytes |
-| GET | `/investigations/{case}/report/{analysis}` | Download the forensic PDF (`?assessment_id=` / `?intel_run_id=` pin versions) |
-| GET | `/intel/status` | Threat-intel providers: configured/enabled booleans only |
-| POST | `/analyses/{id}/threat-intel` | Consent-gated threat-intel lookup (body `{"consent": bool}`); appends a versioned run |
-| GET | `/analyses/{id}/threat-intel` | Latest (or `?run_id=`) stored threat-intel run |
-
-Error responses always have the shape `{"error": {"code", "message", "request_id?"}}`.
-
-## Optional API Keys & Enrichment
-
-Out of the box the app runs with **DNS enrichment only** — no keys needed.
-Credibility lookups are strictly opt-in and degrade gracefully to a visible
-`skipped` status when unconfigured:
-
-| Variable | Default | Effect when set |
-|---|---|---|
-| `ENRICH_ENABLE_DNS` | `1` | `0` disables DNS lookups |
-| `ENRICH_ENABLE_RDAP` | `1` | `0` disables domain registration lookups |
-| `ENRICH_ENABLE_IPGEO` | `1` | `0` disables IP infrastructure geo |
-| `ENRICH_IPGEO_BASE` | ip-api.com | Alternative geo endpoint |
-| `ENRICH_DNS_TIMEOUT` | `10` | Seconds per DNS query |
-| `VIRUSTOTAL_API_KEY`, `ABUSEIPDB_API_KEY`, `SHODAN_API_KEY`, `IPINFO_TOKEN` | *(unset)* | Threat-intel providers (P5a). Used only after explicit per-analysis consent; without a key the provider reports `missing_credentials`. See [docs/intel/README.md](docs/intel/README.md) |
-| `INTEL_OFFLINE` | `0` | `1` blocks every external threat-intel call (also implied by `APP_ENV=offline`) |
-| `MAXMIND_GEOIP2_DB` | *(unset)* | Path to a GeoLite2 `.mmdb` — without it the provider reports `skipped` |
-| `CASE_EVIDENCE_STORE` | `hash_only` | `raw` also retains exact message bytes for integrity re-verification |
-| `CASE_EVIDENCE_STORE_KEY` | *(unset)* | When set with `raw`, report downloads require header `X-Evidence-Key` |
-| `CASE_EVIDENCE_RETENTION_DAYS` | `90` | Documented retention window (cleanup manual) |
-| `VITE_API_BASE` | *(empty)* | Frontend: set only when backend is NOT behind the Vite dev proxy (e.g. separate host) |
-
-No secret is ever returned by the API; absent keys surface as explicit
-`skipped` statuses in the enrichment panel rather than silent gaps.
+| React 18, Vite 5, Tailwind CSS 3 | Implemented | `frontend/` |
+| FastAPI, Pydantic | Implemented | `backend/app/api/` |
+| SQLAlchemy 2 | Implemented | `backend/app/core/` |
+| SQLite / PostgreSQL 17 | Implemented | SQLite for development and tests; PostgreSQL in Compose and CI (psycopg 3) |
+| DistilRoBERTa (transformers, PyTorch CPU) | Implemented | Transformer component of the ensemble; weights in `models/` (not in git) |
+| XGBoost | Implemented | Feature-based component of the ensemble |
+| scikit-learn | Implemented | Logistic-regression component (ensemble weight 0), metrics |
+| SHAP | Partial | Explains the XGBoost component only |
+| Ollama + Mistral | Implemented (optional) | Local forensic summary; host service |
+| mail-parser | Implemented | Informational second parser (cross-check only) |
+| dnspython, dkimpy, pyspf | Implemented | SPF/DKIM/DMARC re-verification; not verified against live DNS |
+| VirusTotal, AbuseIPDB, Shodan, IPinfo, Tor exit list | Implemented | Consent-gated; live-verified for the approved indicators only ([docs/intel/LIVE_VERIFICATION.md](docs/intel/LIVE_VERIFICATION.md)) |
+| MISP | Not configured | No MISP instance available (R47) |
+| MaxMind GeoIP2 | Not configured | No licence or database (R48) |
+| NetworkX | Implemented | Correlation (connected components) |
+| Neo4j | Not used | Not needed at this scale; NetworkX in process (R50) |
+| OpenSearch | Not used | SQL `LIKE`/`ILIKE` search (R52) |
+| Redis, Celery | Not used | Work runs synchronously; no background workers (R35) |
+| Leaflet | Implemented | Infrastructure map, bundled Natural Earth outline, no tiles |
+| Cytoscape.js | Implemented | Trace and campaign graphs |
+| Plotly (basic dist) | Implemented | Analytics page |
+| ReportLab | Implemented | PDF reports |
+| Jinja2 | Implemented | HTML report and alert e-mail templates |
+| JWT (PyJWT), local accounts | Implemented | HS256 access tokens, scrypt password hashes; no refresh tokens |
+| OAuth 2.0 / OIDC / SSO | Not implemented | No identity provider chosen (R53) |
+| Docker, Docker Compose, Nginx | Implemented | `backend/Dockerfile`, `frontend/Dockerfile`, `deploy/docker-compose.yml` |
+| GitHub Actions | Implemented | `.github/workflows/ci.yml` (CI only, no deployment) |
+| MITRE ATT&CK | Implemented | Enterprise 20.1 catalogue, `backend/app/attack/` |
 
 ## Troubleshooting
 
-| Symptom | Likely cause & fix |
+| Symptom | Likely cause and fix |
 |---|---|
-| `backend offline` pill in the UI | uvicorn not running — see backend startup above; check `curl http://127.0.0.1:8000/api/v1/health` |
-| `RuntimeError: Form data requires "python-multipart"` | `pip install python-multipart` inside the venv (it's in requirements.txt) |
-| `ModuleNotFoundError: reportlab` | `pip install reportlab` (or reinstall requirements) |
-| 415 on upload from the UI | File must be a raw `.eml` (not `.msg`, not a MIME-forwarded attachment) |
-| 413 on upload | File exceeds `APP_UPLOAD_MAX_MB` (default 10 MB) |
-| Frontend loads but charts/graphs empty after upload | Backend reachable? Check the browser network tab — in dev, requests go to `/api/*` via the Vite proxy on 5173 → 8000 |
-| CORS error in browser console | Add your frontend origin to `APP_ALLOWED_ORIGINS` and restart uvicorn |
-| PDF download 401 | Raw-evidence mode needs `X-Evidence-Key` header matching `CASE_EVIDENCE_STORE_KEY` |
-| Port 8000 already in use | `lsof -ti :8000 | xargs kill` then restart uvicorn |
-| Tests fail with DNS errors offline | Set `ENRICH_ENABLE_ALL=0` or ensure network; enrichment tests mock providers |
+| `Docker is not running` from `demo-up.sh` | Start Docker Desktop. |
+| AI assessment shows UNAVAILABLE | Ollama not running or `mistral` not pulled; or models not mounted. Everything else still works. |
+| Upload rejected with 413 | File larger than `APP_UPLOAD_MAX_MB` (10 MB). |
+| Upload rejected with 415 | Not an `.eml` (name or `message/rfc822` type). |
+| 429 at sign-in | Five failed attempts lock the account for 15 minutes (`AIPISH_LOGIN_*`; in memory). |
+| Backend refuses to start | Missing or weak `AIPISH_JWT_SECRET` or (outside dev) `AIPISH_AUDIT_KEY`. |
+| CORS error in development | Add the frontend origin to `APP_ALLOWED_ORIGINS`. |
 
-## Demo Fixtures (synthetic)
+## Licence
 
-`backend/tests/fixtures/demo/` contains three **synthetic** messages — no real
-personal data, no real bank details, reserved/documentation domains only:
-
-- `legitimate_invoice.eml` — benign colleague mail (should score ~0)
-- `phishing_account_verify.eml` — brand-lookalike phishing with failing auth (score ~100)
-- `bec_wire_change.eml` — executive impersonation + wire-b diversion wording (BEC rules fire)
-
-## Persistence
-
-SQLAlchemy. Local development uses SQLite at `backend/db/app.sqlite` (created on first boot, configured
-by `APP_DB_PATH`). Deployments use PostgreSQL via `DATABASE_URL` (psycopg 3). The schema is managed by a
-versioned, idempotent migration runner (`python -m app.cli migrate`), see
-[docs/deployment/README.md](docs/deployment/README.md). Sensitive data stays out of git via `.gitignore`.
-
-## Known Limitations
-
-- Local password auth + JWT with global roles (viewer/analyst/admin): no OAuth/SSO/MFA, no refresh
-  tokens, no per-case ownership; login throttling is in-memory (see docs/auth/README.md).
-- Audit log is tamper-evident (HMAC hash chain), not tamper-proof; no WORM storage or external timestamping.
-- Retention is enforced by `retention-run`, but there is no built-in scheduler (use cron or the Compose `retention` profile).
-- Personal-data masking is role-based presentation only; data is stored in clear.
-- Alerts are raised when an analysis is processed; there is no real-time mailbox monitoring (no IMAP/Graph ingestion).
-- IP geolocation resolves *network infrastructure*, never a person; skip it
-  entirely for privacy-sensitive demos.
-- Heuristic detection: scores are investigative indicators, not proof; absent
-  findings ≠ safe.
-- Credibility providers (AbuseIPDB, MaxMind) are wired but adapters are
-  stubbed; only DNS/RDAP/ip-api perform real lookups today.
+No licence is specified for this project. Third-party components keep their own licences:
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
