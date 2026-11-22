@@ -2,7 +2,7 @@
 // acknowledge / resolve (note required) / reopen for analysts. Admins also see the effective configuration.
 import { useCallback, useEffect, useState } from 'react'
 import {
-  ApiError, alertAction, getAlert, getAlertConfig, getAlertsSummary, listAlerts,
+  ApiError, alertAction, getAlert, getAlertConfig, getAlertsSummary, getCampaign, listAlerts,
   type AlertConfigView, type AlertDetail, type AlertFilters, type AlertItem, type AlertList, type AlertsSummary,
 } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
@@ -55,6 +55,16 @@ function Detail({ id, canManage, onChanged }: { id: string; canManage: boolean; 
     if (!(err instanceof DOMException && err.name === 'AbortError')) setError(err instanceof Error ? err.message : 'Alert could not be loaded.')
   }), [id])
   useEffect(() => { const ctl = new AbortController(); setA(null); void load(ctl.signal); return () => ctl.abort() }, [load])
+  // P5z.1: the alert stores the campaign size when it was raised (the growth baseline); show today's size too.
+  const campaignId = a?.summary.campaign_id
+  const [membersNow, setMembersNow] = useState<number | null>(null)
+  useEffect(() => {
+    setMembersNow(null)
+    if (!campaignId) return
+    const ctl = new AbortController()
+    getCampaign(campaignId, ctl.signal).then((c) => setMembersNow(c.member_count)).catch(() => undefined)
+    return () => ctl.abort()
+  }, [campaignId])
   async function act(action: 'acknowledge' | 'resolve' | 'reopen', note?: string) {
     if (!a) return
     setBusy(true)
@@ -95,7 +105,11 @@ function Detail({ id, canManage, onChanged }: { id: string; canManage: boolean; 
           {s.combined_level && <KV label="ML class">{s.ml_class ?? 'not available'}</KV>}
           {s.floors && <KV label="Floors" mono>{s.floors.length ? s.floors.join(', ') : 'none'}</KV>}
           {s.conflict && <KV label="Conflict">{human(s.conflict)}</KV>}
-          {s.campaign_label && <KV label="Campaign">{s.campaign_label} · {s.campaign_confidence} · {s.member_count} members</KV>}
+          {s.campaign_label && (
+            <KV label="Campaign">
+              {s.campaign_label} · {s.campaign_confidence} · {s.member_count} members when raised
+              {membersNow !== null && membersNow !== s.member_count && ` · ${membersNow} now`}
+            </KV>)}
           <KV label="Occurrences" mono>{a.occurrence_count}</KV>
           <KV label="First / last seen">{formatDate(a.created_at)} · {formatDate(a.last_seen_at)}</KV>
           {a.acknowledged_by && <KV label="Acknowledged">{a.acknowledged_by} · {formatDate(a.acknowledged_at)}</KV>}
