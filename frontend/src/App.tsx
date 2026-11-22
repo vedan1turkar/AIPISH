@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getHealth, getAnalysis, getMe, logout, type AnalysisDetail } from './api/client'
+import { getAnalysis, getMe, logout, type AnalysisDetail } from './api/client'
 import { useAuth } from './auth/AuthContext'
 import { clearSession, updateUser } from './auth/session'
 import { Button, ErrorAlert, PageNotice, Spinner } from './components/ui'
@@ -111,8 +111,6 @@ function SignedInApp() {
   }, [])
 
   useEffect(() => {
-    // Warm the health check (the status bar polls it too).
-    void getHealth().catch(() => undefined)
     // Re-validate a session restored from sessionStorage (a revoked token → 401 → login page).
     void getMe().then(updateUser).catch(() => undefined)
   }, [])

@@ -14,61 +14,90 @@ function clock(d: Date): string {
   return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
 }
 
+interface Snapshot { cells: Cell[]; backend: string | null }
+interface Poller { snap: Snapshot; listeners: Set<(s: Snapshot) => void>; timer: number; alive: boolean }
+const EMPTY: Snapshot = { cells: [], backend: null }
+
+// P5z.1: one shared poller per permission set. The status bar and the Overview's system panel both use this
+// hook; before, each mounted its own poller, and each restarted whenever the session object was refreshed
+// (a new `can` identity), so /health/ready, /system/info and /ml/status were requested several times per load.
+// The poller starts with its first user and stops when the last one unmounts.
+const pollers = new Map<string, Poller>()
+
+function startPoller(key: string, canMl: boolean, canConfig: boolean, poll: number): Poller {
+  const p: Poller = { snap: EMPTY, listeners: new Set(), timer: 0, alive: true }
+  const publish = (next: Snapshot) => {
+    if (!p.alive) return
+    p.snap = next
+    p.listeners.forEach((fn) => fn(next))
+  }
+  const run = async () => {
+    const out: Cell[] = []
+    // P5g: liveness from the anonymous readiness probe; version from the authenticated /system/info.
+    try {
+      const h = await getReady()
+      out.push({ key: 'api', label: 'API', value: h.status === 'ok' ? 'ok' : h.status, tone: h.status === 'ok' ? 'ok' : 'warn' })
+    } catch (err) {
+      const answered = err instanceof ApiError && err.status > 0          // 503 = backend up, database not ready
+      out.push({ key: 'api', label: 'API', value: answered ? 'unavailable' : 'unreachable', tone: answered ? 'warn' : 'danger' })
+    }
+    try {
+      const info = await getSystemInfo()
+      publish({ ...p.snap, backend: info.version })
+    } catch {
+      /* version cell keeps its last value */
+    }
+    if (canMl) {
+      try {
+        const m = await getMlStatus()
+        out.push({ key: 'ml', label: 'ML', value: m.status === 'ok' ? `ok ${m.model_version ?? ''}`.trim() : m.status, tone: m.status === 'ok' ? 'ok' : 'warn' })
+      } catch {
+        out.push({ key: 'ml', label: 'ML', value: 'status unavailable', tone: 'warn' })
+      }
+    }
+    if (canConfig) {
+      try {
+        const l = await getLlmStatus()
+        out.push({ key: 'llm', label: 'LLM', value: l.status === 'ok' ? `ok ${l.model ?? ''}`.trim() : l.status, tone: l.status === 'ok' ? 'ok' : 'warn' })
+      } catch {
+        out.push({ key: 'llm', label: 'LLM', value: 'status unavailable', tone: 'warn' })
+      }
+      try {
+        const i = await getIntelStatus()
+        const mode = i.offline ? 'offline' : i.simulated ? 'simulated' : 'live'
+        out.push({ key: 'intel', label: 'INTEL', value: mode, tone: i.offline || i.simulated ? 'warn' : 'ok' })
+      } catch {
+        out.push({ key: 'intel', label: 'INTEL', value: 'status unavailable', tone: 'warn' })
+      }
+    }
+    publish({ ...p.snap, cells: out })
+  }
+  pollers.set(key, p)
+  void run()
+  p.timer = window.setInterval(() => void run(), poll)
+  return p
+}
+
 export function useSystemStatus(poll = POLL_MS) {
   const { can } = useAuth()
-  const [cells, setCells] = useState<Cell[]>([])
-  const [backend, setBackend] = useState<string | null>(null)
+  const canMl = can('ml:status')
+  const canConfig = can('config:status')
+  const key = `${canMl}|${canConfig}|${poll}`
+  const [snap, setSnap] = useState<Snapshot>(() => pollers.get(key)?.snap ?? EMPTY)
   useEffect(() => {
-    let alive = true
-    const run = async () => {
-      const out: Cell[] = []
-      // P5g: liveness from the anonymous readiness probe; version from the authenticated /system/info.
-      try {
-        const h = await getReady()
-        out.push({ key: 'api', label: 'API', value: h.status === 'ok' ? 'ok' : h.status, tone: h.status === 'ok' ? 'ok' : 'warn' })
-      } catch (err) {
-        const answered = err instanceof ApiError && err.status > 0          // 503 = backend up, database not ready
-        out.push({ key: 'api', label: 'API', value: answered ? 'unavailable' : 'unreachable', tone: answered ? 'warn' : 'danger' })
-      }
-      try {
-        const info = await getSystemInfo()
-        if (alive) setBackend(info.version)
-      } catch {
-        /* version cell keeps its last value */
-      }
-      if (can('ml:status')) {
-        try {
-          const m = await getMlStatus()
-          out.push({ key: 'ml', label: 'ML', value: m.status === 'ok' ? `ok ${m.model_version ?? ''}`.trim() : m.status, tone: m.status === 'ok' ? 'ok' : 'warn' })
-        } catch {
-          out.push({ key: 'ml', label: 'ML', value: 'status unavailable', tone: 'warn' })
-        }
-      }
-      if (can('config:status')) {
-        try {
-          const l = await getLlmStatus()
-          out.push({ key: 'llm', label: 'LLM', value: l.status === 'ok' ? `ok ${l.model ?? ''}`.trim() : l.status, tone: l.status === 'ok' ? 'ok' : 'warn' })
-        } catch {
-          out.push({ key: 'llm', label: 'LLM', value: 'status unavailable', tone: 'warn' })
-        }
-        try {
-          const i = await getIntelStatus()
-          const mode = i.offline ? 'offline' : i.simulated ? 'simulated' : 'live'
-          out.push({ key: 'intel', label: 'INTEL', value: mode, tone: i.offline || i.simulated ? 'warn' : 'ok' })
-        } catch {
-          out.push({ key: 'intel', label: 'INTEL', value: 'status unavailable', tone: 'warn' })
-        }
-      }
-      if (alive) setCells(out)
-    }
-    void run()
-    const t = window.setInterval(() => void run(), poll)
+    const p = pollers.get(key) ?? startPoller(key, canMl, canConfig, poll)
+    p.listeners.add(setSnap)
+    setSnap(p.snap)
     return () => {
-      alive = false
-      window.clearInterval(t)
+      p.listeners.delete(setSnap)
+      if (p.listeners.size === 0) {
+        p.alive = false
+        window.clearInterval(p.timer)
+        if (pollers.get(key) === p) pollers.delete(key)
+      }
     }
-  }, [can, poll])
-  return { cells, backend }
+  }, [key, canMl, canConfig, poll])
+  return snap
 }
 
 export default function StatusBar() {
