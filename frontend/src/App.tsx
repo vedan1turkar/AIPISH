@@ -94,6 +94,8 @@ function SignedInApp() {
   const [loadError, setLoadError] = useState<string | null>(null)
   // id for #campaign/{id} and #case/{id} routes (P5c)
   const [routeId, setRouteId] = useState<string | null>(null)
+  // P5z.1: a page route the role may not open (e.g. #audit for an analyst) shows a 403 notice above History.
+  const [denied, setDenied] = useState<string | null>(null)
 
   const openAnalysis = useCallback(async (id: string) => {
     setLoadError(null)
@@ -125,21 +127,30 @@ function SignedInApp() {
 
   //rudimentary hash routing so refresh/back work acceptably
   useEffect(() => {
-    const applyHash = () => {
+    const applyHash = (e?: Event) => {
       const h = window.location.hash
+      // Clear the 403 notice only on a real navigation; this effect also re-runs when permissions refresh.
+      if (e) setDenied(null)
+      // Not permitted: land on History (as before), say why with a 403 notice, and make the URL match the page.
+      const gate = (v: View) => {
+        if (allowed(v)) return v
+        setDenied(h)
+        window.history.replaceState(null, '', '#history')
+        return 'history' as View
+      }
       if (h === '#overview' || h === '') setView('overview')
-      else if (h === '#upload') setView(allowed('upload') ? 'upload' : 'history')
+      else if (h === '#upload') setView(gate('upload'))
       else if (h === '#history') setView('history')
-      else if (h === '#users') setView(allowed('users') ? 'users' : 'history')
+      else if (h === '#users') setView(gate('users'))
       else if (h === '#account') setView('account')
-      else if (h === '#campaigns') setView(allowed('campaigns') ? 'campaigns' : 'history')
-      else if (h === '#search') setView(allowed('search') ? 'search' : 'history')
-      else if (h === '#audit') setView(allowed('audit') ? 'audit' : 'history')
-      else if (h === '#retention') setView(allowed('retention') ? 'retention' : 'history')
-      else if (h === '#analytics') setView(allowed('analytics') ? 'analytics' : 'history')
+      else if (h === '#campaigns') setView(gate('campaigns'))
+      else if (h === '#search') setView(gate('search'))
+      else if (h === '#audit') setView(gate('audit'))
+      else if (h === '#retention') setView(gate('retention'))
+      else if (h === '#analytics') setView(gate('analytics'))
       else if (h === '#alerts' || h.startsWith('#alerts/')) {
         setRouteId(h.startsWith('#alerts/') ? h.slice('#alerts/'.length) || null : null)
-        setView(allowed('alerts') ? 'alerts' : 'history')
+        setView(gate('alerts'))
       }
       else if (h.startsWith('#campaign/') && allowed('campaigns')) {
         setRouteId(h.slice('#campaign/'.length))
@@ -161,6 +172,7 @@ function SignedInApp() {
   }, [openAnalysis, allowed])
 
   function navigate(v: View) {
+    setDenied(null)
     if (!allowed(v)) v = 'history'
     setView(v)
     window.location.hash = v === 'upload' ? '#upload' : `#${v}`
@@ -244,6 +256,11 @@ function SignedInApp() {
         {view === 'case' && routeId && !can('case:read') && (
           <PageNotice title="Not permitted" code="403" actions={<Button onClick={() => navigate('history')}>Open history</Button>}>
             Your role cannot open investigation cases.
+          </PageNotice>
+        )}
+        {view === 'history' && denied && (
+          <PageNotice title="Not permitted" code="403">
+            Your role cannot open <span className="font-mono">{denied}</span>. Showing history instead.
           </PageNotice>
         )}
         {view === 'history' && <HistoryPage onOpenAnalysis={openAnalysis} />}
