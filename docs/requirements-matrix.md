@@ -4,7 +4,7 @@ This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 au
 `b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`), **P5b:
 authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns** (`9213bbf`) and **P5d: MITRE ATT&CK mapping and source-type
 classification** and **P5i: PostgreSQL, Docker Compose, Nginx and CI** and **P5g: infrastructure geolocation map and analytics** and **P5e: tamper-evident audit log, retention
-enforcement and personal-data masking** and **P5h: explainable combined risk assessment** and **P5f: risk-based alerts** and **P5k-lite: mail-parser cross-check and Jinja2 HTML report**.
+enforcement and personal-data masking** and **P5h: explainable combined risk assessment** and **P5f: risk-based alerts** and **P5k-lite: mail-parser cross-check and Jinja2 HTML report** and **P5a-live: live threat-intelligence provider verification**.
 
 **ID provenance:**
 - R1–R40 come from the original project matrix.
@@ -18,7 +18,7 @@ Recommended technologies are listed for traceability. They are not functional sc
 | Code | Meaning |
 |---|---|
 | **VER** | Implemented and verified (tests plus a real-app run). |
-| **IMP-U** | Implemented, verification incomplete. For P5a providers this means **mocked-verified**: unit/integration tests plus a real-app run against a SIMULATED loopback stub. **Live provider connectivity is not verified.** |
+| **IMP-U** | Implemented, verification incomplete. For P5a providers this means **mocked-verified**: unit/integration tests plus a real-app run against a SIMULATED loopback stub. Since P5a-live, R44, R45, R46 and R49 are live-verified for the exercised paths only (see `docs/intel/LIVE_VERIFICATION.md`). |
 | **PART** | Partially implemented. |
 | **STUB** | Stub or mock only. |
 | **MISS** | Missing. |
@@ -26,15 +26,33 @@ Recommended technologies are listed for traceability. They are not functional sc
 
 ## Counts
 
-| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g | After P5e | After P5h | After P5f | After P5k-lite |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 | 30 | 31 | 31 | 33 |
-| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 | 12 | 12 | 12 | 12 |
-| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 | 8 | 7 | 8 | 8 |
-| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 | 7 | 7 | 6 | 4 |
-| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
-| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+| Status | Before P5a | After P5a | After P5b | After P5c | After P5d | After P5i | After P5g | After P5e | After P5h | After P5f | After P5k-lite | After P5a-live |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| VER | 16 | 16 | 18 | 21 | 22 | 25 | 27 | 30 | 31 | 31 | 33 | 37 |
+| IMP-U | 3 | 7 | 7 | 9 | 10 | 10 | 12 | 12 | 12 | 12 | 12 | 8 |
+| PART | 16 | 18 | 18 | 14 | 14 | 13 | 11 | 8 | 7 | 8 | 8 | 8 |
+| STUB | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| MISS | 21 | 16 | 14 | 13 | 11 | 9 | 7 | 7 | 7 | 6 | 4 | 4 |
+| BLK | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| **Total** | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 | 60 |
+
+## Changes made in P5a-live
+
+These are the first live provider calls, made on free tiers on 2026-11-22. Only the approved indicators were
+sent: `8.8.8.8`, `1.1.1.1`, `example.com`, the EICAR SHA-256 hash (lookup only) and the Tor bulk list. There were
+16 requests. Details are in `docs/intel/LIVE_VERIFICATION.md`.
+
+| ID | Before | After | Why |
+|---|---|---|---|
+| R44 | IMP-U | VER | VirusTotal was verified live for the paths exercised.<br>**Paths exercised:**<ul><li>IP and file-hash GETs through the service;</li><li>the domain shape through the adapter (the service refuses example.com as a documentation domain);</li><li>a cache hit;</li><li>the local 4/min limiter refusing a 5th call;</li><li>consent-disabled and offline paths with no request.</li></ul>**Fixed:** a single-engine detection on a benign IP (1/92) was flagged. There is now a threshold, `INTEL_VT_FLAG_MIN_ENGINES` (default 3), with a regression test on the real shape.<br>**Not verified live:** 401/403/429/quota/5xx, the daily cap and URL lookups. |
+| R45 | IMP-U | VER | AbuseIPDB was verified live: 200 and `record_found` below the threshold (confidence 0, with 217/290 reports); the rate-limit headers were observed; cache hit; consent and offline paths.<br>**Not verified live:** error mappings and quota. |
+| R46 | IMP-U | VER | Shodan was verified live: the free plan allows host lookups (`record_found`; ports, org, ASN, hostnames); the key stays in the query string and is never logged.<br>**Not verified live:** 404 → `no_record`, `not_permitted` and the error mappings. |
+| R49 | IMP-U | VER | IPinfo was verified live: geo, ASN/org, and `anycast`; the free plan returns no privacy block, so the flags show as "unavailable"; with no token, `missing_credentials` and no request.<br>**Fixed:**<ul><li>anycast is now shown (adapter caveat, Geo row);</li><li>ATT&CK counted "unavailable" privacy flags as true.</li></ul>**Not verified live:** paid-plan privacy flags and the error mappings. |
+| R14 | IMP-U | IMP-U | **Note:** the Geo tab was verified with a real consented IPinfo location (8.8.8.8, Mountain View, AS15169; no SIMULATED label, anycast caveat shown). Still IMP-U: live upload-time ip-api enrichment is unverified, and MaxMind is blocked (R48). |
+| R57 | IMP-U | IMP-U | **Note:** the map was verified with one real IPinfo point at 1440 and 1920. It is still one anycast point on one run; multi-point real data is unverified. |
+| R15 | PART | PART | **Note:**<ul><li>the Tor list was verified live (1,263 IPs; listed vs not listed);</li><li>IPinfo privacy flags are not returned on the free plan, and every consumer now treats them as unavailable rather than true;</li><li>AbuseIPDB usage type was observed live.</li></ul>Still no open-relay or botnet source. |
+| R18 | IMP-U | IMP-U | **Note:** the threat-intel input is now live-verified for the exercised paths. With real data, combined risk stayed MINIMAL, there were no alerts, and source type and ATT&CK were sensible after the fix. Still IMP-U: the correlation weights are tuned on synthetic data only. |
+| R33 | VER | VER | Counts updated: backend 784 / 13 skipped (SQLite: 12 opt-in live tests and 1 PostgreSQL-only test), 785 / 12 skipped (PostgreSQL); frontend 204. |
 
 ## Changes made in P5k-lite
 
@@ -164,11 +182,11 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R11 | Authorised vs suspicious infrastructure | IMP-U | SPF result plus relay trust | Depends on live SPF (R9) |
 | R12 | Relay-chain reconstruction | VER | `run_header_forensics` · `test_forensics.py` | Heuristic trust boundary |
 | R13 | Candidate IPs / earliest reliable node | VER | `forensics/headers.py` · `test_forensics.py` | — |
-| R14 | Geolocation: country, region, city, ISP, ASN, hosting | IMP-U | `enrichment/engine.py:ipgeo_lookup`; P5a IPinfo geo/ASN/hosting flag; P5g `geo/service.py` + Geo tab · `test_intel.py`, `test_geo.py`, `Geo.test.tsx` | MaxMind blocked (R48); live ip-api/IPinfo data unverified (demo uses SIMULATED locations) |
-| R15 | VPN / Tor / proxy / hosting / botnet / open-relay flags | PART | `intel/providers.py`: TorExitList, IPinfo privacy, Shodan tags, AbuseIPDB usage type; P5d "anonymised infrastructure" hypothesis and T1090.003 · `test_intel.py`, `test_attack.py` | No open-relay or botnet source; IPinfo privacy may need a paid plan; live unverified |
+| R14 | Geolocation: country, region, city, ISP, ASN, hosting | IMP-U | `enrichment/engine.py:ipgeo_lookup`; P5a IPinfo geo/ASN/hosting flag and anycast; P5g `geo/service.py` + Geo tab · `test_intel.py`, `test_intel_live_shapes.py`, `test_geo.py`, `Geo.test.tsx` | MaxMind blocked (R48); real IPinfo location verified live (P5a-live, one IP); live ip-api upload enrichment unverified |
+| R15 | VPN / Tor / proxy / hosting / botnet / open-relay flags | PART | `intel/providers.py`: TorExitList, IPinfo privacy, Shodan tags, AbuseIPDB usage type; P5d "anonymised infrastructure" hypothesis and T1090.003 · `test_intel.py`, `test_attack.py` | No open-relay or botnet source; IPinfo privacy flags are not returned on the free plan (shown as unavailable, never true); Tor list live-verified (P5a-live) |
 | R16 | WHOIS/RDAP, DNS, MX, registrar | PART | `dns_lookup`, `rdap_lookup`; VT domain registrar/creation (P5a) · `test_enrichment.py`, `test_intel.py` | Live unverified |
 | R17 | Origin vs infrastructure vs identity separation | VER | Disclaimers in UI, PDF, LLM evidence and the threat-intel disclaimer · `test_llm.py`, `test_p41.py`, `test_intel.py` | — |
-| R18 | Correlation with threat intel, reputation, past incidents, campaigns | IMP-U | `intel/` (P5a); `correlation/` engine, Related tab, campaigns, PDF §7B (P5c) · `test_intel.py`, `test_correlation.py`, `Correlation.test.tsx` | Intel live-unverified; correlation weights tuned on synthetic data only |
+| R18 | Correlation with threat intel, reputation, past incidents, campaigns | IMP-U | `intel/` (P5a); `correlation/` engine, Related tab, campaigns, PDF §7B (P5c) · `test_intel.py`, `test_correlation.py`, `Correlation.test.tsx` | Intel live-verified for the exercised paths only (P5a-live); correlation weights tuned on synthetic data only |
 | R19 | Relationship graph | VER | Per-email trace graph; persistent cross-email entity graph, campaign graph and entity neighbourhood (P5c) · `model.test.ts`, `test_correlation.py`, `Correlation.test.tsx` | No graph database (R50) |
 | R20 | Confidence-based attribution | IMP-U | Per-hop confidence; campaign confidence plus evidence-backed reasons (P5c) · `test_correlation.py` | Heuristic thresholds; no analyst overrides; never attribution to a person |
 | R21 | Source-type classification | IMP-U | `attack/engine.py` hypotheses (spoofed domain, compromised account, anonymised infra, direct malicious infra) · `test_attack.py`, `Attack.test.tsx` | Infra hypotheses tested with SIMULATED intel only; heuristic bands; no sender-history baseline |
@@ -183,7 +201,7 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R30 | Evidence preservation / chain-of-custody support | VER | SHA-256, optional raw retention, versioned assessments and intel runs; P5e HMAC hash-chained audit log, custody timeline and tab, checkpoints · `test_audit.py`, `Audit.test.tsx`, Docker tamper demo | Tamper-evident, not tamper-proof: no WORM or external timestamping; triggers bypassable by a superuser (detected by the chain); manual checkpoints |
 | R31 | Retention, masking, redaction | VER | P5e `retention/service.py` (redact or delete, grace, legal holds, `retention-run`), `privacy/masking.py` (`pii:view`), masked PDF; `llm/redact.py` · `test_audit.py`, `Audit.test.tsx`, Docker run | No built-in scheduler (cron or Compose profile); subjects not masked; stored in clear |
 | R32 | RBAC | VER | `security/permissions.py`, `security/deps.py` (app-wide `enforce_access`), `api/admin_router.py` · `test_access_control.py` (route inventory + role matrix), `Auth.test.tsx` | Roles are global: no per-case ownership/ACLs |
-| R33 | Tests | VER | Backend 773 passed / 7 skipped on SQLite (6 opt-in live tests + 1 PostgreSQL-only trigger test) and 774 passed / 6 skipped on PostgreSQL; frontend 203 passed; all in CI (P5i, P5g, P5e, P5h, P5f, P5k-lite) | No browser E2E suite |
+| R33 | Tests | VER | Backend 784 passed / 13 skipped on SQLite (12 opt-in live tests + 1 PostgreSQL-only trigger test) and 785 passed / 12 skipped on PostgreSQL; frontend 204 passed; all in CI (P5i, P5g, P5e, P5h, P5f, P5k-lite, P5a-live) | No browser E2E suite |
 | R34 | Main database (PostgreSQL) | VER | `core/db.py` (`DATABASE_URL`, psycopg 3), `core/migrations.py` (versioned, idempotent) · full suite on PostgreSQL 17, `test_deploy.py`, Compose run (P5i) | No SQLite→PostgreSQL data copy (re-seed path documented) |
 | R35 | Background tasks / caching | MISS | In-process enrichment cache; DB intel cache (P5a) | No Celery/Redis; intel lookups and correlation recompute run synchronously |
 | R36 | Email integration (IMAP/SMTP/Graph) | MISS | — | Test mailbox or Azure tenant |
@@ -194,12 +212,12 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R41* | Preprocessing / normalisation | VER | `ingestion/parser.py`, `enrichment/iocs.py`, `intel/validate.py` · `test_parser.py`, `test_intel.py` | — |
 | R42* | Attachment metadata | VER | Parser SHA-256 and metadata · `test_parser.py` | — |
 | R43* | mail-parser cross-check | VER | `ingestion/crosscheck.py` (mail-parser 4.10.0), `analysis.parser_crosscheck`, Headers-tab panel, PDF/HTML section 5 · `test_crosscheck_report.py` (SQLite + PostgreSQL), `Crosscheck.test.tsx`, Docker run | Informational only; two parsers; malformed Received kept verbatim by both is not flagged |
-| R44* | VirusTotal | IMP-U | `intel/providers.py:VirusTotal` · `test_intel.py` | **Live unverified**; public API is non-commercial only |
-| R45* | AbuseIPDB | IMP-U | `intel/providers.py:AbuseIPDB` · `test_intel.py` | **Live unverified** |
-| R46* | Shodan | IMP-U | `intel/providers.py:Shodan` · `test_intel.py` | **Live unverified**; host lookups may need a paid plan (reported as not_permitted) |
+| R44* | VirusTotal | VER | `intel/providers.py:VirusTotal` · `test_intel.py`, `test_intel_live_shapes.py`, live run (P5a-live) | Live-verified for the exercised paths only (IP, hash, domain shape, cache, limiter); error mappings mocked-only; public API is non-commercial only |
+| R45* | AbuseIPDB | VER | `intel/providers.py:AbuseIPDB` · `test_intel.py`, `test_intel_live_shapes.py`, live run (P5a-live) | Live-verified for the exercised paths only (`record_found` below the threshold, cache); error mappings mocked-only |
+| R46* | Shodan | VER | `intel/providers.py:Shodan` · `test_intel.py`, `test_intel_live_shapes.py`, live run (P5a-live) | Live-verified for the exercised paths only (host lookup works on the free plan); `no_record`, `not_permitted` and error mappings mocked-only |
 | R47* | MISP | BLK | Reported as "not configured" | No MISP instance |
 | R48* | MaxMind GeoIP2 | BLK | `geoip2_lookup` stub; reported as "not configured" | No licence key or database |
-| R49* | IPinfo | IMP-U | `intel/providers.py:IPinfo` · `test_intel.py` | **Live unverified**; privacy flags depend on plan |
+| R49* | IPinfo | VER | `intel/providers.py:IPinfo` · `test_intel.py`, `test_intel_live_shapes.py`, live run (P5a-live) | Live-verified for the exercised paths only (geo, ASN, anycast, missing token); privacy flags need a paid plan (unavailable on free) |
 | R50* | Neo4j | MISS | — (P5c uses SQLite plus NetworkX deliberately) | Not needed at current scale; service not installed |
 | R51* | NetworkX | VER | `correlation/engine.py` (connected components) · `test_correlation.py` | — |
 | R52* | Search (OpenSearch) | MISS | — | — |
@@ -207,7 +225,7 @@ Related rows (R14, R16, R33, R59, R60) gained evidence but keep their status.
 | R54* | JWT authentication | VER | `security/tokens.py`, `api/auth_router.py` · `test_access_control.py` | No refresh tokens; no key rotation (key id) |
 | R55* | Jinja2 report templates | VER | `reports/html.py` + `reports/templates/` (HTML report, autoescape) and `alerts/templates/` (e-mail) · `test_crosscheck_report.py`, `test_alerts.py` | The PDF remains ReportLab (by design) |
 | R56* | Plotly analytics | VER | `geo/analytics.py`, `/analytics/summary`, `AnalyticsPage.tsx` (lazy Plotly) · `test_geo.py` (SQLite + PostgreSQL), `Geo.test.tsx`, browser run | Bounded window (2,000 latest analyses for derived charts) |
-| R57* | Leaflet geolocation map | IMP-U | `components/geo/GeoMap.tsx` (no tiles; Natural Earth outline) · `Geo.test.tsx`, browser run | Verified with SIMULATED points only; live geo data unverified |
+| R57* | Leaflet geolocation map | IMP-U | `components/geo/GeoMap.tsx` (no tiles; Natural Earth outline) · `Geo.test.tsx`, browser run | Verified with one real IPinfo point (P5a-live) and SIMULATED points; multi-point real data unverified |
 | R58* | Local LLM forensic summaries | VER | `llm/*` · `test_llm.py`, `test_p41.py`, `test_p42.py` | — |
 | R59* | Audit trails | VER | `audit_event` with actor, target, outcome and source IP on every event, an HMAC chain, `/audit/*` API, Audit page, CLI `audit-verify` and `audit-checkpoint` (P5e) · `test_audit.py`, `test_access_control.py`, `Audit.test.tsx` | Tamper-evident, not tamper-proof; no audit-key rotation; views de-duplicated per 15 minutes |
 | R60* | Controlled personal-data handling | PART | LLM redaction, local-only Ollama; P5a consent, bare-indicator-only outbound requests, offline mode; P5b authentication + RBAC on all stored data, `no-store` caching; P5e viewer masking (API, UI, PDF), retention redaction and erasure | No per-case ACLs; stored in clear (no at-rest encryption); subjects not masked |

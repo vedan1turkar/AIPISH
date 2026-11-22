@@ -1,0 +1,32 @@
+{
+ "data": {
+  "attributes": {
+   "creation_date": 808372800,
+   "last_analysis_date": 1795318053,
+   "last_analysis_results": {
+    "Acronis": {
+     "category": "harmless",
+     "engine_name": "Acronis",
+     "method": "blacklist",
+     "result": "clean"
+    }
+   },
+   "last_analysis_stats": {
+    "harmless": 61,
+    "malicious": 0,
+    "suspicious": 0,
+    "timeout": 0,
+    "undetected": 31
+   },
+   "registrar": "RESERVED-Internet Assigned Numbers Authority",
+   "reputation": 31,
+   "tags": [],
+   "total_votes": {
+    "harmless": 64,
+    "malicious": 10
+   }
+  },
+  "id": "example.com",
+  "type": "domain"
+ }
+}

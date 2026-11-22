@@ -1,0 +1,16 @@
+Received: from mail-out.sender-desk.test (relay.sender-desk.test [8.8.8.8])
+	by mx.receiver-org.test (Postfix) with ESMTPS id 4F1A2B3C4D
+	for <accounts@receiver-org.test>; Sat, 21 Nov 2026 08:41:07 +0000 (UTC)
+From: "Accounts Desk (SYNTHETIC)" <accounts@sender-desk.test>
+To: <accounts@receiver-org.test>
+Subject: [SYNTHETIC TEST] Invoice reminder for PO-2026-0042
+Date: Sat, 21 Nov 2026 08:41:05 +0000
+Message-ID: <synthetic-p5a-live-0001@sender-desk.test>
+X-AIPISH-Synthetic: true; fictional .test domains; contains no real person, brand or malware
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+SYNTHETIC TEST MESSAGE for AIPISH live threat-intelligence verification.
+
+Please review the attached invoice reminder at https://portal.sender-desk.test/invoices/PO-2026-0042
+before Friday. This message is fictional and used only for testing.

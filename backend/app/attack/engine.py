@@ -214,7 +214,7 @@ def _rules(c: Ctx) -> list[Mapping]:
             flagged_hashes.append(c.intel_ev(ind, r, i, j, "flagged by provider"))
         if r.get("provider") == "tor_exit_list" and is_origin(ind):
             tor_origin.append(c.intel_ev(ind, r, i, j, "listed in the Tor exit list"))
-        if r.get("provider") == "ipinfo" and is_origin(ind) and (r.get("data") or {}).get("is_tor"):
+        if r.get("provider") == "ipinfo" and is_origin(ind) and (r.get("data") or {}).get("is_tor") is True:
             tor_origin.append(c.intel_ev(ind, r, i, j, "IPinfo privacy flag: Tor"))
 
     # M01 attachment delivery (observed)
@@ -432,10 +432,12 @@ def _hypotheses(c: Ctx) -> dict:
         if prov == "tor_exit_list" and data.get("listed"):
             anon_likely.append(c.intel_ev(ind, r, i, j, "listed in the Tor exit list"))
         if prov == "ipinfo":
-            flags = [k[3:] for k in ("is_vpn", "is_proxy", "is_tor") if data.get(k)]
+            # IPinfo privacy flags are tri-state: True/False, or the string "unavailable" when the plan returns no
+            # privacy block (live 2026-11-22). Only an explicit True is a signal.
+            flags = [k[3:] for k in ("is_vpn", "is_proxy", "is_tor") if data.get(k) is True]
             if flags:
                 anon_likely.append(c.intel_ev(ind, r, i, j, f"IPinfo privacy flags: {', '.join(flags)}"))
-            soft = [k[3:] for k in ("is_relay", "is_hosting") if data.get(k)]
+            soft = [k[3:] for k in ("is_relay", "is_hosting") if data.get(k) is True]
             if soft:
                 anon_possible.append(c.intel_ev(ind, r, i, j, f"IPinfo flags: {', '.join(soft)}"))
         if prov == "abuseipdb" and "hosting" in str(data.get("usage_type") or "").lower():

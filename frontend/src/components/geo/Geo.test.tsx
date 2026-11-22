@@ -98,6 +98,18 @@ describe('GeoPanel', () => {
     expect(rows[2].textContent).toContain('reported')
   })
 
+  it('anycast IP: the selected-IP panel says the city is a representative point (real IPinfo shape)', async () => {
+    const real = { simulated: false, source: 'IPinfo (consented threat-intel run)', org: 'AS15169 Google LLC' }
+    routes.push([/\/analyses\/a1\/geo$/, () => json(200, geo({ points: [pt('8.8.8.8', { ...real, anycast: true }), pt('9.9.9.9', real)] }))])
+    render(withRole(<GeoPanel kind="analysis" id="a1" />, 'viewer'))
+    await screen.findByTestId('geo-panel')
+    const table = screen.getByRole('table', { name: 'IP addresses' })
+    fireEvent.click(within(table).getByRole('button', { name: /8\.8\.8\.8/ }))
+    expect(screen.getByTestId('geo-anycast').textContent).toContain('representative point')
+    fireEvent.click(within(table).getByRole('button', { name: /9\.9\.9\.9/ }))
+    expect(screen.queryByTestId('geo-anycast')).toBeNull()
+  })
+
   it('relay order line is off by default and labelled as not a physical route', async () => {
     routes.push([/\/analyses\/a1\/geo$/, () => json(200, geo())])
     render(withRole(<GeoPanel kind="analysis" id="a1" />, 'viewer'))

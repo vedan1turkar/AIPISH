@@ -920,15 +920,31 @@ def test_pdf_report_endpoint_pins_intel_run(api, db):
     assert bad.status_code == 404
 
 
-# ── optional live tests (skipped by default; never run in this task) ─────
+# ── optional live tests (opt-in: AIPISH_RUN_LIVE=1; always skipped in CI) ──
+# P5a-live approved indicators ONLY: 8.8.8.8, 1.1.1.1, example.com (refused by policy before any network call)
+# and the EICAR SHA-256 (hash lookup only; the file/string is never created or stored).
+LIVE_EICAR_SHA256 = "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"
+LIVE_CASES = [("virustotal", "8.8.8.8", "ip"), ("virustotal", "1.1.1.1", "ip"), ("virustotal", LIVE_EICAR_SHA256, "hash"),
+              ("virustotal", "example.com", "domain"), ("abuseipdb", "8.8.8.8", "ip"), ("abuseipdb", "1.1.1.1", "ip"),
+              ("shodan", "8.8.8.8", "ip"), ("shodan", "1.1.1.1", "ip"), ("ipinfo", "8.8.8.8", "ip"),
+              ("ipinfo", "1.1.1.1", "ip"), ("tor_exit_list", "8.8.8.8", "ip")]
+
+
 @pytest.mark.live
-@pytest.mark.parametrize("provider", ["virustotal", "abuseipdb", "shodan", "ipinfo", "tor_exit_list"])
-def test_live_provider_smoke(provider):
-    """Requires AIPISH_RUN_LIVE=1 and real (rotated) keys. Looks up 8.8.8.8 only."""
+@pytest.mark.parametrize("provider,indicator,itype", LIVE_CASES)
+def test_live_provider_approved_indicators(provider, indicator, itype):
+    """Requires AIPISH_RUN_LIVE=1 and real (rotated) keys. VirusTotal calls are paced (public API: 4/min)."""
+    import time
     from app.intel.providers import PROVIDER_CLASSES
     cfg = IntelConfig(offline=False)
     if not cfg.configured(provider):
         pytest.skip(f"{provider} not configured")
-    r = PROVIDER_CLASSES[provider](cfg).lookup("8.8.8.8", consent=True)
+    if provider == "virustotal" and itype != "domain":
+        time.sleep(16)
+    r = PROVIDER_CLASSES[provider](cfg).lookup(indicator, itype, consent=True)
     assert r.status in B.STATUSES
     assert r.status not in (B.MALFORMED_RESPONSE, B.AUTH_FAILED), r.status
+    if itype == "domain":
+        assert r.status == B.NOT_APPLICABLE_INDICATOR          # documentation domain: no network call
+    if provider == "virustotal" and r.status == B.MALICIOUS_OR_FLAGGED:
+        assert r.data["malicious"] + r.data["suspicious"] >= cfg.vt_flag_min_engines

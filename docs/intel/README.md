@@ -9,11 +9,24 @@ instance). The status endpoint, the UI and the PDF all report them as **not conf
 
 ## Verification status
 
-> **Live provider connectivity has not been verified.** Every provider path is covered by mocked tests
-> (respx), and the full workflow was run in the real app against a loopback stub that is labelled
-> **SIMULATED**. No call was made to a real provider while P5a was built. To run the opt-in live smoke
-> tests (one lookup of `8.8.8.8` per provider), rotate the keys first, then run
-> `AIPISH_RUN_LIVE=1 pytest tests/unit/test_intel.py -k live`.
+> **Live-verified on 2026-11-22, for the exercised paths only.** See [LIVE_VERIFICATION.md](LIVE_VERIFICATION.md).
+> - **Indicators:** real VirusTotal (IP, domain, hash), AbuseIPDB, Shodan, IPinfo and Tor-list lookups were made
+>   on free tiers, for the approved indicators only (`8.8.8.8`, `1.1.1.1`, `example.com` and the EICAR SHA-256
+>   hash). There were 16 requests in all.
+> - **Paths exercised:** success responses, cache hits, the local VirusTotal limiter, missing credentials,
+>   consent disabled and offline mode.
+> - **Mocked only:** provider error responses (401/403/429/quota/5xx/timeouts) and paid-plan fields such as
+>   IPinfo privacy flags.
+>
+> The live run found three response-shape defects. All three are fixed and have offline regression tests built
+> from sanitised real shapes (`tests/fixtures/intel/live_shapes/`):
+> 1. VirusTotal flagged an IP on a single engine; it now uses a threshold.
+> 2. IPinfo anycast was not surfaced.
+> 3. ATT&CK read "unavailable" IPinfo privacy flags as true.
+>
+> To re-run the opt-in live test, rotate the keys first, then run
+> `AIPISH_RUN_LIVE=1 pytest tests/unit/test_intel.py -k live`. It sends only the approved indicators and paces
+> VirusTotal at 16 s per call.
 
 ## Consent and offline mode
 
@@ -75,7 +88,7 @@ At most `INTEL_MAX_IOCS` eligible indicators are looked up (default 20). Indicat
 |---|---|
 | `malicious_or_flagged` | The provider flagged the indicator. |
 | `reported_clean_no_flags` | The provider evaluated it and returned no flags. **Not proof of safety.** |
-| `record_found` | The provider returned data but no reputation verdict, e.g. Shodan, IPinfo without anonymity flags, or AbuseIPDB below the threshold. **Not proof of safety.** |
+| `record_found` | The provider returned data but no reputation verdict, e.g. Shodan, IPinfo without anonymity flags, AbuseIPDB below the threshold, or VirusTotal with fewer than `INTEL_VT_FLAG_MIN_ENGINES` (default 3) malicious engines. **Not proof of safety.** |
 | `no_record` | No record or reports. **Not proof of safety.** |
 | `provider_error`, `timeout`, `malformed_response` | No result. |
 | `rate_limited`, `quota_exhausted` | Local or provider limit reached; nothing was sent. |
@@ -90,6 +103,22 @@ Each result also records:
 - `cache_state` (`fresh`, `stale` or `none`);
 - the endpoint name (never a URL that contains a key);
 - normalised data, `error_code` and message.
+
+## Provider-specific interpretation (from live shapes)
+
+- **VirusTotal threshold.** `INTEL_VT_FLAG_MIN_ENGINES` sets the threshold (default 3).
+  - **At or above it:** the result is `malicious_or_flagged`.
+  - **Below it:** the result is `record_found`, with the count and `flag_threshold` shown. Live, 8.8.8.8 and
+    1.1.1.1 each had one isolated detection out of 92 engines.
+  - **Not verdicts:** the extra stats keys (`type-unsupported`, `failure`, `confirmed-timeout`) are not counted
+    in the engine total.
+- **IPinfo anycast.** When IPinfo reports `anycast: true`, the result, the Geo tab and the caveat say that the
+  city is a representative point, not where traffic originates.
+- **IPinfo privacy flags.** The free plan returns no privacy block. VPN, proxy, Tor, relay and hosting then stay
+  the string `"unavailable"`, and every consumer counts only an explicit `true`: the Geo panel, ATT&CK and source
+  type, and the frontend.
+- **Rate-limit headers.** Only AbuseIPDB sends rate-limit headers. For the other providers, the local limiter is
+  the only guard.
 
 ## Resilience and caching
 
@@ -120,6 +149,15 @@ Each result also records:
 - The `httpx` and `httpcore` loggers are capped at WARNING because Shodan authenticates with a query parameter.
 - `GET /api/v1/intel/status` returns booleans only.
 - Endpoint overrides must use HTTPS, or HTTP to a loopback host only. Anything else disables that provider.
+- **Request audit hook (off by default).** Setting `INTEL_REQUEST_LOG=/path/file.jsonl` appends one JSON line per
+  outbound provider request. Each line holds:
+  - the method, host and path;
+  - the query-parameter names;
+  - the values of `ipAddress`, `maxAgeInDays` and `minify` only;
+  - the header names and the body length.
+
+  It never records key values, auth header values or full URLs. Use it only for a supervised verification run,
+  then unset it.
 
 ## Untrusted provider text
 

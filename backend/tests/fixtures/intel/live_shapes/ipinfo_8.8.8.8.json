@@ -1,0 +1,12 @@
+{
+ "anycast": true,
+ "city": "Mountain View",
+ "country": "US",
+ "hostname": "dns.google",
+ "ip": "8.8.8.8",
+ "loc": "38.0088,-122.1175",
+ "org": "AS15169 Google LLC",
+ "postal": "94043",
+ "region": "California",
+ "timezone": "America/Los_Angeles"
+}

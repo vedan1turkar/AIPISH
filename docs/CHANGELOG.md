@@ -1,5 +1,37 @@
 # Changelog
 
+## P5a-live — live threat-intelligence provider verification and response-shape fixes
+
+- **Live verification (first real provider calls, 2026-11-22, free tiers):**
+  - VirusTotal (IP, hash, domain shape), AbuseIPDB, Shodan, IPinfo and the Tor bulk list.
+  - Approved indicators only: `8.8.8.8`, `1.1.1.1`, `example.com`, and the EICAR SHA-256 hash (lookup only).
+  - 16 requests, all GET with an empty body. No 401/403/429 or quota errors.
+  - Also verified: cache hits, the VirusTotal limiter, missing credentials, and the consent-disabled and offline
+    paths, which make no requests.
+  - Secret scan of the databases, logs, reports, fixtures and the diff: no key found.
+  - See `docs/intel/LIVE_VERIFICATION.md`.
+- **Fixes, from real response shapes:**
+  - **VirusTotal threshold:** a result is flagged only when at least `INTEL_VT_FLAG_MIN_ENGINES` engines (default
+    3) report it malicious. Fewer detections give `record_found` with a "below the flag threshold" message. 8.8.8.8
+    and 1.1.1.1 each had 1 of 92 engines; the EICAR hash is still flagged at 65 of 67.
+  - **IPinfo anycast:** the result carries `anycast` and a caveat, the geo service passes it on, and the Geo tab
+    shows an "Anycast" row.
+  - **ATT&CK source type:** only an explicit `true` IPinfo privacy flag counts. The string "unavailable" (no
+    privacy block on the free plan) had made 8.8.8.8 "anonymised infrastructure: likely".
+- **Request audit hook:** `INTEL_REQUEST_LOG` writes one redacted JSON line per provider request: method, host,
+  path, parameter and header names, and body length. It never writes key values. Off by default.
+- **Tests:**
+  - Sanitised real-shape fixtures in `tests/fixtures/intel/live_shapes/`.
+  - `test_intel_live_shapes.py` (11 tests) and a Geo anycast frontend test.
+  - The opt-in live test now covers the 11 approved cases, with VirusTotal paced at 16 s per call. It is skipped
+    in CI.
+  - New synthetic fixture `eml/synthetic_public_hop_8888.eml`. Its legacy ML-feature snapshot entry was computed
+    with commit 32cdeed's code.
+- **Counts:**
+  - Backend: 784 passed / 13 skipped (SQLite); 785 passed / 12 skipped (PostgreSQL).
+  - Frontend: 204 passed.
+  - The BEC demo is unchanged: rules 100 / `phishing_fraud_likely`; ML impersonated 0.4355.
+
 ## P5k-lite — mail-parser cross-check (R43) and Jinja2 HTML report (R55)
 
 - **Parser cross-check (informational):**

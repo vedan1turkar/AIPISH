@@ -1148,6 +1148,7 @@ export interface GeoPoint {
   fetched_at: string | null
   stale: boolean
   simulated: boolean
+  anycast?: boolean          // P5a-live: IPinfo anycast flag (location is a representative point only)
   accuracy_note?: string
   members?: string[]
   member_count?: number

@@ -55,6 +55,10 @@ function SelectedIp({ row, isCampaign }: { row: Row | null; isCampaign: boolean 
       {isCampaign && <KV label="Members" mono>{row.member_count ?? 0}</KV>}
       <KV label="Location">{row.located ? (where(p) || 'country unknown') : 'no location data'}</KV>
       {row.located && <KV label="Coordinates" mono>{p.lat.toFixed(2)}, {p.lon.toFixed(2)} (approximate)</KV>}
+      {row.located && p.anycast && (
+        <KV label="Anycast">
+          <span data-testid="geo-anycast">yes: served from many locations; this city is a representative point, not where traffic originates</span>
+        </KV>)}
       <KV label="ASN / org" mono>{[row.asn, row.org].filter(Boolean).join(' · ') || 'not available'}</KV>
       <KV label="Source">{row.source || 'none stored'}</KV>
       {row.located && <KV label="Fetched" mono>{p.fetched_at ? formatDate(p.fetched_at) : 'unknown'}</KV>}

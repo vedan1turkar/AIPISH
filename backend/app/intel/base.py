@@ -41,6 +41,34 @@ for _name in ("httpx", "httpcore"):
 
 log = logging.getLogger("app.intel")
 
+
+_SAFE_QUERY_PARAMS = frozenset({"ipAddress", "maxAgeInDays", "minify"})
+
+
+def _request_audit_hook(provider: str):
+    """Optional, OFF by default: when ``INTEL_REQUEST_LOG`` names a file, append one JSON line per outbound
+    provider request with method, host, path, query-parameter NAMES, header NAMES and body length only.
+    Never the query string, header values or body (Shodan's key travels in the query string; other providers
+    send keys in headers). Used for the P5a-live transmission check; leave unset in normal operation."""
+    import json
+    from app.core.config import env
+    target = (env("INTEL_REQUEST_LOG") or "").strip()
+    if not target:
+        return None
+
+    def hook(request: httpx.Request) -> None:
+        try:
+            line = {"provider": provider, "method": request.method, "host": request.url.host,
+                    "path": request.url.path, "query_param_names": sorted({k for k, _ in request.url.params.multi_items()}),
+                    # values only for an explicit allowlist of non-secret parameters (never "key"/"token")
+                    "query_values": {k: v for k, v in request.url.params.multi_items() if k in _SAFE_QUERY_PARAMS},
+                    "header_names": sorted(request.headers.keys()), "body_bytes": len(request.content or b"")}
+            with open(target, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(line) + "\n")
+        except Exception:  # noqa: BLE001 — auditing must never break a lookup
+            pass
+    return hook
+
 # ── statuses ──────────────────────────────────────────────────────────────
 MALICIOUS_OR_FLAGGED = "malicious_or_flagged"
 REPORTED_CLEAN_NO_FLAGS = "reported_clean_no_flags"
@@ -431,7 +459,9 @@ class Provider:
                                 message=default_message(blocked, self.label, extra))
         url, headers, params = self.build_request(indicator, itype, self.cfg.credential(self.name))
         timeout = httpx.Timeout(self.cfg.read_timeout_seconds, connect=self.cfg.connect_timeout_seconds)
-        client = self.client or httpx.Client(timeout=timeout, follow_redirects=False)
+        hook = None if self.client is not None else _request_audit_hook(self.name)
+        client = self.client or httpx.Client(timeout=timeout, follow_redirects=False,
+                                             event_hooks={"request": [hook]} if hook else None)
         resp: httpx.Response | None = None
         failure: str | None = None
         try:

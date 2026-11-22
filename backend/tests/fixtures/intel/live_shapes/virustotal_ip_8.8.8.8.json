@@ -1,0 +1,36 @@
+{
+ "data": {
+  "attributes": {
+   "as_owner": "Google LLC",
+   "asn": 15169,
+   "country": "US",
+   "last_analysis_date": 1795313732,
+   "last_analysis_results": {
+    "Synthient": {
+     "category": "malicious",
+     "engine_name": "Synthient",
+     "method": "blacklist",
+     "result": "malicious"
+    }
+   },
+   "last_analysis_stats": {
+    "harmless": 53,
+    "malicious": 1,
+    "suspicious": 0,
+    "timeout": 0,
+    "undetected": 38
+   },
+   "network": "8.8.8.0/24",
+   "reputation": 567,
+   "tags": [
+    "suspicious-udp"
+   ],
+   "total_votes": {
+    "harmless": 301,
+    "malicious": 60
+   }
+  },
+  "id": "8.8.8.8",
+  "type": "ip_address"
+ }
+}

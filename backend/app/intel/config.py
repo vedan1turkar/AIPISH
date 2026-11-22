@@ -111,6 +111,9 @@ class IntelConfig:
     tor_per_day: int = field(default_factory=lambda: _i("INTEL_TOR_PER_DAY", 48))
 
     abuseipdb_flag_threshold: int = field(default_factory=lambda: _i("INTEL_ABUSEIPDB_FLAG_THRESHOLD", 25))
+    # P5a-live: a single engine flags well-known benign infrastructure (observed live: 1/92 for 8.8.8.8 and
+    # 1.1.1.1); require at least this many malicious+suspicious engines before reporting "flagged".
+    vt_flag_min_engines: int = field(default_factory=lambda: max(1, _i("INTEL_VT_FLAG_MIN_ENGINES", 3)))
     abuseipdb_max_age_days: int = field(default_factory=lambda: _i("INTEL_ABUSEIPDB_MAX_AGE_DAYS", 90))
 
     # endpoints (overridable for a loopback stub only — see endpoint_allowed)

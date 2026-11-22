@@ -1,0 +1,32 @@
+{
+ "area_code": null,
+ "asn": "AS15169",
+ "city": "Mountain View",
+ "country_code": "US",
+ "country_name": "United States",
+ "data": [],
+ "domains": [
+  "coupang.com",
+  "dns.google"
+ ],
+ "hostnames": [
+  "altus.coupang.com",
+  "dns.google"
+ ],
+ "ip": 134744072,
+ "ip_str": "8.8.8.8",
+ "isp": "Google LLC",
+ "last_update": "2026-11-21T22:28:57.969485",
+ "latitude": 38.00881,
+ "longitude": -122.11746,
+ "org": "Google LLC",
+ "os": null,
+ "ports": [
+  443,
+  53
+ ],
+ "region_code": "CA",
+ "tags": [
+  "pqc"
+ ]
+}

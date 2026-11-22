@@ -140,7 +140,9 @@ def _from_ipinfo(r: dict, simulated: bool) -> dict | None:
     return {"lat": lat, "lon": lon, "country": d.get("country"), "region": d.get("region"), "city": d.get("city"),
             "asn": d.get("asn"), "org": d.get("org"), "isp": None,
             "source": "IPinfo (consented threat-intel run)", "provider": "ipinfo",
-            "fetched_at": r.get("fetched_at"), "stale": r.get("cache_state") == "stale", "simulated": simulated}
+            "fetched_at": r.get("fetched_at"), "stale": r.get("cache_state") == "stale", "simulated": simulated,
+            # P5a-live: real IPinfo data marks anycast addresses (e.g. 8.8.8.8); their city is a representative point
+            "anycast": d.get("anycast") is True}
 
 
 def _enrichment_geo(rec: Analysis) -> dict[str, dict]:

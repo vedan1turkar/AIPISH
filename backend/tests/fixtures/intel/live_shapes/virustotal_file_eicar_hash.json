@@ -1,0 +1,63 @@
+{
+ "data": {
+  "attributes": {
+   "last_analysis_date": 1795323997,
+   "last_analysis_results": {
+    "Bkav": {
+     "category": "malicious",
+     "engine_name": "Bkav",
+     "engine_update": "20261121",
+     "engine_version": "8.2.40(8338)",
+     "method": "blacklist",
+     "result": "W32.EicarTest.Trojan"
+    },
+    "Elastic": {
+     "category": "malicious",
+     "engine_name": "Elastic",
+     "engine_update": "20261120",
+     "engine_version": "4.0.300",
+     "method": "blacklist",
+     "result": "eicar"
+    },
+    "Lionic": {
+     "category": "malicious",
+     "engine_name": "Lionic",
+     "engine_update": "20261122",
+     "engine_version": "8.16",
+     "method": "blacklist",
+     "result": "Test.File.EICAR.y"
+    }
+   },
+   "last_analysis_stats": {
+    "confirmed-timeout": 0,
+    "failure": 0,
+    "harmless": 0,
+    "malicious": 65,
+    "suspicious": 0,
+    "timeout": 0,
+    "type-unsupported": 7,
+    "undetected": 2
+   },
+   "meaningful_name": "eicar.com-17128",
+   "reputation": 3802,
+   "size": 68,
+   "tags": [
+    "attachment",
+    "powershell",
+    "known-distributor",
+    "via-tor",
+    "detect-debug-environment",
+    "direct-cpu-clock-access",
+    "idle",
+    "long-sleeps"
+   ],
+   "total_votes": {
+    "harmless": 2325,
+    "malicious": 433
+   },
+   "type_description": "Powershell"
+  },
+  "id": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
+  "type": "file"
+ }
+}

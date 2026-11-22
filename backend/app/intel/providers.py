@@ -104,10 +104,18 @@ class VirusTotal(Provider):
             data.update(hash_kind=hash_kind(indicator), type_description=clean_text(attrs.get("type_description"), 60),
                         size_bytes=clean_int(attrs.get("size")))
         flagged = counts["malicious"] + counts["suspicious"]
-        if flagged:
+        threshold = self.cfg.vt_flag_min_engines
+        data["flag_threshold"] = threshold
+        if flagged >= threshold:
             return (MALICIOUS_OR_FLAGGED, data,
                     f"VirusTotal: {counts['malicious']} engine(s) malicious, {counts['suspicious']} suspicious "
                     f"of {engines}.")
+        if flagged:
+            # P5a-live: single-vendor detections on well-known infrastructure are common false positives
+            return (RECORD_FOUND, data,
+                    f"VirusTotal: {counts['malicious']} malicious and {counts['suspicious']} suspicious of {engines} "
+                    f"engines, below the flag threshold of {threshold} engines (isolated detections are often false "
+                    f"positives). {NOT_PROOF}")
         if engines == 0:
             return NO_RECORD, data, default_message(NO_RECORD, self.label, "Object exists but has no analysis results.")
         return (REPORTED_CLEAN_NO_FLAGS, data,
@@ -241,15 +249,19 @@ class IPinfo(Provider):
             "privacy_flags_returned": privacy is not None,
             **{f"is_{f}": v for f, v in flags.items()},
             "privacy_service": clean_text(privacy.get("service"), 60) if privacy else None,
-            "caveat": "approximate network location of infrastructure; does not identify a person",
+            "anycast": clean_bool(payload.get("anycast")) is True,
+            "caveat": "approximate network location of infrastructure; does not identify a person"
+                      + ("; ANYCAST address: the location is a representative point, not where traffic originates"
+                         if clean_bool(payload.get("anycast")) is True else ""),
         }
         on = [f for f, v in flags.items() if v is True]
         if on:
             return MALICIOUS_OR_FLAGGED, data, f"IPinfo privacy flags: {', '.join(on)}."
         if privacy is not None and all(v is False for v in flags.values()):
             return REPORTED_CLEAN_NO_FLAGS, data, f"IPinfo: no VPN/proxy/Tor/relay/hosting flags. {NOT_PROOF}"
+        anycast = " Anycast address: the location is a representative point only." if data["anycast"] else ""
         return RECORD_FOUND, data, ("IPinfo returned network/geo details; anonymity flags were not returned by this "
-                                    f"plan (shown as unavailable, not false). {NOT_PROOF}")
+                                    f"plan (shown as unavailable, not false).{anycast} {NOT_PROOF}")
 
 
 # ── Tor bulk exit list ───────────────────────────────────────────────────
