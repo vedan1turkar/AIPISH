@@ -232,7 +232,7 @@ Audit verification from the host: `docker compose -f deploy/docker-compose.yml e
 ### Migrations
 
 `app/core/migrations.py` holds a versioned, idempotent runner with a `schema_migrations` table and ordered
-steps. Alembic was not used: there are only three additive steps and no new dependency is needed.
+steps. Alembic was not used: the steps are small and additive, and no new dependency is needed.
 
 The runner is called by:
 - app start-up;
@@ -246,8 +246,16 @@ On PostgreSQL a `pg_advisory_lock` serialises concurrent starts. Current steps:
 | 1 | `baseline_tables` |
 | 2 | `audit_event_actor_user_id` |
 | 3 | `analysis_search_indexes` |
+| 4 | `geo_observation_table` |
+| 5 | `audit_and_retention_columns` |
+| 6 | `audit_chain_genesis` |
+| 7 | `audit_append_only_triggers` |
+| 8 | `risk_assessment_tables` |
+| 9 | `alert_tables` |
+| 10 | `analysis_parser_crosscheck` |
 
-Verified on a real container: the first boot applied all three steps, and a restart reported
+The full list, generated from the code, is in [docs/ARCHITECTURE.md](../ARCHITECTURE.md). When P5i was
+verified, the first boot applied the three steps that existed then, and a restart reported
 `applied now: none (already up to date)`.
 
 To add a migration:

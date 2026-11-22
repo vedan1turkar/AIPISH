@@ -179,3 +179,20 @@ def test_report_endpoint_includes_stored_assessment(monkeypatch):
     pdf = c.get(f"/api/v1/investigations/{case['id']}/report/{made['analysis_id']}").content
     assert pdf.startswith(b"%PDF-")
     assert b"Reply-To uses freemail.example." in pdf and b"AI-GENERATED INTERPRETATION" in pdf
+
+
+# ── P5z: custody wording in report limitations (PDF section 9 and HTML) ──────
+
+def test_custody_limitation_matches_audit_docs_in_pdf_and_html(monkeypatch):
+    from app.audit import CUSTODY_LIMITATION
+    from app.reports import html as H
+    _, drawn = _pdf_text(monkeypatch)
+    flat = " ".join(drawn.split())
+    for phrase in ("SHA-256 detects change to the stored evidence file", "tamper-evident HMAC hash chain",
+                   "not tamper-proof", "No WORM"):
+        assert phrase in flat, phrase
+        assert phrase in CUSTODY_LIMITATION
+    # the stale wording is gone from both reports
+    assert "tamper-resistant cryptographic chain of custody" not in flat
+    assert "Any immutability claim" not in flat
+    assert CUSTODY_LIMITATION in H.LIMITATIONS

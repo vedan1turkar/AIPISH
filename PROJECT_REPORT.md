@@ -1,5 +1,12 @@
 # AIPISH — Email Forensics Platform: Project Work Report
 
+> **Historical document (2026-10-11), kept for the record; superseded.** It describes the project before
+> the ML, threat-intelligence, authentication, PostgreSQL, audit and alerting phases. Several statements
+> are now outdated, for example "AbuseIPDB/MaxMind adapters stubbed" (AbuseIPDB is implemented and was
+> live-verified for approved indicators; MaxMind is not configured) and the SQLite-only backend.
+> For the current state see [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md),
+> [docs/LIMITATIONS.md](docs/LIMITATIONS.md) and [docs/REQUIREMENTS_SUMMARY.md](docs/REQUIREMENTS_SUMMARY.md).
+
 **Report date:** 2026-10-11
 **Repo:** `~/Documents/AIPISH` (backend/ + frontend/)
 **Status:** Demo-ready. All core flows verified green on the live stack.

@@ -73,8 +73,7 @@ export default function SearchPage() {
                 <option value="">any</option>
                 <option value="phishing_fraud_likely">phishing_fraud_likely</option>
                 <option value="suspicious">suspicious</option>
-                <option value="low_risk">low_risk</option>
-                <option value="clean">clean</option>
+                <option value="minimal">minimal</option>
               </Select>
             </Field>
           </div>

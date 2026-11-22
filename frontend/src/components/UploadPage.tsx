@@ -100,9 +100,10 @@ export default function UploadPage({
         <h1 className="text-xl font-semibold text-fg">Analyse an email</h1>
         <p className="text-sm text-muted">
           Upload a raw <code className="bg-surface-2 px-1 font-mono">.eml</code> file
-          (saved from any mail client — “View original / Save as .eml”). Analysis runs
-          entirely on your configured backend; the message body is parsed server-side and
-          the raw file is retained there.
+          (saved from any mail client — “View original / Save as .eml”). The message is parsed
+          on your configured backend. By default only its SHA-256 and size are kept, not the raw
+          file. DNS/RDAP/IP-geo enrichment and consented threat-intel lookups send bare
+          indicators (domains, IPs, hashes), never message content.
         </p>
       </div>
       <div className="grid items-start gap-4 xl:grid-cols-12">

@@ -231,6 +231,13 @@ describe('Search page', () => {
     fireEvent.click(screen.getByText('Next'))
     await screen.findByText('Hit 20')
   })
+
+  it('offers exactly the rule-engine verdicts (no "clean" or "low_risk" verdict exists)', () => {
+    render(<SearchPage />)
+    const verdict = screen.getByDisplayValue('any') as HTMLSelectElement
+    const values = Array.from(verdict.options).map((o) => o.value)
+    expect(values).toEqual(['', 'phishing_fraud_likely', 'suspicious', 'minimal'])
+  })
 })
 
 describe('role-aware navigation (P5c)', () => {

@@ -25,6 +25,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from app.audit import CUSTODY_LIMITATION
+
 styles = getSampleStyleSheet()
 H1 = ParagraphStyle("H1x", parent=styles["Title"], fontSize=16, spaceAfter=6)
 H2 = ParagraphStyle("H2x", parent=styles["Heading2"], fontSize=12, spaceBefore=10, spaceAfter=4,
@@ -372,9 +374,7 @@ def build_report_pdf(
         "this system; statuses reported as parsed / locally verified / failed / unavailable / unknown.",
         "Enrichment provider data is <b>external third-party data</b>; provider skips, outages, and "
         "rate limits are reported rather than guessed around. Missing credentials yield skipped statuses.",
-        "This report reflects <b>application-level integrity checks and audit logging</b>, not a "
-        "tamper-resistant cryptographic chain of custody. Any immutability claim would require "
-        "additional (e.g. hash-chained / WORM) storage not implemented here.",
+        CUSTODY_LIMITATION,
     ]:
         story.append(Paragraph("• " + line, CAVEAT))
     unknowns = detection.get("unknowns") or []

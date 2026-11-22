@@ -37,6 +37,7 @@ LIMITATIONS = [
     "Header claims (Authentication-Results) are untrusted unless independently re-verified by this system.",
     "Enrichment and threat-intel provider data is external third-party data; absence of reports, flags or "
     "records is not proof of safety.",
+    P.CUSTODY_LIMITATION,
 ]
 
 
