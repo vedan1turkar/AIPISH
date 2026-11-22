@@ -313,7 +313,9 @@ def recompute_campaigns(db: Session, cfg: CorrelationConfig | None = None) -> di
             else:
                 camp.confidence, camp.confidence_score, camp.reasons, camp.fingerprint = label_conf, score, reasons, fp
                 camp.version, camp.updated_at = camp.version + 1, now
-                db.query(CampaignMember).filter_by(campaign_id=camp.id).delete(synchronize_session=False)
+                # "fetch" also drops the deleted rows from the session's identity map, so re-adding the same
+                # (campaign_id, analysis_id) keys below does not raise SQLAlchemy identity-map warnings.
+                db.query(CampaignMember).filter_by(campaign_id=camp.id).delete(synchronize_session="fetch")
                 for aid in comp:
                     db.add(CampaignMember(campaign_id=camp.id, analysis_id=aid))
                 stats["updated"] += 1
