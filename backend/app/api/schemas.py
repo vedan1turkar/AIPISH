@@ -51,6 +51,9 @@ class AnalysisSummary(BaseModel):
     combined_level: str | None = None
     combined_score: int | None = None
     combined_confidence: str | None = None
+    # P5z.1: whether a stored AI assessment exists (None = not computed by this endpoint). Lets the Overview
+    # skip GET /analyses/{id}/assessment for rows that would only answer 404 ASSESSMENT_NOT_GENERATED.
+    has_assessment: bool | None = None
 
 
 class FindingOut(BaseModel):

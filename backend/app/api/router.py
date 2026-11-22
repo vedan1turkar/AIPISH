@@ -23,7 +23,7 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.auth import run_auth_analysis
 from app.core.config import get_settings
-from app.core.models import Analysis
+from app.core.models import Analysis, AssessmentVersion
 from app.cases import service as case_service
 from app.detection import run_detection
 from app.enrichment import run_enrichment, EnrichmentResult
@@ -300,6 +300,8 @@ def list_analyses(db: Session = Depends(get_db)) -> list[AnalysisSummary]:
     held = held_analysis_ids(db)
     from app.risk.service import latest_summaries
     risk = latest_summaries(db, [r.id for r in recs])
+    assessed = {aid for (aid,) in db.query(AssessmentVersion.analysis_id)
+                .filter(AssessmentVersion.analysis_id.in_([r.id for r in recs])).distinct()} if recs else set()
     return [
         AnalysisSummary(
             id=r.id,
@@ -325,6 +327,7 @@ def list_analyses(db: Session = Depends(get_db)) -> list[AnalysisSummary]:
             combined_level=(risk.get(r.id) or {}).get("level"),
             combined_score=(risk.get(r.id) or {}).get("combined_score"),
             combined_confidence=(risk.get(r.id) or {}).get("confidence"),
+            has_assessment=r.id in assessed,
         )
         for r in recs
     ]

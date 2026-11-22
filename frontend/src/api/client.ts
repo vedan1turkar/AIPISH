@@ -246,6 +246,7 @@ export interface AnalysisSummary {
   combined_level?: RiskLevel | null        // P5h: latest combined risk (additional result)
   combined_score?: number | null
   combined_confidence?: RiskConfidence | null
+  has_assessment?: boolean | null         // P5z.1: false = no stored AI assessment (skip the 404 lookup)
 }
 
 /** P5e retention state of an analysis. */

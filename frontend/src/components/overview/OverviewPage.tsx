@@ -77,18 +77,22 @@ function useMlClasses(analyses: AnalysisSummary[] | null, enabled: boolean): Loa
   useEffect(() => {
     if (!enabled || !analyses) return
     let alive = true
-    const ids = analyses.slice(0, ML_SAMPLE).map((a) => a.id)
-    const labels: string[] = []
+    const sample = analyses.slice(0, ML_SAMPLE)
+    // P5z.1: rows the list marks has_assessment === false would only answer 404 ("not assessed"), so they are
+    // labelled without a request. Unknown (older backend) still asks. Labels keep row order (stable tie order).
+    const labels: (string | null)[] = sample.map((a) => (a.has_assessment === false ? 'not assessed' : null))
+    const todo = sample.flatMap((_row, i) => (labels[i] === null ? [i] : []))
     const run = async () => {
-      for (let i = 0; i < ids.length; i += 4) {
-        const batch = await Promise.all(ids.slice(i, i + 4).map((id) =>
-          getAssessment(id).then((a) => {
+      for (let j = 0; j < todo.length; j += 4) {
+        const idx = todo.slice(j, j + 4)
+        const batch = await Promise.all(idx.map((i) =>
+          getAssessment(sample[i].id).then((a) => {
             const ml = a?.ml as { status?: string; label?: string } | undefined
             return ml?.status === 'ok' && ml.label ? ml.label : 'not assessed'
           }).catch(() => 'unavailable')))
-        labels.push(...batch)
+        idx.forEach((i, n) => { labels[i] = batch[n] })
       }
-      if (alive) setS({ state: 'ok', data: countBy(labels, (l) => l).sort((a, b) => b[1] - a[1]) })
+      if (alive) setS({ state: 'ok', data: countBy(labels as string[], (l) => l).sort((a, b) => b[1] - a[1]) })
     }
     void run().catch((e) => alive && setS({ state: 'error', message: String(e) }))
     return () => {
