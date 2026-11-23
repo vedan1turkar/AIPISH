@@ -321,7 +321,7 @@ needed.
 | `security` | Forbidden-file check (`scripts/ci/check-forbidden-files.sh`); gitleaks over the full history (reviewed false positives pinned by fingerprint in `.gitleaksignore`); actionlint. |
 
 **Verified remotely:** run [44894449094](https://github.com/vedan1turkar/AIPISH/actions/runs/44894449094) on
-commit `0931334` passed every job on the first attempt:
+commit `54a52a7` passed every job on the first attempt:
 
 | Job | Result |
 |---|---|

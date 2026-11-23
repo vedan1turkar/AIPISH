@@ -160,9 +160,9 @@ def test_new_analyses_record_comparison_version():
 def test_ml_rule_features_identical_to_pre_fix_baseline():
     """The ML feature path must produce exactly the rule features the model was trained on.
 
-    Snapshot generated from commit 32cdeed (before the fix) for every committed fixture."""
+    Snapshot generated from commit 699a9fd (before the fix) for every committed fixture."""
     from app.ml import features as F
-    snap = json.loads((FIX / "ml" / "legacy_rule_features_32cdeed.json").read_text())
+    snap = json.loads((FIX / "ml" / "legacy_rule_features_699a9fd.json").read_text())
     assert snap["feature_names"] == list(F.RULE_FEATURE_NAMES)
     assert set(snap["fixtures"]) == {str(p.relative_to(FIX)) for p in FIX.rglob("*.eml")}
     for rel, expected in snap["fixtures"].items():

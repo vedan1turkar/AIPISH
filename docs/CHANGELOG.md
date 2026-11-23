@@ -77,7 +77,7 @@ test counts are unchanged. Details: `docs/TESTING.md` §6.
   - The opt-in live test now covers the 11 approved cases, with VirusTotal paced at 16 s per call. It is skipped
     in CI.
   - New synthetic fixture `eml/synthetic_public_hop_8888.eml`. Its legacy ML-feature snapshot entry was computed
-    with commit 32cdeed's code.
+    with commit 699a9fd's code.
 - **Counts:**
   - Backend: 784 passed / 13 skipped (SQLite); 785 passed / 12 skipped (PostgreSQL).
   - Frontend: 204 passed.
@@ -343,16 +343,16 @@ The ATT&CK guard from P5d is kept for those stored analyses and is a no-op on fi
   `/ml/explain` responses now *display* the fixed rule result (`run_rules_offline_current`) while
   feeding the model the legacy features.
 - **Proof:**
-  - ML inference on all 16 committed fixtures and 200 dataset emails, at baseline `32cdeed` and after:
+  - ML inference on all 16 committed fixtures and 200 dataset emails, at baseline `699a9fd` and after:
     **0 differences at 4 decimals**. BEC is still impersonated 0.4355.
   - `test_ml_rule_features_identical_to_pre_fix_baseline` compares the rule-feature vectors of every
-    fixture with a snapshot generated at `32cdeed`.
+    fixture with a snapshot generated at `699a9fd`.
   - No model files were changed and nothing was retrained.
 
 ### Impact study
 Method:
 - The offline upload pipeline (forensics → auth with `live=False` → detection; no enrichment, ML or LLM)
-  was run on a throwaway DB, at baseline `32cdeed` (git worktree) and with the fix.
+  was run on a throwaway DB, at baseline `699a9fd` (git worktree) and with the fix.
 - The sample was deterministic and stratified, up to 500 per label from the local labelled dataset.
   Impersonated and fraud are synthetic in this dataset and contain no Return-Path headers.
 

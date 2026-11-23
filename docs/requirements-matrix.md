@@ -1,8 +1,8 @@
 # AIPISH requirements traceability matrix (R1–R60)
 
 This matrix traces AIPISH against the PBL Review 0 document, Group G7. The P5 audit set its baseline at
-`b6e4c67`. It was updated for **P5a: threat-intelligence provider integrations** (`624c49d`), **P5b:
-authentication, JWT and RBAC** (`2e32b08`) and **P5c: cross-case correlation and candidate campaigns** (`9213bbf`) and **P5d: MITRE ATT&CK mapping and source-type
+`6bd00ca`. It was updated for **P5a: threat-intelligence provider integrations** (`ed1b913`), **P5b:
+authentication, JWT and RBAC** (`52aa1c7`) and **P5c: cross-case correlation and candidate campaigns** (`887936d`) and **P5d: MITRE ATT&CK mapping and source-type
 classification** and **P5i: PostgreSQL, Docker Compose, Nginx and CI** and **P5g: infrastructure geolocation map and analytics** and **P5e: tamper-evident audit log, retention
 enforcement and personal-data masking** and **P5h: explainable combined risk assessment** and **P5f: risk-based alerts** and **P5k-lite: mail-parser cross-check and Jinja2 HTML report** and **P5a-live: live threat-intelligence provider verification** and **P5z: final hardening, wording audit and documentation pack**.
 

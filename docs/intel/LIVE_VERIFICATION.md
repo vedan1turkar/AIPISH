@@ -1,6 +1,6 @@
 # Live threat-intelligence verification (P5a-live)
 
-**Date:** 2026-11-22. **Base commit:** `eceea44`. **Tier:** free/public API plans (non-commercial university
+**Date:** 2026-11-22. **Base commit:** `a9fc8f5`. **Tier:** free/public API plans (non-commercial university
 coursework).
 
 This was the first time AIPISH called the real providers. Before this run, the adapters had been verified only
